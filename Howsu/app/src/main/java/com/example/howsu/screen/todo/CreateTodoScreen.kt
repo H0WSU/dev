@@ -1,7 +1,10 @@
 package com.example.howsu.screen.todo
 
+// --- (필요한 Import) ---
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,13 +22,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.ArrowDropUp
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -49,6 +50,7 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -61,32 +63,21 @@ import com.example.howsu.ui.theme.HowsuTheme
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateTodoScreen(
-    navController: NavHostController // (화면 이동을 위해)
+    navController: NavHostController
 ) {
     Scaffold(
-        // (Scaffold 배경색을 지정해야 하단 버튼 영역이 잘 보임)
         containerColor = MaterialTheme.colorScheme.background,
-
-        // --- 상단 바 ---
         topBar = {
             CreateTodoTopBar(
-                onCloseClick = {
-                    navController.popBackStack() // (X 버튼 클릭 시 뒤로 가기)
-                }
+                onCloseClick = { navController.popBackStack() }
             )
         },
-
-        // --- 하단 버튼 ---
         bottomBar = {
             CreateTodoBottomButton(
-                onCreateClick = {
-                    // TODO: '투두 생성 완료' 로직 실행
-                }
+                onCreateClick = { /* TODO: 생성 완료 로직 */ }
             )
         }
-    ) { innerPadding -> // (상/하단 바를 피하기 위한 여백)
-
-        // --- 본문 ---
+    ) { innerPadding ->
         CreateTodoContent(
             modifier = Modifier.padding(innerPadding)
         )
@@ -102,20 +93,21 @@ private fun CreateTodoTopBar(onCloseClick: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 12.dp)
             .height(40.dp)
     ) {
-        // "투두 생성하기": SemiBold, 16
         Text(
             text = "투두 생성하기",
             fontWeight = FontWeight.SemiBold,
             fontSize = 16.sp,
             modifier = Modifier.align(Alignment.Center)
         )
-
-        // X 버튼: 원 사이즈 39*39, 아이콘 24*24
         IconButton(
             onClick = onCloseClick,
             modifier = Modifier
                 .size(39.dp)
                 .align(Alignment.CenterEnd)
+                .border(
+                    BorderStroke(0.1.dp, Color.LightGray), // 5. 1dp 두께의 연회색 테두리
+                    CircleShape
+                )
         ) {
             Icon(
                 imageVector = Icons.Default.Close,
@@ -129,7 +121,6 @@ private fun CreateTodoTopBar(onCloseClick: () -> Unit) {
 // --- 3. 하단 버튼 (생성 완료) ---
 @Composable
 private fun CreateTodoBottomButton(onCreateClick: () -> Unit) {
-    // (버튼이 바닥에 딱 붙지 않게 여백을 줌)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -146,7 +137,7 @@ private fun CreateTodoBottomButton(onCreateClick: () -> Unit) {
             ),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("투두 생성 완료", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text("투두 생성 완료", fontWeight = FontWeight.Medium, fontSize = 14.sp)
         }
     }
 }
@@ -157,19 +148,18 @@ private fun CreateTodoContent(modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState()) // (스크롤 가능하게)
-            .padding(horizontal = 24.dp), // (폼 전체 좌우 여백)
-        verticalArrangement = Arrangement.spacedBy(24.dp) // (섹션 간 세로 간격)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        Spacer(modifier = Modifier.height(16.dp)) // (상단 여백)
+        Spacer(modifier = Modifier.height(10.dp))
 
         // 섹션 1: 누가
         CreateTodoSection(
             icon = rememberVectorPainter(image = Icons.Default.Person),
             title = "누가"
         ) {
-            // (이미지 기반 임시 구현)
-            AssigneeSelector()
+            AssigneeSelector() // (수정됨 - 선택 UI 반영)
         }
 
         // 섹션 2: 언제
@@ -177,90 +167,102 @@ private fun CreateTodoContent(modifier: Modifier = Modifier) {
             icon = painterResource(id = R.drawable.date_under),
             title = "언제"
         ) {
-            // (이미지 기반 임시 구현)
-            DatePickerField()
+            DatePickerField() // (수정됨 - 'date' 텍스트 추가)
         }
 
         // 섹션 3: 해야 할 일
         CreateTodoSection(
-            icon = rememberVectorPainter(image = Icons.Default.CheckCircle),
+            icon = rememberVectorPainter(image = Icons.Default.CheckBox),
             title = "해야 할 일"
         ) {
-            // (이미지 기반 임시 구현)
-            TaskTextField()
+            TaskTextField() // (수정됨 - 0/20 카운터 밖으로)
         }
 
         // 섹션 4: 반려동물 선택
         CreateTodoSection(
-            icon = rememberVectorPainter(image = Icons.Default.FavoriteBorder),
+            icon = rememberVectorPainter(image = Icons.Default.Pets),
             title = "반려동물 선택"
         ) {
-            // (이미지 기반 임시 구현)
-            PetSelector()
+            PetSelector() // (수정됨 - UI 이미지와 동일하게)
         }
 
-        Spacer(modifier = Modifier.height(32.dp)) // (하단 여백)
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
-// --- 5. 반복되는 섹션 (아이콘 + 제목 + 내용) ---
+// --- 5. 섹션 템플릿 (Painter 타입) ---
 @Composable
 private fun CreateTodoSection(
     icon: Painter,
     title: String,
-    content: @Composable () -> Unit // (내용물을 밖에서 끼워넣음)
+    content: @Composable () -> Unit
 ) {
     Column(
-        verticalArrangement = Arrangement.spacedBy(16.dp) // (제목과 내용물 사이 간격)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // --- 헤더 (아이콘 + 제목) ---
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // 글자 앞 아이콘: 사이즈 22*22
             Icon(
                 painter = icon,
                 contentDescription = null,
                 modifier = Modifier.size(22.dp)
             )
-
             Spacer(modifier = Modifier.width(8.dp))
-
-            // 섹션 제목: Bold, 14
             Text(
                 text = title,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp
             )
         }
-
-        // --- 내용물 (텍스트필드, 날짜 선택기 등) ---
         content()
     }
 }
 
-// --- 6. 폼 내용물 (임시 플레이스홀더) ---
-// (이 부분들은 나중에 실제 기능으로 채워야 합니다)
-
 @Composable
 private fun AssigneeSelector() {
+    // '언니'가 선택되었다고 가정
+    var selectedAssignee by remember { mutableStateOf("언니") }
+
     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-                modifier = Modifier
-                    .size(60.dp)
-                    .clip(CircleShape)
-                    .border(1.dp, Color.Gray, CircleShape)
-            ) // TODO: 클릭 시 선택되도록
-            Text("언니", fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-                modifier = Modifier
-                    .size(60.dp)
-                    .clip(CircleShape)
-                    .border(1.dp, Color.LightGray, CircleShape)
-            ) // TODO: 클릭 시 선택되도록
-            Text("엄마", fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
-        }
+        AssigneeItem(
+            name = "언니",
+            isSelected = selectedAssignee == "언니",
+            onClick = { selectedAssignee = "언니" }
+        )
+        AssigneeItem(
+            name = "엄마",
+            isSelected = selectedAssignee == "엄마",
+            onClick = { selectedAssignee = "엄마" }
+        )
+    }
+}
+
+@Composable
+private fun AssigneeItem(name: String, isSelected: Boolean, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(60.dp)
+                .clip(CircleShape)
+                .border( // (선택 상태에 따라 테두리 변경)
+                    width = if (isSelected) 2.dp else 1.dp,
+                    color = if (isSelected) Color.Black else Color.LightGray,
+                    shape = CircleShape
+                )
+        ) // TODO: 안에 프로필 이미지
+        Text(
+            text = name,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(top = 8.dp),
+
+            // 1. 선택되면 Bold, 아니면 Normal
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+
+            // 2. 선택되면 진한 색, 아니면 연한 색
+            color = if (isSelected) Color.Black else Color.Gray
+        )
     }
 }
 
@@ -269,7 +271,7 @@ private fun AssigneeSelector() {
 private fun DatePickerField() {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(17.dp),
         color = MaterialTheme.colorScheme.surfaceVariant, // (회색 배경)
         onClick = { /* TODO: 날짜 피커 띄우기 */ }
     ) {
@@ -277,9 +279,11 @@ private fun DatePickerField() {
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.DateRange, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("2025년 11월 3일") // TODO: 실제 날짜 state와 연결
+            Icon(painter = painterResource(id = R.drawable.calendar), contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+            Column {
+                Text("date", fontSize = 10.sp, color = Color.Gray) // (이미지처럼 'date' 추가)
+                Text("2025년 11월 3일", fontWeight = FontWeight.Medium, fontSize = 13.sp) // TODO: 실제 날짜 state
+            }
         }
     }
 }
@@ -287,55 +291,122 @@ private fun DatePickerField() {
 @Composable
 private fun TaskTextField() {
     var text by remember { mutableStateOf("") }
-    OutlinedTextField(
-        value = text,
-        onValueChange = { if (it.length <= 20) text = it }, // (20자 제한)
-        modifier = Modifier.fillMaxWidth(),
-        placeholder = { Text("해야 할 일을 입력해 주세요") },
-        maxLines = 3,
-        // (글자 수 카운터)
-        trailingIcon = { Text("0/20") } // TODO: text.length
-    )
+    val maxChars = 20
+
+    Column {
+        OutlinedTextField(
+            value = text,
+            onValueChange = { if (it.length <= maxChars) text = it },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(17.dp),
+            placeholder = { Text("해야 할 일을 입력해 주세요", fontWeight = FontWeight.Medium, fontSize = 13.sp) },
+            maxLines = 3,
+            // (trailingIcon 삭제)
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        // (카운터를 밖으로 빼고 오른쪽 정렬)
+        Text(
+            text = "${text.length}/$maxChars",
+            fontWeight = FontWeight.Medium,
+            fontSize = 12.sp,
+            color = Color.Gray,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.End
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PetSelector() {
-    // (임시로 TextField 모양만 흉내)
-    var expanded by remember { mutableStateOf(false) }
-
-    OutlinedTextField(
-        value = "자몽", // TODO: 선택된 펫 state
-        onValueChange = { },
-        modifier = Modifier.fillMaxWidth(),
-        readOnly = true, // (클릭해서 드롭다운 띄우기)
-        leadingIcon = {
-            // (임시 프로필 사진 아이콘)
-            Image(
-                imageVector = Icons.Default.AccountCircle, // TODO: 펫 이미지
-                contentDescription = "펫 프로필",
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-            )
-        },
-        trailingIcon = {
-            // (드롭다운 화살표)
-            Icon(
-                imageVector = if (expanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
-                contentDescription = null
-            )
+    // (이 컴포넌트는 이미지와 똑같이 보이도록 Surface로 변경)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(17.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant, // (회색 배경)
+            onClick = { /* TODO: 드롭다운 메뉴 띄우기 */ }
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 1. 펫 프로필 이미지 (임시)
+                Image(
+                    imageVector = Icons.Default.AccountCircle, // TODO: 펫 이미지
+                    contentDescription = "펫 프로필",
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                // 2. 펫 이름
+                Text("자몽", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Spacer(modifier = Modifier.weight(1f))
+                // 3. 드롭다운 화살표
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
-    )
-    // TODO: 태그("자몽x", "레몬x") 부분은 별도 Composable로 구현 필요
-}
 
+        // --- 2. 태그 (FlowRow 사용 추천) ---
+// (간단히 Row로 임시 구현)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+            // --- 1. "자몽" 칩 ---
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color.Gray // (나중에 MaterialTheme.colorScheme.secondaryContainer 등으로)
+            ) {
+                // Surface 안에 Row를 넣어 텍스트와 아이콘을 배치
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("자몽", fontSize = 12.sp)
+                    Spacer(modifier = Modifier.width(4.dp)) // (텍스트와 X버튼 사이)
+                    Icon(
+                        imageVector = Icons.Default.Close, // (X 버튼 아이콘)
+                        contentDescription = "자몽 삭제",
+                        modifier = Modifier
+                            .size(16.dp) // (아이콘 크기 작게)
+                            .clickable { /* TODO: 자몽 삭제 로직 */ }
+                    )
+                }
+            }
+
+            // --- 2. "레몬" 칩 ---
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color.Gray
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("레몬", fontSize = 12.sp)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "레몬 삭제",
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clickable { /* TODO: 레몬 삭제 로직 */ }
+                    )
+                }
+            }
+        }
+    }
+}
 
 // --- 7. 미리보기 ---
 @Preview(showBackground = true)
 @Composable
 fun CreateTodoScreenPreview() {
-    HowsuTheme { // (본인 앱 테마)
+    HowsuTheme {
         val navController = rememberNavController()
         CreateTodoScreen(navController = navController)
     }
