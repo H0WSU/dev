@@ -200,7 +200,7 @@ fun LoginScreen(
                     // TODO: 네이버 로그인 로직 (Cloud Function 필요)
                 },
                 onKakaoClick = {
-                    authViewModel.startKakaoLogin(context)
+                    authViewModel?.startKakaoLogin(context)
                 }
             )
 

@@ -1,13 +1,15 @@
 package com.example.howsu.screen.login
 
-import com.google.firebase.functions.ktx.functions
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.functions.ktx.functions
 import com.google.firebase.ktx.Firebase
+import com.kakao.sdk.auth.model.OAuthToken
 import com.kakao.sdk.user.UserApiClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -52,20 +54,24 @@ class AuthViewModel : ViewModel() {
 
     // (AuthViewModel.kt 안에 추가)
     fun startKakaoLogin(context: Context) {
-        viewModelScope.launch {
-            try {
-                val kakaoToken = if (UserApiClient.instance.isKakaoTalkLoginAvailable(context)) {
-                    UserApiClient.instance.loginWithKakaoTalk(context).await()
-                } else {
-                    UserApiClient.instance.loginWithKakaoAccount(context).await()
-                }
-
+        // 1. 카카오톡이 설치되어 있는지 확인
+        val callback: (OAuthToken?, Throwable?) -> Unit = { token, error ->
+            if (error != null) {
+                Log.e("AuthViewModel", "카카오 로그인 실패", error)
+                _loginState.value = FirebaseLoginState.Error(error.message ?: "카카오 로그인 실패")
+            } else if (token != null) {
+                Log.d("AuthViewModel", "카카오 로그인 성공: ${token.accessToken}")
                 // ★ 2. 받은 토큰으로 Cloud Function 호출
-                sendKakaoTokenToBackend(kakaoToken.accessToken)
-
-            } catch (e: Exception) {
-                _loginState.value = FirebaseLoginState.Error(e.message ?: "카카오 로그인 실패")
+                sendKakaoTokenToBackend(token.accessToken)
             }
+        }
+
+        if (UserApiClient.instance.isKakaoTalkLoginAvailable(context)) {
+            // 카카오톡으로 로그인
+            UserApiClient.instance.loginWithKakaoTalk(context, callback = callback)
+        } else {
+            // 카카오계정(웹뷰)으로 로그인
+            UserApiClient.instance.loginWithKakaoAccount(context, callback = callback)
         }
     }
 
