@@ -1,47 +1,24 @@
-package com.example.howsu
+package com.example.howsu // (1. 본인 패키지 이름)
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import com.example.howsu.navigation.AppNavigation // (2. 새로 만들 파일 Import)
 import com.example.howsu.ui.theme.HowsuTheme
+import com.kakao.sdk.common.util.Utility
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val keyHash = Utility.getKeyHash(this)
+        Log.d("MyKeyHash", "Key Hash: $keyHash")
         setContent {
             HowsuTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                AppNavigation()
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    HowsuTheme {
-        Greeting("Android")
     }
 }
