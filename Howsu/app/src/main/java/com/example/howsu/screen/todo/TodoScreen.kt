@@ -241,7 +241,7 @@ fun TodoGroupCard(group: TodoGroup) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(1.dp))
 
             // --- 투두 목록 ---
             Column(
@@ -262,7 +262,8 @@ fun TaskItemRow(task: Task) {
     var isChecked by remember { mutableStateOf(task.isChecked) }
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Checkbox(
@@ -277,21 +278,21 @@ fun TaskItemRow(task: Task) {
         Text(
             text = task.title,
             modifier = Modifier
-                .padding(start = 8.dp)
-                .weight(1f),
+                .padding(start = 0.5.dp)
+                .weight(0.5f),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Medium,
             fontSize = 12.sp,
             maxLines = 1
         )
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(10.dp))
 
         // 날짜: Medium, 10sp
         Text(
             text = task.date,
             fontWeight = FontWeight.Medium,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             color = Color.Black // TODO: 날짜 색상 지정
         )
     }

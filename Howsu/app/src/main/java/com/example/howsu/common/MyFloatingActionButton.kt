@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 
 @Composable
 fun MyFloatingActionButton(
@@ -13,10 +14,12 @@ fun MyFloatingActionButton(
 ) {
     FloatingActionButton(
         onClick = onClick, // 3. 받은 onClick 이벤트를 그대로 연결
+        containerColor = Color.Black,
         shape = CircleShape
     ) {
         Icon(
             imageVector = Icons.Default.Add,
+            tint = Color.White,
             contentDescription = "새 할 일 추가"
         )
     }

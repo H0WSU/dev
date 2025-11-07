@@ -1,6 +1,7 @@
 package com.example.howsu.common
 
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -10,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -47,6 +49,8 @@ fun MyBottomNavigationBar(navController: NavHostController) { // 3. navControlle
                 // (bottomStart, bottomEnd는 0.dp가 기본값)
             )
         )
+        .height(60.dp),
+        containerColor = Color(0xFFD3D3D3)
     ) {
         items.forEach { item ->
             NavigationBarItem(
@@ -64,7 +68,7 @@ fun MyBottomNavigationBar(navController: NavHostController) { // 3. navControlle
                     Icon(
                         painter = painterResource(id = item.iconRes),
                         contentDescription = item.label,
-                        modifier = Modifier.size(30.dp) // 아이콘 크기 고정
+                        modifier = Modifier.size(27.dp) // 아이콘 크기 고정
                     )
                 }
             )
