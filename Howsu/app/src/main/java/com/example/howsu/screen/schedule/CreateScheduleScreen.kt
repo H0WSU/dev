@@ -38,11 +38,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
@@ -183,9 +185,9 @@ private fun CreateScheduleContent(modifier: Modifier = Modifier) {
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(28.dp)
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(1.dp))
 
         // --- 섹션 1: 제목 ---
         ScheduleTitleField() // (수정됨: 색상 선택 동그라미)
@@ -232,17 +234,26 @@ private fun CreateScheduleContent(modifier: Modifier = Modifier) {
 
 // --- 6. 본문 컴포넌트들 ---
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class) // (TextField에 필요)
 @Composable
 private fun ScheduleTitleField() {
     var text by remember { mutableStateOf("") }
-    // (선택된 색상을 저장할 State)
     var selectedColor by remember { mutableStateOf(Color(0xFF4285F4)) } // (예: 파란색)
 
-    OutlinedTextField(
+    // ★ 1. OutlinedTextField -> TextField로 변경
+    TextField(
         value = text,
         onValueChange = { text = it },
-        placeholder = { Text("제목") },
+
+        // ★ 2. placeholder 폰트/굵기 적용 (디자인과 동일하게)
+        placeholder = {
+            Text(
+                "제목",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Gray
+            )
+        },
         modifier = Modifier.fillMaxWidth(),
         trailingIcon = {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -256,7 +267,7 @@ private fun ScheduleTitleField() {
                 )
                 Spacer(modifier = Modifier.width(10.dp))
 
-                // ★ 2. 스위치 -> 색상 선택 동그라미로 변경 ★
+                // 2. 색상 선택 동그라미
                 Box(
                     modifier = Modifier
                         .size(24.dp)
@@ -265,14 +276,17 @@ private fun ScheduleTitleField() {
                         .clickable { /* TODO: 색상 피커 띄우기 */ }
                         .border(BorderStroke(1.dp, Color.LightGray), CircleShape)
                 )
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(10.dp)) // (아이콘과 가장자리 여백)
             }
         },
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Color.Gray,
-            unfocusedBorderColor = Color.LightGray,
+        // ★ 3. 배경을 투명하게, 밑줄 색상만 지정 ★
+        colors = TextFieldDefaults.colors(
             focusedContainerColor = Color.Transparent,
-            unfocusedContainerColor = Color.Transparent
+            unfocusedContainerColor = Color.Transparent,
+            disabledContainerColor = Color.Transparent,
+            // (디자인에 밑줄이 있으므로 밑줄 색상 지정)
+            focusedIndicatorColor = Color.Gray,
+            unfocusedIndicatorColor = Color.LightGray
         ),
         maxLines = 1
     )
@@ -294,11 +308,12 @@ private fun AllDaySwitch() {
             modifier = Modifier.size(22.dp)
         )
         Spacer(modifier = Modifier.width(12.dp))
-        Text("하루 종일", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+        Text("하루 종일", fontSize = 14.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.weight(1f))
         Switch(
             checked = isChecked,
-            onCheckedChange = { isChecked = it }
+            onCheckedChange = { isChecked = it },
+            modifier = Modifier.scale(0.8f)
         )
     }
 }
@@ -307,34 +322,42 @@ private fun AllDaySwitch() {
 private fun ScheduleTimePicker() {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
+        // horizontalArrangement = Arrangement.SpaceBetween, // <-- 1. 이 줄을 삭제합니다.
         modifier = Modifier
             .fillMaxWidth()
-        // ★ 중앙 정렬을 위해 padding(start = 34.dp) 제거 ★
+            .padding(horizontal = 16.dp)
     ) {
         // 시작 시간
         Column(
-            modifier = Modifier.clickable { /* TODO: 시작 시간 피커 */ }
+            modifier = Modifier
+                .weight(1f) // <-- 2. 시작 시간에 weight(1f) 추가
+                .clickable { /* TODO: 시작 시간 피커 */ }
         ) {
             Text("11월 1일 (토)", fontSize = 14.sp, color = Color.Gray)
             Spacer(modifier = Modifier.height(4.dp))
-            Text("오전 08:00", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text("오전 08:00", fontSize = 14.sp, fontWeight = FontWeight.Medium)
         }
 
+        // 화살표
         Icon(
             imageVector = Icons.Default.ArrowForward,
             contentDescription = "에서",
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier
+                .size(20.dp)
+                // 3. 화살표 좌우에 원하는 고정 패딩을 줍니다.
+                // .padding(horizontal = 5.dp)
         )
 
         // 종료 시간
         Column(
             horizontalAlignment = Alignment.End,
-            modifier = Modifier.clickable { /* TODO: 종료 시간 피커 */ }
+            modifier = Modifier
+                .weight(1f) // <-- 4. 종료 시간에 weight(1f) 추가
+                .clickable { /* TODO: 종료 시간 피커 */ }
         ) {
             Text("11월 1일 (토)", fontSize = 14.sp, color = Color.Gray)
             Spacer(modifier = Modifier.height(4.dp))
-            Text("오전 09:00", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text("오전 09:00", fontSize = 14.sp, fontWeight = FontWeight.Medium)
         }
     }
 }
@@ -361,9 +384,9 @@ private fun ScheduleSelectRow(
                 modifier = Modifier.size(22.dp)
             )
             Spacer(modifier = Modifier.width(12.dp))
-            Text(title, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            Text(title, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.weight(1f))
-            Text(value, fontSize = 14.sp, color = Color.Gray)
+            Text(value, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
                 contentDescription = "선택",
@@ -405,13 +428,16 @@ private fun ScheduleMemoField() {
 private fun PetSelector() {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(17.dp),
+            // ★ 1. .fillMaxWidth()를 삭제해서 가로 폭이 줄어들게 함 ★
+            modifier = Modifier,
+            shape = RoundedCornerShape(15.dp),
             color = MaterialTheme.colorScheme.surfaceVariant,
             onClick = { /* TODO: 드롭다운 메뉴 띄우기 */ }
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                modifier = Modifier
+                    // (상하 여백 8.dp로 줄임)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Image(
@@ -423,7 +449,10 @@ private fun PetSelector() {
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("자몽", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                Spacer(modifier = Modifier.weight(1f))
+
+                // ★ 2. 텍스트와 아이콘 사이에 고정 간격(8.dp) 추가 ★
+                Spacer(modifier = Modifier.width(8.dp))
+
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowDown,
                     contentDescription = null,
@@ -434,7 +463,8 @@ private fun PetSelector() {
 
         // --- 태그 ---
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Surface( // "자몽" 칩
+            // (자몽 칩, 레몬 칩 Surface...)
+            Surface(
                 shape = RoundedCornerShape(8.dp),
                 color = Color.Gray
             ) {
@@ -453,7 +483,7 @@ private fun PetSelector() {
                     )
                 }
             }
-            Surface( // "레몬" 칩
+            Surface(
                 shape = RoundedCornerShape(8.dp),
                 color = Color.Gray
             ) {
@@ -475,7 +505,6 @@ private fun PetSelector() {
         }
     }
 }
-
 // --- 7. 미리보기 ---
 @Preview(showBackground = true)
 @Composable
