@@ -1,9 +1,6 @@
 package com.example.howsu.screen.login
 
 import android.util.Log
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.IntentSenderRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -35,17 +32,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -59,11 +52,11 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.howsu.R
+import com.example.howsu.screen.login.social.GoogleLoginButton
+import com.example.howsu.screen.login.social.KakaoLoginButton
+import com.example.howsu.screen.login.social.NaverLoginButton
 import com.example.howsu.ui.theme.HowsuTheme
-import com.google.android.gms.auth.api.identity.GetSignInIntentRequest
-import com.google.android.gms.auth.api.identity.Identity
-import com.google.android.gms.common.api.ApiException
-import com.google.firebase.auth.GoogleAuthProvider
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,49 +64,9 @@ fun LoginScreen(
     navController: NavController,
     authViewModel: AuthViewModel? = null // ★ 1. ViewModel 주입
 ) {
+    val vm = authViewModel ?: androidx.lifecycle.viewmodel.compose.viewModel<AuthViewModel>()
     // ★ 2. Firebase 콘솔에서 복사한 '웹 클라이언트 ID'
     val WEB_CLIENT_ID = "400269215891-ui7tvovededsotn89cg4prdvkj87v7ul.apps.googleusercontent.com"
-
-    val context = LocalContext.current
-    val oneTapClient = remember { Identity.getSignInClient(context) }
-    val coroutineScope = rememberCoroutineScope()
-
-    // ★ 3. 구글 로그인 창을 띄우고 결과를 받아올 런처
-    val googleLoginLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartIntentSenderForResult(),
-    ) { result ->
-        // ★ 4. 구글 로그인 결과 처리
-        try {
-            val credential = oneTapClient.getSignInCredentialFromIntent(result.data)
-            val idToken = credential.googleIdToken // 구글 ID 토큰
-            if (idToken != null) {
-                // ★ 5. 구글 토큰으로 Firebase Credential 생성
-                val firebaseCredential = GoogleAuthProvider.getCredential(idToken, null)
-                // ★ 6. ViewModel에 Credential을 넘겨 Firebase 로그인 요청
-                authViewModel?.signInWithGoogleCredential(firebaseCredential)
-            }
-        } catch (e: ApiException) {
-            Log.e("LoginScreen", "Google Sign-In failed: ${e.message}")
-        }
-    }
-
-    // ★ 7. ViewModel의 Firebase 로그인 상태를 관찰
-    val loginState by authViewModel?.loginState?.collectAsState()
-        ?: remember { mutableStateOf(FirebaseLoginState.Idle) }
-    LaunchedEffect(loginState) {
-        when (loginState) {
-            is FirebaseLoginState.Success -> {
-                Log.d("LoginScreen", "Firebase 로그인 성공!")
-                // TODO: 로그인 성공! 홈 화면으로 이동
-                // navController.navigate("home") { popUpTo("auth_graph") }
-            }
-            is FirebaseLoginState.Error -> {
-                Log.e("LoginScreen", "Firebase 로그인 실패: ${(loginState as FirebaseLoginState.Error).message}")
-                // TODO: 사용자에게 에러 토스트 메시지 표시
-            }
-            else -> {} // Idle 또는 Loading
-        }
-    }
 
     Scaffold(
         containerColor = Color.White,
@@ -174,35 +127,28 @@ fun LoginScreen(
             OrDivider()
             Spacer(modifier = Modifier.height(32.dp))
 
-            // ★ 8. 소셜 로그인 버튼들에 onClick 이벤트 연결
-            SocialLoginButtons(
-                onGoogleClick = {
-                    // ★ 9. coroutineScope.launch {} 를 제거합니다 ★
-                    if (authViewModel == null) return@SocialLoginButtons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                NaverLoginButton(
+                    modifier = Modifier.weight(1f),
+                    viewModel = vm
+                )
 
-                    val signInRequest = GetSignInIntentRequest.builder()
-                        .setServerClientId(WEB_CLIENT_ID) // ★ 2번의 그 ID
-                        .build()
+                GoogleLoginButton(
+                    modifier = Modifier.weight(1f),
+                    viewModel = vm,
+                    webClientId = WEB_CLIENT_ID,
+                    onLoginSuccess = { Log.d("LoginScreen", "Firebase 로그인 성공!") },
+                    onLoginError = { message -> Log.e("LoginScreen", "로그인 실패: $message") }
+                )
 
-                    // ★ 10. .addOnSuccessListener 를 사용합니다 ★
-                    oneTapClient.getSignInIntent(signInRequest)
-                        .addOnSuccessListener { pendingIntent ->
-                            // ★ 11. 성공 시 'pendingIntent' (결과물)를 사용
-                            googleLoginLauncher.launch(
-                                IntentSenderRequest.Builder(pendingIntent).build()
-                            )
-                        }
-                        .addOnFailureListener { e ->
-                            Log.e("LoginScreen", "Google OneTap Intent 실패: ${e.message}")
-                        }
-                },
-                onNaverClick = {
-                    // TODO: 네이버 로그인 로직 (Cloud Function 필요)
-                },
-                onKakaoClick = {
-                    authViewModel?.startKakaoLogin(context)
-                }
-            )
+                KakaoLoginButton(
+                    modifier = Modifier.weight(1f),
+                    viewModel = vm
+                )
+            }
 
             // 하단 가입 안내 텍스트
             Spacer(modifier = Modifier.weight(1f))
