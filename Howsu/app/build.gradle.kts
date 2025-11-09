@@ -82,6 +82,8 @@ dependencies {
     implementation("com.google.firebase:firebase-functions-ktx")
     implementation("com.google.firebase:firebase-analytics")
 
+    implementation("com.navercorp.nid:oauth:5.9.0")
+
     /*// Lifecycle /Viewmodel
     implementation(libs.androidx.lifecycle.viewmodel)
     implementation(libs.androidx.lifecycle.runtime.ktx)
