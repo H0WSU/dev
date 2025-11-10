@@ -95,8 +95,8 @@ private fun CreateTodoTopBar(onCloseClick: () -> Unit) {
     ) {
         Text(
             text = "투두 생성하기",
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
             modifier = Modifier.align(Alignment.Center)
         )
         IconButton(

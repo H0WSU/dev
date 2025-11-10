@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     // alias(libs.plugins.ksp)
     // alias(libs.plugins.hilt)
-    // id("com.google.gms.google-services")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -65,6 +65,24 @@ dependencies {
     implementation(libs.androidx.navigation.ui)
 
     implementation("androidx.compose.material:material-icons-extended")
+
+    // 2. Firebase BOM (여러 라이브러리 버전 관리)
+    implementation(platform("com.google.firebase:firebase-bom:33.0.0"))
+
+    // 3. Firebase Authentication (필수)
+    implementation("com.google.firebase:firebase-auth")
+
+    // 4. Google One Tap 로그인 SDK (필수)
+    implementation("com.google.android.gms:play-services-auth:21.1.1")
+
+    implementation("androidx.activity:activity-compose:1.9.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
+
+    implementation("com.kakao.sdk:v2-all:2.11.0")
+    implementation("com.google.firebase:firebase-functions-ktx")
+    implementation("com.google.firebase:firebase-analytics")
+
+    implementation("com.navercorp.nid:oauth:5.9.0")
 
     /*// Lifecycle /Viewmodel
     implementation(libs.androidx.lifecycle.viewmodel)
