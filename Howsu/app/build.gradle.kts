@@ -80,6 +80,7 @@ dependencies {
 
     implementation("com.kakao.sdk:v2-all:2.11.0")
     implementation("com.google.firebase:firebase-functions-ktx")
+    implementation("com.google.firebase:firebase-firestore-ktx")
 // 전체 모듈 추가, 2.11.0 버전부터 지원
 // 카카오톡 인증 서비스 API 모듈
     // implementation(platform("com.google.firebase:firebase-bom:34.5.0"))
