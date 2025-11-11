@@ -2,7 +2,6 @@ package com.example.howsu.screen.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,21 +15,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow // 👈 LazyRow 임포트
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person // 👈 추가된 아이콘
-import androidx.compose.material.icons.filled.Pets // 👈 추가된 아이콘
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -50,7 +50,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.howsu.common.MyBottomNavigationBar
 import com.example.howsu.common.MyFloatingActionButton
 
-// 임시 데이터 모델 (기존과 동일)
+// 임시 데이터 모델
 data class Reminder(
     val text : String,
     val date: String,
@@ -60,7 +60,7 @@ data class Pet(
     val name : String,
     val age : Int,
     val gender : String,
-    val imageUrl: String = "" // 더 이상 사용하지 않지만, 데이터 클래스 정의를 위해 남겨둠
+    val imageUrl: String = ""
 )
 data class FamilyMember(
     val name: String,
@@ -90,9 +90,7 @@ fun HomeScreen(navController: NavHostController){
                 .padding(paddingValues),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            // 1. 사용자 프로필 섹션
             item{
-                UserProfileHeader()
                 Spacer(Modifier.height(24.dp))
             }
 
@@ -101,7 +99,9 @@ fun HomeScreen(navController: NavHostController){
                 PetSection(
                     pets = listOf(
                         Pet("자몽",7,"여아"),
-                        Pet("두부", 2,"남아")
+                        Pet("두부", 2,"남아"),
+                        Pet("코코", 5,"남아"),
+                        Pet("복실", 1,"여아")
                     )
                 )
                 Spacer(Modifier.height(24.dp))
@@ -150,7 +150,7 @@ fun HomeScreen(navController: NavHostController){
 }
 
 // ----------------------------------------------------
-// Preview 함수 추가
+// Preview 함수
 // ----------------------------------------------------
 
 @Preview(showBackground = true)
@@ -166,56 +166,61 @@ fun HomeScreenPreview() {
 // 하위 컴포넌트들
 // ----------------------------------------------------
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyTopBar() {
-    //CenterAlignedTopAppBar(title = { })
-}
-
-@Composable
-fun UserProfileHeader() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Surface(
-                shape = CircleShape,
-                modifier = Modifier.size(56.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
+    CenterAlignedTopAppBar(
+        navigationIcon = {
+            // 기존 UserProfileHeader의 왼쪽 프로필 정보
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                // TopAppBar의 기본 패딩을 고려하여 조절
+                modifier = Modifier.padding(start = 20.dp)
             ) {
-                // 👈 프로필 이미지 대신 사람 아이콘 사용(임시)
+                Surface(
+                    shape = CircleShape,
+                    modifier = Modifier.size(40.dp), // TopBar에 맞게 크기 조정
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "User Profile Icon",
+                        modifier = Modifier.fillMaxSize(0.7f),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(Modifier.width(8.dp)) // 간격 조정
+                Column {
+                    Text(
+                        text = "자몽이 언니",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                    )
+                    Text(
+                        text = "이구역의짱",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                }
+            }
+        },
+        title = { /* 가운데 타이틀은 비워둠 */ },
+        actions = {
+            // 기존 UserProfileHeader의 오른쪽 알림 버튼
+            IconButton(onClick = { /* 알림 클릭 */ }) {
                 Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "User Profile Icon",
-                    modifier = Modifier.fillMaxSize(0.7f), // 아이콘 크기 조절
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            Column {
-                Text(
-                    text = "자몽이 언니",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
-                )
-                Text(
-                    text = "이구역의짱",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
+                    Icons.Filled.Notifications,
+                    contentDescription = "알림",
+                    modifier = Modifier.size(24.dp),
+                    tint = Color.Gray
                 )
             }
         }
-        IconButton(onClick = { /* 알림 클릭 */ }) {
-            Icon(
-                Icons.Filled.Notifications,
-                contentDescription = "알림",
-                modifier = Modifier.size(24.dp),
-                tint = Color.Gray
-            )
-        }
-    }
+    )
 }
 
+// ----------------------------------------------------
+// 펫 카드 스크롤 가능
+// ----------------------------------------------------
 @Composable
 fun PetSection(pets: List<Pet>) {
     Column {
@@ -238,13 +243,11 @@ fun PetSection(pets: List<Pet>) {
         }
         Spacer(Modifier.height(16.dp))
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            pets.forEach { pet ->
+            items(pets) { pet ->
                 PetCard(pet = pet)
             }
         }
@@ -305,6 +308,7 @@ fun PetCard(pet: Pet) {
         }
     }
 }
+
 
 @Composable
 fun FamilySection(members: List<FamilyMember>) {
