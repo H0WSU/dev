@@ -81,10 +81,15 @@ fun ScheduleScreen(
 
         // --- 플로팅 버튼 ---
         floatingActionButton = {
+            // ★ 이렇게 사용합니다.
             MyFloatingActionButton(
-                onClick = {
-                    // TODO: 새 일정 생성 화면으로 이동
-                    navController.navigate("create_schedule")
+                onTodoClick = {
+                    // 'TODO' 버튼 눌렀을 때 할 일 (예: 화면 이동)
+                    navController.navigate("create_todo")
+                },
+                onScheduleClick = {
+                    // '일정' 버튼 눌렀을 때 할 일
+                    navController.navigate("create_schedule") // (예시)
                 }
             )
         },
