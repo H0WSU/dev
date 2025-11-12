@@ -32,6 +32,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,6 +70,27 @@ fun LoginScreen(
     // ★ 2. Firebase 콘솔에서 복사한 '웹 클라이언트 ID'
     val WEB_CLIENT_ID = "400269215891-ui7tvovededsotn89cg4prdvkj87v7ul.apps.googleusercontent.com"
 
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+
+    val loginState by vm.loginState.collectAsState()
+
+    LaunchedEffect(loginState) {
+        when (loginState) {
+            is FirebaseLoginState.Success -> {
+                Log.d("LoginScreen", "Firebase 로그인 성공!")
+                // TODO: (중요) 로그인 성공 시 홈 화면으로 이동 (예시)
+                // navController.navigate("home") { popUpTo("auth_graph") { inclusive = true } }
+            }
+            is FirebaseLoginState.Error -> {
+                val errorMessage = (loginState as FirebaseLoginState.Error).message
+                Log.e("LoginScreen", "Firebase 로그인 실패: $errorMessage")
+                // TODO: 사용자에게 토스트 메시지 표시 (예: "이메일 또는 비밀번호를 확인하세요.")
+            }
+            else -> {}
+        }
+    }
+
     Scaffold(
         containerColor = Color.White,
     ) { innerPadding ->
@@ -90,16 +113,16 @@ fun LoginScreen(
             LoginTextField(
                 label = "이메일",
                 placeholder = "이메일을 입력해 주세요",
-                value = "",
-                onValueChange = { }
+                value = email,
+                onValueChange = { email = it }
             )
             Spacer(modifier = Modifier.height(16.dp))
 
             // 비밀번호 입력 필드
             PasswordTextField(
                 label = "비밀번호",
-                value = "rnldudnjl!@",
-                onValueChange = { }
+                value = password,
+                onValueChange = { password = it }
             )
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -109,7 +132,14 @@ fun LoginScreen(
 
             // 로그인하기 버튼
             Button(
-                onClick = { /* TODO: 이메일/비번 로그인 로직 */ },
+                onClick = {
+                    if (email.isNotBlank() && password.isNotBlank()) {
+                        vm.signInWithEmailPassword(email, password)
+                    } else {
+                        // TODO: 사용자에게 오류 토스트 표시 (예: "모든 항목을 입력하세요.")
+                        Log.w("LoginScreen", "이메일 또는 비밀번호가 비어있습니다.")
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
