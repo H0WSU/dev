@@ -67,12 +67,10 @@ import com.example.howsu.R
 import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.data.model.Pet
 import com.example.howsu.ui.theme.HowsuTheme
-// (추가) Long 값을 날짜 문자열로 바꾸기 위해 3개 Import
+
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
-// (삭제) java.time 관련 import 모두 삭제
 
 // --- 1. 메인 화면: Scaffold 뼈대 (ViewModel 주입) ---
 @OptIn(ExperimentalMaterial3Api::class)

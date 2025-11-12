@@ -74,10 +74,8 @@ fun JoinScreen(
     navController: NavController,
     authViewModel: AuthViewModel? = null // ★ 1. ViewModel 주입
 ) {
-    // ★ 2. Firebase 콘솔에서 복사한 '웹 클라이언트 ID'
-    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-    val WEB_CLIENT_ID = "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com" // ★ 본인 ID로 교체 ★
-    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+
+    val WEB_CLIENT_ID = "400269215891-ui7tvovededsotn89cg4prdvkj87v7ul.apps.googleusercontent.com" // ★ 본인 ID로 교체 ★
 
     val context = LocalContext.current
     val oneTapClient = remember { Identity.getSignInClient(context) }

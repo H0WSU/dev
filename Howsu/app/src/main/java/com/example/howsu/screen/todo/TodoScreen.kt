@@ -130,7 +130,6 @@ fun TodoScreen(
     }
 }
 
-
 @Composable
 fun TodoGroupCard(
     group: TodoGroup,
@@ -155,7 +154,6 @@ fun TodoGroupCard(
                     .padding(start = 16.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // ... (Text, Spacer 부분은 동일) ...
                 Text(
                     text = buildAnnotatedString {
                         val mainName = group.assigneeName.substringBefore("(", group.assigneeName)
@@ -172,8 +170,6 @@ fun TodoGroupCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.weight(1f))
-
-                // ▼▼▼▼▼ ★ 여기가 수정된 부분입니다 ★ ▼▼▼▼▼
 
                 // 1. 'var' 변수를 'val' 지역 변수로 복사 (스마트 캐스트 문제 해결)
                 val profileRes = group.assigneeProfileRes
@@ -199,7 +195,6 @@ fun TodoGroupCard(
                 }
                 // ▲▲▲▲▲ ★ 수정 끝 ★ ▲▲▲▲▲
 
-                // ... (Box와 DropdownMenu 부분은 동일) ...
                 Box {
                     IconButton(onClick = {
                         isMenuExpanded = true
