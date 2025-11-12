@@ -46,6 +46,13 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name="com.navercorp.nid.oauth.ui.NidOAuthLoginActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:screenOrientation="portrait"
+            android:exported="true" />
+
+
     </application>
 
 </manifest>

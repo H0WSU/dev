@@ -28,13 +28,19 @@ fun AppNavigation() {
         // "login"이라는 경로(주소)를 요청받으면
         composable(route = "login") {
             val authViewModel: AuthViewModel = viewModel()
-            LoginScreen(navController = navController)
+            LoginScreen(
+                navController = navController,
+                authViewModel = authViewModel // ★ ViewModel 전달
+            )
         }
 
         // "join"이라는 경로(주소)를 요청받으면
         composable(route = "join") {
             val authViewModel: AuthViewModel = viewModel()
-            JoinScreen(navController = navController)
+            JoinScreen(
+                navController = navController,
+                authViewModel = authViewModel // 필요하면 전달
+            )
         }
 
         // TODO: 나중에 "home" 또는 "schedule" 경로도 여기에 추가

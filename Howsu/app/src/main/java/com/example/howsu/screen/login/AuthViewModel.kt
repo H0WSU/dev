@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.ktx.functions
 import com.google.firebase.ktx.Firebase
 import com.kakao.sdk.auth.model.OAuthToken
@@ -27,11 +28,10 @@ sealed class FirebaseLoginState {
 class AuthViewModel : ViewModel() {
 
     private val auth: FirebaseAuth = Firebase.auth
-    private val functions = Firebase.functions
+    private val functions: FirebaseFunctions = Firebase.functions("asia-northeast3")
 
     private val _loginState = MutableStateFlow<FirebaseLoginState>(FirebaseLoginState.Idle)
     val loginState = _loginState.asStateFlow()
-
     /**
      * JoinScreen에서 받은 Google Credential로 Firebase에 최종 로그인
      */
@@ -52,7 +52,6 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    // (AuthViewModel.kt 안에 추가)
     fun startKakaoLogin(context: Context) {
         // 1. 카카오톡이 설치되어 있는지 확인
         val callback: (OAuthToken?, Throwable?) -> Unit = { token, error ->
@@ -110,5 +109,47 @@ class AuthViewModel : ViewModel() {
                     }
                 }
             }
+    }
+
+    fun loginWithNaverToken(naverAccessToken: String) {
+        // 1. UI 상태를 로딩 중으로 변경
+        _loginState.value = FirebaseLoginState.Loading
+
+        viewModelScope.launch {
+            try {
+                // 2. Cloud Function에 전달할 데이터 맵 생성
+                //    (index.js에서 'naverAccessToken' 키로 받기로 약속했음)
+                val data = hashMapOf(
+                    "naverAccessToken" to naverAccessToken
+                )
+
+                // 3. 배포된 "verifyNaverToken" Cloud Function 호출
+                val result = functions
+                    .getHttpsCallable("verifyNaverToken")
+                    .call(data)
+                    .await()
+
+                // 4. 함수 실행 결과 (JSON) 파싱
+                //    (index.js에서 'firebaseCustomToken' 키로 반환하기로 약속했음)
+                @Suppress("UNCHECKED_CAST")
+                val resultMap = result.data as? Map<String, String>
+                val firebaseCustomToken = resultMap?.get("firebaseCustomToken")
+
+                if (firebaseCustomToken == null) {
+                    Log.e("AuthViewModel", "Firebase Custom Token이 비어있습니다. (Naver)")
+                    _loginState.value = FirebaseLoginState.Error("네이버 로그인 중 오류가 발생했습니다.")
+                    return@launch
+                }
+
+                // 5. Firebase 커스텀 토큰으로 Firebase에 최종 로그인
+                auth.signInWithCustomToken(firebaseCustomToken).await()
+                _loginState.value = FirebaseLoginState.Success // 성공!
+
+            } catch (e: Exception) {
+                // Cloud Function 호출 실패 또는 기타 에러
+                Log.e("AuthViewModel", "Cloud Function(verifyNaverToken) 호출 실패", e)
+                _loginState.value = FirebaseLoginState.Error(e.message ?: "네이버 로그인 실패")
+            }
+        }
     }
 }
