@@ -1,9 +1,6 @@
 package com.example.howsu.screen.login // (1. 본인 패키지 이름 확인)
 
 import android.util.Log
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.IntentSenderRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
@@ -48,7 +45,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -62,11 +58,13 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.howsu.R
+import com.example.howsu.screen.login.social.GoogleLoginButton
+import com.example.howsu.screen.login.social.KakaoLoginButton
+import com.example.howsu.screen.login.social.NaverLoginButton
+import com.example.howsu.screen.login.social.SocialLoginButton
 import com.example.howsu.ui.theme.HowsuTheme
-import com.google.android.gms.auth.api.identity.GetSignInIntentRequest
-import com.google.android.gms.auth.api.identity.Identity
-import com.google.android.gms.common.api.ApiException
-import com.google.firebase.auth.GoogleAuthProvider
+
+// 약관 체크, 비밀번호 불일치 수정하기
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,46 +72,43 @@ fun JoinScreen(
     navController: NavController,
     authViewModel: AuthViewModel? = null // ★ 1. ViewModel 주입
 ) {
-
+    // ★ 2. Firebase 콘솔에서 복사한 '웹 클라이언트 ID'
     val WEB_CLIENT_ID = "400269215891-ui7tvovededsotn89cg4prdvkj87v7ul.apps.googleusercontent.com" // ★ 본인 ID로 교체 ★
 
-    val context = LocalContext.current
-    val oneTapClient = remember { Identity.getSignInClient(context) }
+    val vm = authViewModel ?: androidx.lifecycle.viewmodel.compose.viewModel<AuthViewModel>()
+    val loginState by vm.loginState.collectAsState()
 
-    // ★ 3. 구글 로그인 창을 띄우고 결과를 받아올 런처
-    val googleLoginLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartIntentSenderForResult(),
-    ) { result ->
-        // ★ 4. 구글 로그인 결과 처리
-        try {
-            val credential = oneTapClient.getSignInCredentialFromIntent(result.data)
-            val idToken = credential.googleIdToken // 구글 ID 토큰
-            if (idToken != null) {
-                // ★ 5. 구글 토큰으로 Firebase Credential 생성
-                val firebaseCredential = GoogleAuthProvider.getCredential(idToken, null)
-                // ★ 6. ViewModel에 Credential을 넘겨 Firebase 로그인 요청
-                authViewModel?.signInWithGoogleCredential(firebaseCredential)
-            }
-        } catch (e: ApiException) {
-            Log.e("JoinScreen", "Google Sign-In failed: ${e.message}")
-        }
-    }
+    // --- 이메일, 비밀번호, 비밀번호 확인, 약관 동의를 위한 상태 변수 ---
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var passwordConfirm by remember { mutableStateOf("") }
+    var isChecked by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // ★ 7. ViewModel의 Firebase 로그인 상태를 관찰
-    val loginState by authViewModel?.loginState?.collectAsState()
-        ?: remember { mutableStateOf(FirebaseLoginState.Idle) }
     LaunchedEffect(loginState) {
         when (loginState) {
             is FirebaseLoginState.Success -> {
-                Log.d("JoinScreen", "Firebase 로그인 성공!")
-                // TODO: 로그인 성공! 홈 화면으로 이동
-                // navController.navigate("home") { popUpTo("auth_graph") }
+                Log.d("JoinScreen", "Firebase 회원가입 및 로그인 성공!")
+                // TODO: (중요) 회원가입 성공 시 홈 화면으로 이동
+                // navController.navigate("home") { popUpTo("auth_graph") { inclusive = true } }
             }
+
             is FirebaseLoginState.Error -> {
-                Log.e("JoinScreen", "Firebase 로그인 실패: ${(loginState as FirebaseLoginState.Error).message}")
-                // TODO: 사용자에게 에러 토스트 메시지 표시
+                val message = (loginState as FirebaseLoginState.Error).message
+                Log.e("JoinScreen", "Firebase 로그인 실패: $message")
+                // (수정) Firebase에서 받은 오류 메시지를 표시
+                errorMessage = when {
+                    message.contains("email address is already in use") -> "이미 가입된 이메일입니다"
+                    message.contains("WEAK_PASSWORD") -> "비밀번호는 6자 이상이어야 합니다"
+                    else -> "회원가입에 실패했습니다 ($message)"
+                }
             }
-            else -> {} // Idle 또는 Loading
+
+            is FirebaseLoginState.Loading -> {
+                errorMessage = null // 로딩 시작 시 기존 오류 메시지 제거
+            }
+
+            else -> {}
         }
     }
 
@@ -136,34 +131,57 @@ fun JoinScreen(
             LoginTextField(
                 label = "이메일",
                 placeholder = "이메일을 입력해 주세요",
-                value = "",
-                onValueChange = { }
+                value = email,
+                onValueChange = { email = it }
             )
             Spacer(modifier = Modifier.height(16.dp))
 
             // 비밀번호 입력 필드
             PasswordTextField(
                 label = "비밀번호",
-                value = "rnldudnjl!@",
-                onValueChange = { }
+                value = password,
+                onValueChange = { password = it }
             )
             Spacer(modifier = Modifier.height(16.dp))
 
             // 비밀번호 재입력 필드
             PasswordTextField(
                 label = "비밀번호 재입력",
-                value = "",
-                onValueChange = { }
+                value = passwordConfirm,
+                onValueChange = { passwordConfirm = it }
             )
             Spacer(modifier = Modifier.height(16.dp))
 
             // 약관 동의 체크박스
-            TermsAndConditionsCheckbox()
+            TermsAndConditionsCheckbox(
+                isChecked = isChecked,
+                onCheckedChange = { isChecked = it }
+            )
             Spacer(modifier = Modifier.height(32.dp))
 
             // 지금 가입하기 버튼
             Button(
-                onClick = { /* TODO: 회원가입 로직 */ },
+                onClick = { /* TODO: 회원가입 로직 */
+                    errorMessage = null // 이전 오류 메시지 초기화
+                    when {
+                        email.isBlank() || password.isBlank() || passwordConfirm.isBlank() -> {
+                            errorMessage = "모든 항목을 입력해 주세요"
+                        }
+
+                        !isChecked -> {
+                            errorMessage = "약관에 동의해 주세요"
+                        }
+
+                        password != passwordConfirm -> {
+                            errorMessage = "비밀번호가 일치하지 않습니다"
+                        }
+
+                        else -> {
+                            // 모든 검사 통과 시 회원가입 시도
+                            vm.signUpWithEmailPassword(email, password)
+                        }
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -175,39 +193,50 @@ fun JoinScreen(
             ) {
                 Text("지금 가입하기", fontWeight = FontWeight.Medium, fontSize = 14.sp)
             }
+
+            errorMessage?.let {
+                Text(
+                    text = it,
+                    color = Color.Red,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
 
             // "또는" 구분선
             OrDivider()
             Spacer(modifier = Modifier.height(32.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                NaverLoginButton(
+                    modifier = Modifier.weight(1f),
+                    viewModel = authViewModel
+                )
 
-            // ★ 8. 소셜 로그인 버튼들에 onClick 이벤트 연결
-            SocialLoginButtons(
-                onGoogleClick = {
-                    if (authViewModel == null) return@SocialLoginButtons
-                    // ★ 9. 구글 로그인 버튼 클릭 시
-                    val signInRequest = GetSignInIntentRequest.builder()
-                        .setServerClientId(WEB_CLIENT_ID) // ★ 2번의 그 ID
-                        .build()
+                GoogleLoginButton(
+                    modifier = Modifier.weight(1f),
+                    viewModel = vm,
+                    webClientId = WEB_CLIENT_ID,
+                    onLoginSuccess = {
+                        Log.d("JoinScreen", "Firebase 로그인 성공!")
+                        // TODO: 로그인 성공! 홈 화면으로 이동
+                        // navController.navigate("home") { popUpTo("auth_graph") }
+                    },
+                    onLoginError = { message ->
+                        Log.e("JoinScreen", "로그인 실패: $message")
+                        // TODO: 사용자에게 토스트 메시지 표시
+                    }
+                )
 
-                    oneTapClient.getSignInIntent(signInRequest)
-                        .addOnSuccessListener { pendingIntent ->
-                            googleLoginLauncher.launch(
-                                IntentSenderRequest.Builder(pendingIntent).build()
-                            )
-                        }
-                        .addOnFailureListener { e ->
-                            Log.e("JoinScreen", "Google OneTap Intent 실패: ${e.message}")
-                        }
-                },
-                onNaverClick = {
-                    // TODO: 네이버 로그인 로직 (Cloud Function 필요)
-                },
-                onKakaoClick = {
-                    // TODO: 카카오 로그인 로직 (Cloud Function 필요)
-                }
-            )
-
+                KakaoLoginButton(
+                    modifier = Modifier.weight(1f),
+                    viewModel = authViewModel
+                )
+            }
 
             // 하단 로그인 안내 텍스트
             Spacer(modifier = Modifier.weight(1f))
@@ -269,18 +298,19 @@ private fun JoinTopBar(onBackClick: () -> Unit) {
 
 // --- 약관 동의 체크박스 ---
 @Composable
-private fun TermsAndConditionsCheckbox() {
-    var isChecked by remember { mutableStateOf(false) }
-
+private fun TermsAndConditionsCheckbox(
+    isChecked: Boolean, // (수정) 상태를 외부에서 받음
+    onCheckedChange: (Boolean) -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { isChecked = !isChecked }, // Row 클릭 시 체크박스 토글
+            .clickable { onCheckedChange(!isChecked) },
         verticalAlignment = Alignment.CenterVertically
     ) {
         Checkbox(
-            checked = isChecked,
-            onCheckedChange = { isChecked = it },
+            checked = isChecked, // (수정)
+            onCheckedChange = onCheckedChange,
             colors = CheckboxDefaults.colors(
                 checkedColor = Color.Black,
                 uncheckedColor = Color.Gray
@@ -464,9 +494,9 @@ private fun SocialLoginButton(
 // --- 미리보기 ---
 @Preview(showBackground = true)
 @Composable
-fun JoinScreenPreview() { // (이름 변경)
+fun JoinScreenPreview() {
     HowsuTheme {
         val navController = rememberNavController()
-        JoinScreen(navController = navController) // (이름 변경)
+        JoinScreen(navController = navController)
     }
 }

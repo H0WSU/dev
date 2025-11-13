@@ -32,9 +32,48 @@ class AuthViewModel : ViewModel() {
 
     private val _loginState = MutableStateFlow<FirebaseLoginState>(FirebaseLoginState.Idle)
     val loginState = _loginState.asStateFlow()
+
     /**
-     * JoinScreen에서 받은 Google Credential로 Firebase에 최종 로그인
+     * 이메일/비밀번호로 신규 회원가입
      */
+    fun signUpWithEmailPassword(email: String, password: String) {
+        _loginState.value = FirebaseLoginState.Loading
+        viewModelScope.launch {
+            try {
+                // Firebase SDK에 회원가입 요청
+                auth.createUserWithEmailAndPassword(email, password).await()
+
+                // 성공! (회원가입 성공 시 자동으로 로그인됩니다)
+                _loginState.value = FirebaseLoginState.Success
+
+            } catch (e: Exception) {
+                // 실패 (예: 이미 사용 중인 이메일, 비밀번호 형식 오류 등)
+                Log.e("AuthViewModel", "Email sign-up failed", e)
+                _loginState.value = FirebaseLoginState.Error(e.message ?: "이메일 회원가입 실패")
+            }
+        }
+    }
+
+    /**
+     * 이메일/비밀번호로 기존 회원 로그인
+     */
+    fun signInWithEmailPassword(email: String, password: String) {
+        _loginState.value = FirebaseLoginState.Loading
+        viewModelScope.launch {
+            try {
+                // Firebase SDK에 로그인 요청
+                auth.signInWithEmailAndPassword(email, password).await()
+
+                // 성공!
+                _loginState.value = FirebaseLoginState.Success
+
+            } catch (e: Exception) {
+                // 실패 (예: 잘못된 이메일, 틀린 비밀번호 등)
+                Log.e("AuthViewModel", "Email sign-in failed", e)
+                _loginState.value = FirebaseLoginState.Error(e.message ?: "이메일 로그인 실패")
+            }
+        }
+    }
     fun signInWithGoogleCredential(credential: AuthCredential) {
         _loginState.value = FirebaseLoginState.Loading
         viewModelScope.launch {
