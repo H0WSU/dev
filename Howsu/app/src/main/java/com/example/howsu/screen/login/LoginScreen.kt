@@ -80,7 +80,7 @@ fun LoginScreen(
             is FirebaseLoginState.Success -> {
                 Log.d("LoginScreen", "Firebase 로그인 성공!")
                 // TODO: (중요) 로그인 성공 시 홈 화면으로 이동 (예시)
-                // navController.navigate("home") { popUpTo("auth_graph") { inclusive = true } }
+                navController.navigate("todo") { popUpTo("auth_graph") { inclusive = true } }
             }
             is FirebaseLoginState.Error -> {
                 val errorMessage = (loginState as FirebaseLoginState.Error).message

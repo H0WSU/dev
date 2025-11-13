@@ -23,7 +23,7 @@ fun AppNavigation() {
     // 5. NavHost가 화면을 관리
     NavHost(
         navController = navController,
-        startDestination = "login" // ★ 앱 시작 시 보여줄 첫 화면 (원래는 login)
+        startDestination = "todo" // ★ 앱 시작 시 보여줄 첫 화면 (원래는 login)
     ) {
         // "login"이라는 경로(주소)를 요청받으면
         composable(route = "login") {

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -142,6 +143,7 @@ private fun CreateScheduleTopBar(onCloseClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .statusBarsPadding() // 상태 표시줄 띄워 주기
             .padding(horizontal = 16.dp, vertical = 12.dp)
             .height(40.dp)
     ) {
@@ -176,7 +178,7 @@ private fun CreateScheduleBottomButton(onCreateClick: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp)
+            .padding(horizontal = 24.dp, vertical = 24.dp)
     ) {
         Button(
             onClick = onCreateClick,
