@@ -191,4 +191,10 @@ class AuthViewModel : ViewModel() {
             }
         }
     }
+
+    fun signOut() {
+        auth.signOut()
+        // 로그아웃 시 UI가 로그인 화면으로 돌아가도록
+        _loginState.value = FirebaseLoginState.Idle // 상태 초기화
+    }
 }

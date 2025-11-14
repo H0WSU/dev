@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items // ★ 1. 'items' (List용)를 임포트
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -60,7 +60,6 @@ import androidx.navigation.compose.rememberNavController
 import com.example.howsu.R
 import com.example.howsu.common.MyBottomNavigationBar
 import com.example.howsu.common.MyFloatingActionButton
-// ★ 2. 'data.model' 패키지에서 Task와 TodoGroup을 임포트
 import com.example.howsu.data.model.Task
 import com.example.howsu.data.model.TodoGroup
 import com.example.howsu.ui.theme.HowsuTheme
@@ -82,7 +81,9 @@ fun TodoScreen(
             TopAppBar(
                 title = { Text("Todo", fontWeight = FontWeight.Medium, fontSize = 24.sp) },
                 actions = {
-                    IconButton(onClick = { /* 캘린더 클릭 */ }) {
+                    IconButton(onClick = {
+                        navController.navigate("schedule")
+                    }) {
                         Icon(
                             painter = painterResource(id = R.drawable.date_under),
                             contentDescription = "캘린더",
@@ -193,7 +194,6 @@ fun TodoGroupCard(
                             .border(BorderStroke(1.dp, Color.LightGray), CircleShape)
                     )
                 }
-                // ▲▲▲▲▲ ★ 수정 끝 ★ ▲▲▲▲▲
 
                 Box {
                     IconButton(onClick = {
