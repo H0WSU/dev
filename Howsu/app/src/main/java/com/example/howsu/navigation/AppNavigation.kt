@@ -87,13 +87,11 @@ fun AppNavigation() {
         ) { backStackEntry ->
             val scheduleId = backStackEntry.arguments?.getString("scheduleId")
 
-            // "일정 생성" 화면을 재사용
-            // TODO: CreateScheduleScreen이 scheduleId를 받아서
-            //       ViewModel에서 데이터를 로드하도록 수정해야 함
             CreateScheduleScreen(
-                navController = navController
-                // scheduleId = scheduleId // <- 나중에 이렇게 전달
+                navController = navController,
+                scheduleId = scheduleId // ★ 1. scheduleId를 여기에 전달
             )
         }
     }
+
 }

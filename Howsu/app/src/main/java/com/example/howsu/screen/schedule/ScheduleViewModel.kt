@@ -1,3 +1,5 @@
+// /screen/schedule/ScheduleViewModel.kt
+
 package com.example.howsu.screen.schedule
 
 import android.util.Log
@@ -6,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.howsu.data.model.Schedule
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.firestore.toObject
 import com.google.firebase.firestore.toObjects
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,97 +24,104 @@ class ScheduleViewModel : ViewModel() {
 
     private val db = Firebase.firestore
 
-    // --- 1. 상태(State) ---
-
-    // 현재 선택된 날짜 (기본값: 오늘)
     private val _selectedDate = MutableStateFlow(LocalDate.now())
     val selectedDate = _selectedDate.asStateFlow()
-
-    // 캘린더 헤더에 표시될 년/월 (기본값: 이번 달)
     private val _currentMonth = MutableStateFlow(YearMonth.now())
     val currentMonth = _currentMonth.asStateFlow()
-
-    // 선택된 날짜의 일정 목록
     private val _schedules = MutableStateFlow<List<Schedule>>(emptyList())
     val schedules = _schedules.asStateFlow()
 
-    // TODO: 캘린더에 점 찍기 (이벤트가 있는 날짜 목록)
-    // private val _eventDaysInMonth = MutableStateFlow<Set<Int>>(emptySet())
-    // val eventDaysInMonth = _eventDaysInMonth.asStateFlow()
+
+    // --- ★ 3. (신규) 일정 상세보기를 위한 상태 ---
+    private val _selectedSchedule = MutableStateFlow<Schedule?>(null)
+    val selectedSchedule = _selectedSchedule.asStateFlow()
 
     init {
-        // ViewModel이 생성될 때 오늘 날짜의 일정을 불러옴
         fetchSchedulesForDate(_selectedDate.value)
     }
 
-    // --- 2. 이벤트(Event) 핸들러 ---
-
-    /**
-     * 캘린더에서 날짜(Int)를 클릭했을 때 호출
-     */
+    // ... (onDateSelected, onMonthChange, fetchSchedulesForDate, getHourFromTimestamp 등 기존 함수들) ...
+    // (onDateSelected, onMonthChange, fetchSchedulesForDate는 여기에 있어야 합니다)
     fun onDateSelected(day: Int) {
         val newDate = _currentMonth.value.atDay(day)
         _selectedDate.value = newDate
         fetchSchedulesForDate(newDate)
     }
-
-    /**
-     * TODO: 캘린더 헤더의 화살표로 월을 변경할 때 호출
-     */
     fun onMonthChange(isNext: Boolean) {
         val newMonth = if (isNext) _currentMonth.value.plusMonths(1) else _currentMonth.value.minusMonths(1)
         _currentMonth.value = newMonth
-        // TODO: 월이 바뀌면 _eventDaysInMonth를 새로 불러와야 함
     }
 
-    // --- 3. Firestore 데이터 로직 ---
+    fun onMonthYearChange(year: Int, month: Int) {
+        val newYearMonth = YearMonth.of(year, month)
+        _currentMonth.value = newYearMonth
 
-    /**
-     * 특정 날짜(LocalDate)의 모든 일정을 Firestore에서 불러옵니다.
-     */
+        // 1. 현재 선택되어 있던 날짜(일)를 가져옴
+        val currentDay = _selectedDate.value.dayOfMonth
+
+        // 2. 새로 선택된 월의 마지막 날짜를 확인
+        val maxDayInNewMonth = newYearMonth.lengthOfMonth()
+
+        // 3. 날짜 보정 (예: 31일이었다가 2월로 가면 -> 28일로)
+        val newDay = currentDay.coerceAtMost(maxDayInNewMonth)
+
+        // 4. (★핵심) onDateSelected를 강제로 호출해서
+        //    날짜(_selectedDate)와 일정(_schedules)을 모두 새로고침
+        onDateSelected(newDay)
+    }
     private fun fetchSchedulesForDate(date: LocalDate) {
         viewModelScope.launch {
             try {
-                // 1. 쿼리할 날짜/시간 범위 계산 (예: 11월 14일 00:00:00 ~ 11월 15일 00:00:00)
                 val zoneId = ZoneId.systemDefault()
                 val startOfDay = date.atStartOfDay(zoneId)
                 val endOfDay = date.plusDays(1).atStartOfDay(zoneId)
-
-                // 2. ZonedDateTime -> java.util.Date -> Firebase Timestamp로 변환
                 val startTimestamp = Timestamp(Date.from(startOfDay.toInstant()))
                 val endTimestamp = Timestamp(Date.from(endOfDay.toInstant()))
 
-                // 3. 쿼리 실행
-                // "startDate"가 오늘 0시(포함) ~ 내일 0시(미포함) 사이인 문서 찾기
                 val querySnapshot = db.collection("schedules")
                     .whereGreaterThanOrEqualTo("startDate", startTimestamp)
                     .whereLessThan("startDate", endTimestamp)
-                    .orderBy("startDate") // 시간순 정렬
+                    .orderBy("startDate")
                     .get()
                     .await()
 
-                // 4. Schedule 데이터 클래스로 변환 후 StateFlow 업데이트
                 val scheduleList = querySnapshot.toObjects<Schedule>()
                 _schedules.value = scheduleList
-                Log.d("ScheduleViewModel", "Fetched ${scheduleList.size} schedules for $date")
-
             } catch (e: Exception) {
-                Log.e("ScheduleViewModel", "Error fetching schedules", e)
                 _schedules.value = emptyList()
             }
         }
     }
-
-    /**
-     * Timestamp를 앱의 시간대(ZoneId) 기준으로 Int(시간)으로 변환
-     */
     fun getHourFromTimestamp(timestamp: Timestamp): Int {
         val instant = timestamp.toDate().toInstant()
         return instant.atZone(ZoneId.systemDefault()).hour
     }
 
+
+    // --- ★ 4. (신규) ID로 일정 1개 불러오는 함수 ---
+    fun loadScheduleDetails(scheduleId: String?) {
+        if (scheduleId == null || scheduleId == "temp_id") {
+            Log.e("ScheduleViewModel", "유효하지 않은 scheduleId: $scheduleId")
+            _selectedSchedule.value = null
+            return
+        }
+
+        // 화면이 다시 열릴 때를 대비해 이전 값 초기화 (로딩 표시)
+        _selectedSchedule.value = null
+
+        viewModelScope.launch {
+            try {
+                val document = db.collection("schedules").document(scheduleId).get().await()
+                _selectedSchedule.value = document.toObject<Schedule>()
+            } catch (e: Exception) {
+                Log.e("ScheduleViewModel", "일정($scheduleId) 불러오기 실패", e)
+                _selectedSchedule.value = null
+            }
+        }
+    }
+
+    // ★ 5. (신규) 일정 삭제 함수 (이전에 추가함)
     fun deleteSchedule(scheduleId: String, onComplete: () -> Unit) {
-        // ID가 비어있거나 "temp_id" 같은 임시 ID이면 중단
         if (scheduleId.isBlank() || scheduleId == "temp_id") {
             Log.e("ScheduleViewModel", "유효하지 않은 ID로 삭제를 시도했습니다: $scheduleId")
             return
@@ -119,18 +129,15 @@ class ScheduleViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                // Firestore에서 해당 ID의 문서를 찾아 삭제
                 db.collection("schedules").document(scheduleId).delete().await()
-
                 Log.d("ScheduleViewModel", "일정 삭제 성공: $scheduleId")
 
-                // ★ 삭제 성공 시, onComplete 콜백을 실행
-                // (이 콜백은 화면을 닫는 데 사용됩니다)
-                onComplete()
+                // (추가) 목록 화면 갱신
+                fetchSchedulesForDate(_selectedDate.value)
 
+                onComplete()
             } catch (e: Exception) {
                 Log.e("ScheduleViewModel", "일정 삭제 실패", e)
-                // TODO: 사용자에게 "삭제에 실패했습니다" 토스트/팝업 표시
             }
         }
     }
