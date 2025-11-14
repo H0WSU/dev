@@ -33,6 +33,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
         jvmTarget = "11"
@@ -74,6 +76,7 @@ dependencies {
 
     // 4. Google One Tap 로그인 SDK (필수)
     implementation("com.google.android.gms:play-services-auth:21.1.1")
+    implementation("com.google.firebase:firebase-firestore-ktx")
 
     implementation("androidx.activity:activity-compose:1.9.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
@@ -83,6 +86,9 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics")
 
     implementation("com.navercorp.nid:oauth:5.9.0")
+
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+
 
     /*// Lifecycle /Viewmodel
     implementation(libs.androidx.lifecycle.viewmodel)
