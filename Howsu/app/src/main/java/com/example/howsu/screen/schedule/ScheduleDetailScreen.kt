@@ -2,6 +2,7 @@
 
 package com.example.howsu.screen.schedule
 
+import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -33,6 +34,8 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -54,6 +57,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.howsu.R
@@ -66,7 +70,8 @@ import com.example.howsu.ui.theme.HowsuTheme
 @Composable
 fun ScheduleDetailScreen(
     navController: NavHostController,
-    scheduleId: String? // "temp_id" 또는 실제 Firestore ID
+    scheduleId: String?, // "temp_id" 또는 실제 Firestore ID
+    viewModel: ScheduleViewModel = viewModel()
 ) {
     // 예시 데이터 (ViewModel에서 가져와야 함)
     val scheduleTitle = "병원 방문" // (디자인 1번의 "뭐야"에 해당)
@@ -81,6 +86,21 @@ fun ScheduleDetailScreen(
                 onBackClick = { navController.popBackStack() },
                 onEditClick = {
                     navController.navigate("edit_schedule/$scheduleId")
+                }
+            )
+        },
+        bottomBar = {
+            DeleteScheduleBottomButton(
+                onDeleteClick = { // (이름을 onDeleteClick으로 변경하는 것을 추천)
+                    if (scheduleId != null) {
+                        // ★ 4. ViewModel의 삭제 함수 호출
+                        viewModel.deleteSchedule(scheduleId) {
+                            // ★ 5. 삭제 성공 시 (onComplete), 뒤로 가기
+                            navController.popBackStack()
+                        }
+                    } else {
+                        Log.e("ScheduleDetailScreen", "scheduleId가 null이라 삭제할 수 없습니다.")
+                    }
                 }
             )
         }
@@ -369,6 +389,30 @@ private fun PetChip(name: String) {
         }
     }
 }
+
+@Composable
+private fun DeleteScheduleBottomButton(onDeleteClick: () -> Unit) { // 'onCreateClick' -> 'onDeleteClick'
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 24.dp)
+    ) {
+        Button(
+            onClick = onDeleteClick, // ★ 7. 파라미터 연결
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Black, // (삭제 버튼이니 빨간색 Color(0xFFEA4335) 추천)
+                contentColor = Color.White
+            ),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text("삭제하기", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+        }
+    }
+}
+
 
 @Preview(showBackground = true, backgroundColor = 0xFFFFFFFF) // 흰 배경
 @Composable

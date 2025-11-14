@@ -3,6 +3,7 @@ package com.example.howsu.screen.schedule
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.howsu.data.model.Pet
+import com.google.firebase.Timestamp // ★ 1. 임포트
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -10,9 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.util.Date // ★ 2. 임포트
 
 class CreateScheduleViewModel : ViewModel() {
 
@@ -27,7 +26,6 @@ class CreateScheduleViewModel : ViewModel() {
     private val _isPetDropdownVisible = MutableStateFlow(false)
     val isPetDropdownVisible: StateFlow<Boolean> = _isPetDropdownVisible.asStateFlow()
 
-    // --- 2. 일정 생성 상태 (새로 추가) ---
     private val _title = MutableStateFlow("")
     val title: StateFlow<String> = _title.asStateFlow()
 
@@ -37,16 +35,25 @@ class CreateScheduleViewModel : ViewModel() {
     private val _isAllDay = MutableStateFlow(false)
     val isAllDay: StateFlow<Boolean> = _isAllDay.asStateFlow()
 
-    // TODO: 날짜/시간 피커와 연동 필요
     private val _startDate = MutableStateFlow(System.currentTimeMillis())
     val startDate: StateFlow<Long> = _startDate.asStateFlow()
 
     private val _endDate = MutableStateFlow(System.currentTimeMillis() + 3600000) // 1시간 뒤
     val endDate: StateFlow<Long> = _endDate.asStateFlow()
 
-    // TODO: 색상, 반복, 알림 상태도 여기에 추가...
-    // private val _selectedColor = ...
+    // --- ★ 3. 색상 관련 상태 추가 ---
+    private val _selectedColor = MutableStateFlow("#000000") // 기본값 검은색
+    val selectedColor: StateFlow<String> = _selectedColor.asStateFlow()
 
+    // 선택 가능한 색상 리스트
+    val predefinedColors = listOf(
+        "#000000", // 검은색
+        "#4285F4", // 파란색
+        "#EA4335", // 빨간색
+        "#34A853", // 녹색
+        "#FABC05", // 노란색
+        "#7986CB"  // 연보라
+    )
 
     init {
         loadInitialData()
@@ -54,7 +61,7 @@ class CreateScheduleViewModel : ViewModel() {
 
     private fun loadInitialData() {
         viewModelScope.launch {
-            // (임시) 더미 데이터로 반려동물 목록 (Todo와 동일)
+            // (임시) 더미 데이터
             val dummyPets = listOf(
                 Pet(petId = "pet_id_1", name = "자몽", profileImageUrl = null),
                 Pet(petId = "pet_id_2", name = "레몬", profileImageUrl = null),
@@ -64,9 +71,7 @@ class CreateScheduleViewModel : ViewModel() {
         }
     }
 
-    // --- 3. 이벤트 핸들러 (UI에서 호출) ---
-
-    // (펫 관련 - Todo와 동일)
+    // (펫 관련 함수 ... onPetDropdownClicked, onPetSelected 등 ... )
     fun onPetDropdownClicked() { _isPetDropdownVisible.value = true }
     fun onPetDropdownDismissed() { _isPetDropdownVisible.value = false }
     fun onPetSelected(pet: Pet) {
@@ -81,41 +86,40 @@ class CreateScheduleViewModel : ViewModel() {
         }
     }
 
-    // (일정 관련 - 새로 추가)
+    // (일정 관련 함수)
     fun onTitleChanged(newTitle: String) { _title.value = newTitle }
-    fun onMemoChanged(newMemo: String) { _memo.value = newMemo.take(20) } // 20자 제한
+    fun onMemoChanged(newMemo: String) { _memo.value = newMemo.take(20) }
     fun onAllDayToggled(isChecked: Boolean) { _isAllDay.value = isChecked }
 
-    // TODO: onDateSelected, onRepeatSelected, onAlarmSelected...
+    // --- ★ 4. 색상 선택 이벤트 핸들러 추가 ---
+    fun onColorSelected(hexColor: String) {
+        _selectedColor.value = hexColor
+    }
 
     fun createSchedule(onComplete: () -> Unit) {
         val title = _title.value
         val pets = _selectedPets.value
 
         if (title.isBlank()) {
-            // TODO: 제목이 비었을 때 사용자에게 알림
             return
         }
 
-        // --- '일정 등록' 로K ---
-        // (날짜 포맷 예시 - 필요에 따라 수정)
-        val formattedDate = SimpleDateFormat("yyyy. MM. dd", Locale.KOREA).format(Date(_startDate.value))
-
+        // --- ★ 5. (핵심) Timestamp로 저장 ---
         val newSchedule = mapOf(
-            "id" to (0..10000).random(),
             "title" to title,
             "isAllDay" to _isAllDay.value,
-            "startDate" to formattedDate, // (예시)
+            "startDate" to Timestamp(Date(_startDate.value)), // ★ Long -> Timestamp
+            "endDate" to Timestamp(Date(_endDate.value)),     // ★ Long -> Timestamp
             "memo" to _memo.value,
-            "petNames" to pets.map { it.name } // (예시: 펫 이름 리스트 저장)
+            "petNames" to pets.map { it.name },
+            "color" to _selectedColor.value // ★ 색상 Hex 저장
         )
 
-        // ★ "schedules"라는 새 컬렉션에 저장
         db.collection("schedules")
             .add(newSchedule)
             .addOnSuccessListener {
                 println("--- 일정 생성 성공 ---")
-                onComplete() // ★ 성공 시에만 화면 닫기
+                onComplete()
             }
             .addOnFailureListener { e ->
                 println("--- 일정 생성 실패 ---: $e")

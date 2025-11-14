@@ -33,6 +33,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
         jvmTarget = "11"
@@ -86,6 +88,8 @@ dependencies {
     implementation("com.navercorp.nid:oauth:5.9.0")
 
     implementation("androidx.compose.foundation:foundation:1.7.0") // 반려동물 메인화면 카드 화면 구성
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+
 
     /*// Lifecycle /Viewmodel
     implementation(libs.androidx.lifecycle.viewmodel)
