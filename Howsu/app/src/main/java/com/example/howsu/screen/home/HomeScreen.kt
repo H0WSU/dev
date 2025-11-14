@@ -147,7 +147,8 @@ fun HomeScreen(
             }
 
             // 5. 리마인더 목록
-            item { Text("리마인더", style = MaterialTheme.typography.titleLarge) }
+            item { Text("리마인더", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))}
+            item{Spacer(Modifier.height(16.dp))}
             items(
                 listOf(
                     Reminder("츄르 사오기", "2025. 10. 28", false),
@@ -238,39 +239,6 @@ fun MyTopBar() {
 // ----------------------------------------------------
 // 펫 카드 스크롤 가능
 // ----------------------------------------------------
-/*@Composable
-fun PetSection(pets: List<Pet>) {
-    Column {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                "반려동물",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
-            )
-            Spacer(Modifier.width(8.dp))
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = Color.LightGray.copy(alpha = 0.5f)
-            ) {
-                Text(
-                    pets.size.toString(),
-                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                )
-            }
-        }
-        Spacer(Modifier.height(16.dp))
-
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            items(pets) { pet ->
-                PetCard(pet = pet)
-            }
-        }
-    }
-}*/
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
