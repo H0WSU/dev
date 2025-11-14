@@ -1,5 +1,6 @@
 package com.example.howsu.screen.home
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,6 +18,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow // 👈 LazyRow 임포트
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -42,13 +45,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.howsu.common.MyBottomNavigationBar
 import com.example.howsu.common.MyFloatingActionButton
+import kotlin.math.absoluteValue
+import androidx.compose.ui.unit.fontscaling.MathUtils.lerp
+
 
 // 임시 데이터 모델
 data class Reminder(
@@ -165,8 +173,8 @@ fun HomeScreenPreview() {
     MaterialTheme {
         HomeScreen(
             navController = navController,
-            onTodoClick = {},      // 빈 람다 전달
-            onScheduleClick = {}   // 빈 람다 전달
+            onTodoClick = {},
+            onScheduleClick = {}
         )
     }
 }
@@ -201,12 +209,13 @@ fun MyTopBar() {
                 Column {
                     Text(
                         text = "자몽이 언니",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
                     )
                     Text(
                         text = "이구역의짱",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color.Black
                     )
                 }
             }
@@ -229,7 +238,7 @@ fun MyTopBar() {
 // ----------------------------------------------------
 // 펫 카드 스크롤 가능
 // ----------------------------------------------------
-@Composable
+/*@Composable
 fun PetSection(pets: List<Pet>) {
     Column {
         Row(verticalAlignment = Alignment.Bottom) {
@@ -253,6 +262,7 @@ fun PetSection(pets: List<Pet>) {
 
         LazyRow(
             modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 24.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             items(pets) { pet ->
@@ -260,10 +270,67 @@ fun PetSection(pets: List<Pet>) {
             }
         }
     }
+}*/
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun PetSection(pets: List<Pet>) {
+    Column {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                "반려동물",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+            )
+            Spacer(Modifier.width(8.dp))
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color.LightGray.copy(alpha = 0.5f)
+            ) {
+                Text(
+                    pets.size.toString(),
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+
+        val pagerState = rememberPagerState(pageCount = { pets.size })
+
+        HorizontalPager(
+            state = pagerState,
+            contentPadding = PaddingValues(horizontal = 40.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) { page ->
+
+            val pageOffset = (
+                    (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+                    ).absoluteValue
+
+            // 애니메이션 효과
+            val scale = lerp(0.85f, 1f, 1 - pageOffset)
+            val alpha = lerp(0.4f, 1f, 1 - pageOffset)
+            val zIndex = lerp(-1f, 1f, 1 - pageOffset)
+
+            Box(
+                modifier = Modifier
+                    .graphicsLayer {
+                        this.scaleX = scale
+                        this.scaleY = scale
+                        this.alpha = alpha
+                    }
+                    .zIndex(zIndex)
+            ) {
+                PetCard(pet = pets[page])
+            }
+        }
+    }
 }
+
 
 @Composable
 fun PetCard(pet: Pet) {
+    val cardWidth = 300.dp
     Card(
         modifier = Modifier
             .width(300.dp)
@@ -430,8 +497,8 @@ fun ReminderItem(reminder: Reminder) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color.LightGray.copy(alpha = 0.15f))
+            .clip(RoundedCornerShape(15.dp))
+            .background(Color.Gray.copy(alpha = 0.15f))
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
