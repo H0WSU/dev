@@ -1,6 +1,7 @@
 package com.example.howsu.screen.schedule // (1. 본인 패키지 이름 확인)
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -81,10 +82,15 @@ fun ScheduleScreen(
 
         // --- 플로팅 버튼 ---
         floatingActionButton = {
+            // ★ 이렇게 사용합니다.
             MyFloatingActionButton(
-                onClick = {
-                    // TODO: 새 일정 생성 화면으로 이동
-                    navController.navigate("create_schedule")
+                onTodoClick = {
+                    // 'TODO' 버튼 눌렀을 때 할 일 (예: 화면 이동)
+                    navController.navigate("create_todo")
+                },
+                onScheduleClick = {
+                    // '일정' 버튼 눌렀을 때 할 일
+                    navController.navigate("create_schedule") // (예시)
                 }
             )
         },
@@ -120,7 +126,6 @@ fun ScheduleScreen(
                 ScheduleTitle(title = "오늘의 일정")
             }
 
-            // --- 타임라인 및 일정 ---
             val timeSlots = (8..20).toList() // 8시부터 20시
             items(timeSlots) { hour ->
                 // 9시 슬롯에만 "병원 방문" 일정을 표시 (예시)
@@ -131,11 +136,17 @@ fun ScheduleScreen(
                     hasEvent = hasEvent,
                     eventContent = {
                         if (hasEvent) {
+                            // ★ 여기서 onClick 리스너 연결
                             ScheduleItemCard(
-                                icon = Icons.Default.Pets, // '자몽' 아이콘 대신 임시 아이콘
+                                icon = Icons.Default.Pets,
                                 title = "병원 방문",
                                 time = "09:10 am - 09:50 am",
-                                petTag = "자몽"
+                                petTag = "자몽",
+                                onClick = {
+                                    // "temp_id"는 임시 ID
+                                    // 실제로는 이 일정의 고유 ID (예: Firestore Document ID)를 넘겨야 함
+                                    navController.navigate("schedule_detail/temp_id")
+                                }
                             )
                         }
                     }
@@ -327,10 +338,13 @@ fun ScheduleItemCard(
     title: String,
     time: String,
     petTag: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
 ) {
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Black)
     ) {

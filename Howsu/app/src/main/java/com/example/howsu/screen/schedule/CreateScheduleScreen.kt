@@ -1,4 +1,4 @@
-package com.example.howsu.screen.schedule // (1. 본인 패키지 이름 확인)
+package com.example.howsu.screen.schedule
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -8,6 +8,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -33,6 +36,8 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,6 +50,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,49 +60,90 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.howsu.R
+import com.example.howsu.data.model.Pet
 import com.example.howsu.ui.theme.HowsuTheme
 
 // --- 1. 메인 화면: Scaffold 뼈대 ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateScheduleScreen(
-    navController: NavHostController
+    navController: NavHostController,
+    viewModel: CreateScheduleViewModel = viewModel()
 ) {
+    val allPets by viewModel.allPets.collectAsState()
+    val selectedPets by viewModel.selectedPets.collectAsState()
+    val isPetDropdownVisible by viewModel.isPetDropdownVisible.collectAsState()
+
+    val title by viewModel.title.collectAsState()
+    val memo by viewModel.memo.collectAsState()
+    val isAllDay by viewModel.isAllDay.collectAsState()
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             CreateScheduleTopBar(
-                onCloseClick = { navController.popBackStack() }
+                onCloseClick = { navController.popBackStack() } // 닫기
             )
         },
+        
+        // 생성 후에는 일정 화면으로 넘어가기
         bottomBar = {
             CreateScheduleBottomButton(
-                onCreateClick = { /* TODO: 생성 완료 로직 */ }
+                onCreateClick = {
+                    viewModel.createSchedule(
+                        onComplete = {
+                            navController.navigate("schedule") { // 1. "schedule" 스크린으로 이동
+                                popUpTo("create_schedule") { // 2. 지금 화면("create_todo")은
+                                    inclusive = true       //    스택에서 포함해서 제거
+                                }
+                            }
+                        }
+                    )
+                }
             )
         }
     ) { innerPadding ->
-        CreateScheduleContent(
-            modifier = Modifier.padding(innerPadding)
+        CreateScheduleContent (
+            modifier = Modifier.padding(innerPadding),
+
+            title = title,
+            memo = memo,
+            isAllDay = isAllDay,
+            allPets = allPets,
+            selectedPets = selectedPets,
+            isPetDropdownVisible = isPetDropdownVisible,
+
+            onTitleChanged = viewModel::onTitleChanged,
+            onMemoChanged = viewModel::onMemoChanged,
+            onAllDayToggled = viewModel::onAllDayToggled,
+            onPetDropdownClicked = viewModel::onPetDropdownClicked,
+            onPetDropdownDismissed = viewModel::onPetDropdownDismissed,
+            onPetSelected = viewModel::onPetSelected,
+            onPetTagRemoved = viewModel::onPetTagRemoved
         )
     }
 }
 
-// --- 2. 상단 바 (제목 + X 버튼) ---
+// 상단 바
 @Composable
 private fun CreateScheduleTopBar(onCloseClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .statusBarsPadding() // 상태 표시줄 띄워 주기
             .padding(horizontal = 16.dp, vertical = 12.dp)
             .height(40.dp)
     ) {
@@ -125,13 +172,13 @@ private fun CreateScheduleTopBar(onCloseClick: () -> Unit) {
     }
 }
 
-// --- 3. 하단 버튼 (저장하기) ---
+// 하단 버튼
 @Composable
 private fun CreateScheduleBottomButton(onCreateClick: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp)
+            .padding(horizontal = 24.dp, vertical = 24.dp)
     ) {
         Button(
             onClick = onCreateClick,
@@ -149,10 +196,10 @@ private fun CreateScheduleBottomButton(onCreateClick: () -> Unit) {
     }
 }
 
-// --- 4. 섹션 래퍼 (ImageVector 버전으로 수정) ---
+// --- 4. 섹션 래퍼 (변경 없음) ---
 @Composable
 private fun CreateScheduleSection(
-    icon: ImageVector, // ★ 1. Painter -> ImageVector
+    icon: Painter,
     title: String,
     content: @Composable () -> Unit
 ) {
@@ -161,7 +208,7 @@ private fun CreateScheduleSection(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                imageVector = icon, // ★ 2. painter = icon -> imageVector = icon
+                painter = icon,
                 contentDescription = null,
                 modifier = Modifier.size(22.dp)
             )
@@ -177,9 +224,24 @@ private fun CreateScheduleSection(
 }
 
 
-// --- 5. 본문 (스크롤 영역) ---
+// 본문 (스크롤 영역)
 @Composable
-private fun CreateScheduleContent(modifier: Modifier = Modifier) {
+private fun CreateScheduleContent(
+    modifier: Modifier = Modifier,
+    title: String,
+    memo: String,
+    isAllDay: Boolean,
+    allPets: List<Pet>,
+    selectedPets: List<Pet>,
+    isPetDropdownVisible: Boolean,
+    onTitleChanged: (String) -> Unit,
+    onMemoChanged: (String) -> Unit,
+    onAllDayToggled: (Boolean) -> Unit,
+    onPetDropdownClicked: () -> Unit,
+    onPetDropdownDismissed: () -> Unit,
+    onPetSelected: (Pet) -> Unit,
+    onPetTagRemoved: (Pet) -> Unit
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -189,102 +251,106 @@ private fun CreateScheduleContent(modifier: Modifier = Modifier) {
     ) {
         Spacer(modifier = Modifier.height(1.dp))
 
-        // --- 섹션 1: 제목 ---
-        ScheduleTitleField() // (수정됨: 색상 선택 동그라미)
+        // --- 섹션 1: 제목 (ViewModel과 연결) ---
+        ScheduleTitleField(
+            title = title,
+            onTitleChanged = onTitleChanged
+        )
 
-        // --- 섹션 2: 하루 종일 ---
-        AllDaySwitch()
+        // --- 섹션 2: 하루 종일 (ViewModel과 연결) ---
+        AllDaySwitch(
+            isChecked = isAllDay,
+            onCheckedChange = onAllDayToggled
+        )
 
         // --- 섹션 3: 날짜/시간 선택 ---
-        ScheduleTimePicker() // (수정됨: 중앙 정렬)
+        ScheduleTimePicker() // (TODO: ViewModel과 연결 필요)
 
         // --- 섹션 4: 일정 반복 ---
         ScheduleSelectRow(
             icon = Icons.Default.Refresh,
             title = "일정 반복",
             value = "반복 없음"
-        ) { /* TODO: 일정 반복 클릭 */ }
+        ) { /* TODO: ViewModel과 연결 필요 */ }
 
         // --- 섹션 5: 일정 미리 알림 ---
         ScheduleSelectRow(
             icon = Icons.Default.Notifications,
             title = "일정 미리 알림",
             value = "설정 안 함"
-        ) { /* TODO: 알림 클릭 */ }
+        ) { /* TODO: ViewModel과 연결 필요 */ }
 
-        // --- 섹션 6: 한 줄 메모 (수정됨: Icons.Default.Comment) ---
+        // --- 섹션 6: 한 줄 메모 (ViewModel과 연결) ---
         CreateScheduleSection(
-            icon = Icons.Default.Comment,
+            icon = rememberVectorPainter(image = Icons.Default.Comment),
             title = "한 줄 메모"
         ) {
-            ScheduleMemoField()
+            ScheduleMemoField(
+                memo = memo,
+                onMemoChanged = onMemoChanged
+            )
         }
 
-        // --- 섹션 7: 반려동물 선택 (수정됨: Icons.Default.Pets) ---
+        // --- 섹션 7: 반려동물 선택 (ViewModel과 연결) ---
         CreateScheduleSection(
-            icon = Icons.Default.Pets,
+            icon = rememberVectorPainter(image = Icons.Default.Pets),
             title = "반려동물 선택"
         ) {
-            PetSelector()
+            PetSelector(
+                allPets = allPets,
+                selectedPets = selectedPets,
+                isDropdownVisible = isPetDropdownVisible,
+                onDropdownClicked = onPetDropdownClicked,
+                onDropdownDismissed = onPetDropdownDismissed,
+                onPetSelected = onPetSelected,
+                onPetTagRemoved = onPetTagRemoved
+            )
         }
 
         Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
-// --- 6. 본문 컴포넌트들 ---
+// --- 6. 본문 컴포넌트들 (ViewModel과 연결되도록 수정) ---
 
-@OptIn(ExperimentalMaterial3Api::class) // (TextField에 필요)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ScheduleTitleField() {
-    var text by remember { mutableStateOf("") }
-    var selectedColor by remember { mutableStateOf(Color(0xFF4285F4)) } // (예: 파란색)
+private fun ScheduleTitleField(
+    title: String,
+    onTitleChanged: (String) -> Unit
+) {
+    var selectedColor by remember { mutableStateOf(Color(0xFF4285F4)) }
 
-    // ★ 1. OutlinedTextField -> TextField로 변경
     TextField(
-        value = text,
-        onValueChange = { text = it },
-
-        // ★ 2. placeholder 폰트/굵기 적용 (디자인과 동일하게)
+        value = title,
+        onValueChange = onTitleChanged,
         placeholder = {
-            Text(
-                "제목",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Gray
-            )
+            Text("제목", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
         },
         modifier = Modifier.fillMaxWidth(),
         trailingIcon = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // 1. 스마일 아이콘
                 Icon(
-                    painter = painterResource(id = R.drawable.mood), // (본인 아이콘 리소스)
+                    painter = painterResource(id = R.drawable.mood),
                     contentDescription = "이모티콘",
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clickable { /* TODO: 이모티콘 */ }
+                    modifier = Modifier.size(24.dp).clickable { /* TODO: 이모티콘 */ }
                 )
                 Spacer(modifier = Modifier.width(10.dp))
-
-                // 2. 색상 선택 동그라미
                 Box(
                     modifier = Modifier
                         .size(24.dp)
                         .clip(CircleShape)
-                        .background(selectedColor) // (현재 선택된 색상)
+                        .background(selectedColor)
                         .clickable { /* TODO: 색상 피커 띄우기 */ }
                         .border(BorderStroke(1.dp, Color.LightGray), CircleShape)
                 )
-                Spacer(modifier = Modifier.width(10.dp)) // (아이콘과 가장자리 여백)
+                Spacer(modifier = Modifier.width(10.dp))
             }
         },
-        // ★ 3. 배경을 투명하게, 밑줄 색상만 지정 ★
         colors = TextFieldDefaults.colors(
             focusedContainerColor = Color.Transparent,
             unfocusedContainerColor = Color.Transparent,
             disabledContainerColor = Color.Transparent,
-            // (디자인에 밑줄이 있으므로 밑줄 색상 지정)
             focusedIndicatorColor = Color.Gray,
             unfocusedIndicatorColor = Color.LightGray
         ),
@@ -293,13 +359,15 @@ private fun ScheduleTitleField() {
 }
 
 @Composable
-private fun AllDaySwitch() {
-    var isChecked by remember { mutableStateOf(false) }
+private fun AllDaySwitch(
+    isChecked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { isChecked = !isChecked }
+            .clickable { onCheckedChange(!isChecked) }
             .padding(vertical = 8.dp)
     ) {
         Icon(
@@ -312,7 +380,7 @@ private fun AllDaySwitch() {
         Spacer(modifier = Modifier.weight(1f))
         Switch(
             checked = isChecked,
-            onCheckedChange = { isChecked = it },
+            onCheckedChange = onCheckedChange,
             modifier = Modifier.scale(0.8f)
         )
     }
@@ -322,15 +390,13 @@ private fun AllDaySwitch() {
 private fun ScheduleTimePicker() {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        // horizontalArrangement = Arrangement.SpaceBetween, // <-- 1. 이 줄을 삭제합니다.
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
     ) {
-        // 시작 시간
         Column(
             modifier = Modifier
-                .weight(1f) // <-- 2. 시작 시간에 weight(1f) 추가
+                .weight(1f)
                 .clickable { /* TODO: 시작 시간 피커 */ }
         ) {
             Text("11월 1일 (토)", fontSize = 14.sp, color = Color.Gray)
@@ -338,21 +404,16 @@ private fun ScheduleTimePicker() {
             Text("오전 08:00", fontSize = 14.sp, fontWeight = FontWeight.Medium)
         }
 
-        // 화살표
         Icon(
             imageVector = Icons.Default.ArrowForward,
             contentDescription = "에서",
-            modifier = Modifier
-                .size(20.dp)
-                // 3. 화살표 좌우에 원하는 고정 패딩을 줍니다.
-                // .padding(horizontal = 5.dp)
+            modifier = Modifier.size(20.dp)
         )
 
-        // 종료 시간
         Column(
             horizontalAlignment = Alignment.End,
             modifier = Modifier
-                .weight(1f) // <-- 4. 종료 시간에 weight(1f) 추가
+                .weight(1f)
                 .clickable { /* TODO: 종료 시간 피커 */ }
         ) {
             Text("11월 1일 (토)", fontSize = 14.sp, color = Color.Gray)
@@ -370,7 +431,7 @@ private fun ScheduleSelectRow(
     onClick: () -> Unit
 ) {
     Column {
-        Divider(color = Color.LightGray.copy(alpha = 0.5f)) // (구분선)
+        Divider(color = Color.LightGray.copy(alpha = 0.5f))
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
@@ -398,14 +459,16 @@ private fun ScheduleSelectRow(
 }
 
 @Composable
-private fun ScheduleMemoField() {
-    var text by remember { mutableStateOf("") }
+private fun ScheduleMemoField(
+    memo: String,
+    onMemoChanged: (String) -> Unit
+) {
     val maxChars = 20
 
     Column {
         OutlinedTextField(
-            value = text,
-            onValueChange = { if (it.length <= maxChars) text = it },
+            value = memo,
+            onValueChange = onMemoChanged,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(17.dp),
             placeholder = { Text("메모 입력하기", fontWeight = FontWeight.Medium, fontSize = 13.sp) },
@@ -413,7 +476,7 @@ private fun ScheduleMemoField() {
         )
         Spacer(modifier = Modifier.height(2.dp))
         Text(
-            text = "${text.length}/$maxChars",
+            text = "${memo.length}/$maxChars",
             fontWeight = FontWeight.Medium,
             fontSize = 12.sp,
             color = Color.Gray,
@@ -423,88 +486,110 @@ private fun ScheduleMemoField() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun PetSelector() {
+private fun PetSelector(
+    allPets: List<Pet>,
+    selectedPets: List<Pet>,
+    isDropdownVisible: Boolean,
+    onDropdownClicked: () -> Unit,
+    onDropdownDismissed: () -> Unit,
+    onPetSelected: (Pet) -> Unit,
+    onPetTagRemoved: (Pet) -> Unit
+) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Surface(
-            // ★ 1. .fillMaxWidth()를 삭제해서 가로 폭이 줄어들게 함 ★
-            modifier = Modifier,
-            shape = RoundedCornerShape(15.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            onClick = { /* TODO: 드롭다운 메뉴 띄우기 */ }
-        ) {
-            Row(
-                modifier = Modifier
-                    // (상하 여백 8.dp로 줄임)
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
+        // --- 1. 드롭다운 버튼 ---
+        Box {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(17.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                onClick = onDropdownClicked
             ) {
-                Image(
-                    imageVector = Icons.Default.AccountCircle, // (TODO: 펫 이미지)
-                    contentDescription = "펫 프로필",
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("자몽", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Image(
+                        imageVector = Icons.Default.AccountCircle,
+                        contentDescription = "펫 프로필",
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (selectedPets.isEmpty()) "반려동물을 선택해 주세요"
+                        else selectedPets.joinToString { it.name },
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (selectedPets.isEmpty()) Color.Gray else MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = "열기",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
 
-                // ★ 2. 텍스트와 아이콘 사이에 고정 간격(8.dp) 추가 ★
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            // --- 2. 드롭다운 메뉴 ---
+            DropdownMenu(
+                expanded = isDropdownVisible,
+                onDismissRequest = onDropdownDismissed,
+                modifier = Modifier.fillMaxWidth(0.8f)
+            ) {
+                allPets.forEach { pet ->
+                    DropdownMenuItem(
+                        text = { Text(pet.name) },
+                        onClick = { onPetSelected(pet) }
+                    )
+                }
             }
         }
 
-        // --- 태그 ---
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // (자몽 칩, 레몬 칩 Surface...)
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = Color.Gray
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("자몽", fontSize = 12.sp)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "자몽 삭제",
-                        modifier = Modifier
-                            .size(16.dp)
-                            .clickable { /* TODO: 자몽 삭제 로직 */ }
-                    )
-                }
-            }
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = Color.Gray
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("레몬", fontSize = 12.sp)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "레몬 삭제",
-                        modifier = Modifier
-                            .size(16.dp)
-                            .clickable { /* TODO: 레몬 삭제 로직 */ }
-                    )
-                }
+        // --- 3. 펫 태그 (FlowRow) ---
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            selectedPets.forEach { pet ->
+                PetTagChip(
+                    pet = pet,
+                    onRemoveClick = { onPetTagRemoved(pet) }
+                )
             }
         }
     }
 }
+
+@Composable
+private fun PetTagChip(
+    pet: Pet,
+    onRemoveClick: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = Color.Gray // (임시 색상)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(pet.name, fontSize = 12.sp)
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "${pet.name} 삭제",
+                modifier = Modifier
+                    .size(16.dp)
+                    .clickable(onClick = onRemoveClick)
+            )
+        }
+    }
+}
+
 // --- 7. 미리보기 ---
 @Preview(showBackground = true)
 @Composable
