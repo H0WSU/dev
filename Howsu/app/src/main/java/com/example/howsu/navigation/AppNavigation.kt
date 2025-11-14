@@ -6,6 +6,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
+import com.example.howsu.screen.home.HomeScreen
 import com.example.howsu.screen.login.AuthViewModel
 import com.example.howsu.screen.login.JoinScreen
 import com.example.howsu.screen.login.LoadingScreen
@@ -51,6 +52,11 @@ fun AppNavigation() {
                     authViewModel = authViewModel
                 )
             }
+        }
+
+        // home화면 추가
+        composable(route = "home") {
+            HomeScreen(navController = navController)
         }
 
         // TODO: 나중에 "home" 또는 "schedule" 경로도 여기에 추가
