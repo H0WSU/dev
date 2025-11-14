@@ -33,7 +33,7 @@ fun LoadingScreen(navController: NavController) {
         if (currentUser != null) {
             // ★ 이미 로그인됨
             // 메인 앱 화면 (원래라면 home으로)
-            navController.navigate("schedule") {
+            navController.navigate("home") {   // home으로 변경
                 // LoadingScreen을 백스택에서 제거 (뒤로 가기 눌렀을 때 로딩 화면이 안 나오게)
                 // 0은 NavHost의 가장 루트를 의미
                 popUpTo(0) { inclusive = true }
