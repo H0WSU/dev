@@ -74,14 +74,19 @@ data class ScheduleDay(
 
 
 @Composable
-fun HomeScreen(navController: NavHostController){
+fun HomeScreen(
+    navController: NavHostController,
+    onTodoClick: () -> Unit = {},
+    onScheduleClick: () -> Unit = {},
+){
     Scaffold (
         topBar = { MyTopBar() },
         bottomBar = { MyBottomNavigationBar(navController = navController) },
         floatingActionButton = {
-            MyFloatingActionButton(onClick = {
-                println("FAB Clicked: 새 할 일/리마인더 추가")
-            })
+            MyFloatingActionButton(
+                onTodoClick = onTodoClick,       // HomeScreen의 파라미터를 전달
+                onScheduleClick = onScheduleClick // HomeScreen의 파라미터를 전달
+            )
         }
     ){ paddingValues ->
         LazyColumn(
@@ -158,10 +163,13 @@ fun HomeScreen(navController: NavHostController){
 fun HomeScreenPreview() {
     val navController = rememberNavController()
     MaterialTheme {
-        HomeScreen(navController = navController)
+        HomeScreen(
+            navController = navController,
+            onTodoClick = {},      // 빈 람다 전달
+            onScheduleClick = {}   // 빈 람다 전달
+        )
     }
 }
-
 // ----------------------------------------------------
 // 하위 컴포넌트들
 // ----------------------------------------------------
