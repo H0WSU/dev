@@ -56,6 +56,16 @@ import com.example.howsu.common.MyBottomNavigationBar
 import com.example.howsu.common.MyFloatingActionButton
 import kotlin.math.absoluteValue
 import androidx.compose.ui.unit.fontscaling.MathUtils.lerp
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.input.KeyboardType
+
 
 
 // 임시 데이터 모델
@@ -355,6 +365,9 @@ fun PetCard(pet: Pet) {
 
 @Composable
 fun FamilySection(members: List<FamilyMember>) {
+    // 다이얼로그 표시 상태 (기본값: 숨김)
+    var showInviteDialog by remember { mutableStateOf(false) }
+
     Column {
         Text(
             "가족 구성원",
@@ -374,7 +387,8 @@ fun FamilySection(members: List<FamilyMember>) {
                     shape = CircleShape,
                     modifier = Modifier
                         .size(60.dp)
-                        .clickable { /* 새 멤버 추가 클릭 */ },
+                        // 👈 클릭 시 다이얼로그 표시 상태를 true로 변경
+                        .clickable { showInviteDialog = true },
                     color = Color.LightGray.copy(alpha = 0.5f)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -385,6 +399,21 @@ fun FamilySection(members: List<FamilyMember>) {
                 Text("add new", style = MaterialTheme.typography.bodySmall)
             }
         }
+    }
+
+    // 팝업 표시 로직
+    if (showInviteDialog) {
+        FamilyInvitationDialog(
+            onDismissRequest = {
+                // 취소 또는 외부 클릭 시 상태를 false로 변경하여 다이얼로그 닫기
+                showInviteDialog = false
+            },
+            onInvite = { email ->
+                // TODO: 실제 이메일 초대 로직 (API 호출 등)을 여기에 구현
+                println("Invitation sent to: $email") // 임시 로그
+                // 실제 앱에서는 API 호출 후 성공/실패 메시지를 사용자에게 보여줄 수 있습니다.
+            }
+        )
     }
 }
 
@@ -490,4 +519,78 @@ fun ReminderItem(reminder: Reminder) {
             color = Color.Gray
         )
     }
+}
+
+// ----------------------------------------------------
+// 가족 초대 다이얼로그
+// ----------------------------------------------------
+
+@Composable
+fun FamilyInvitationDialog(
+    onDismissRequest: () -> Unit,
+    onInvite: (email: String) -> Unit
+) {
+    // 1. 이메일 입력 상태 관리
+    var emailInput by remember { mutableStateOf("") }
+    // 2. 이메일 유효성 검사 오류 상태 관리 (간단한 검증)
+    var isError by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = {
+            Text("가족 구성원 초대", fontWeight = FontWeight.SemiBold)
+        },
+        text = {
+            Column {
+                Text("초대할 가족의 이메일 주소를 입력해 주세요.")
+                Spacer(Modifier.height(16.dp))
+                // 이메일 입력 필드
+                OutlinedTextField(
+                    value = emailInput,
+                    onValueChange = {
+                        emailInput = it
+                        // 입력 변경 시 오류 상태 초기화
+                        isError = false
+                    },
+                    label = { Text("이메일") },
+                    placeholder = { Text("example@email.com") },
+                    singleLine = true,
+                    isError = isError,
+                    supportingText = {
+                        if (isError) {
+                            Text(
+                                modifier = Modifier.fillMaxWidth(),
+                                text = "유효한 이메일 주소를 입력해 주세요.",
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    // 간단한 이메일 유효성 검사
+                    if (emailInput.contains("@") && emailInput.contains(".")) {
+                        onInvite(emailInput) // 초대 로직 실행
+                        onDismissRequest() // 다이얼로그 닫기
+                    } else {
+                        isError = true // 오류 표시
+                    }
+                },
+                // 이메일이 비어있으면 버튼 비활성화 (선택 사항)
+                enabled = emailInput.isNotBlank() && !isError
+            ) {
+                Text("초대")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text("취소")
+            }
+        }
+    )
 }
