@@ -14,10 +14,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -29,9 +32,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,17 +62,81 @@ import com.example.howsu.screen.login.social.GoogleLoginButton
 import com.example.howsu.screen.login.social.KakaoLoginButton
 import com.example.howsu.screen.login.social.NaverLoginButton
 import com.example.howsu.ui.theme.HowsuTheme
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
     navController: NavController,
-    authViewModel: AuthViewModel? = null // ★ 1. ViewModel 주입
+    authViewModel: AuthViewModel? = null
 ) {
     val vm = authViewModel ?: androidx.lifecycle.viewmodel.compose.viewModel<AuthViewModel>()
-    // ★ 2. Firebase 콘솔에서 복사한 '웹 클라이언트 ID'
     val WEB_CLIENT_ID = "400269215891-ui7tvovededsotn89cg4prdvkj87v7ul.apps.googleusercontent.com"
+
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+
+    // --- ★ 5. 오류 메시지 상태 변수 (팝업창용) ---
+    var dialogError by remember { mutableStateOf<String?>(null) }
+    val showDialog = dialogError != null
+
+    val loginState by vm.loginState.collectAsState()
+
+    // --- ★ 6. 자동 로그인 로직 (기존) ---
+    // (이 화면이 처음 뜰 때 1번만 실행됨)
+    LaunchedEffect(key1 = Unit) {
+        if (Firebase.auth.currentUser != null) {
+            Log.d("LoginScreen", "자동 로그인 확인.")
+            navController.navigate("todo") {
+                popUpTo("auth_graph") { inclusive = true }
+            }
+        }
+    }
+
+    // --- ★ 7. 로그인 상태에 따른 팝업창 및 화면 이동 로직 ---
+    LaunchedEffect(loginState) {
+        when (loginState) {
+            is FirebaseLoginState.Success -> {
+                Log.d("LoginScreen", "Firebase 로그인 성공!")
+                navController.navigate("todo") { popUpTo("auth_graph") { inclusive = true } }
+            }
+            is FirebaseLoginState.Error -> {
+                val message = (loginState as FirebaseLoginState.Error).message
+                Log.e("LoginScreen", "Firebase 로그인 실패: $message")
+
+                // (수정) 팝업창 오류 메시지(dialogError)로 설정
+                dialogError = when {
+                    message.contains("INVALID_LOGIN_CREDENTIALS") -> "이메일 또는 비밀번호가 틀렸습니다"
+                    message.contains("invalid-email") -> "가입되지 않았거나 유효하지 않은 이메일입니다"
+                    message.contains("user-not-found") -> "가입되지 않은 이메일입니다" // (혹시 모를 구 버전)
+                    message.contains("wrong-password") -> "비밀번호가 틀렸습니다" // (혹시 모를 구 버전)
+                    else -> "로그인에 실패했습니다 ($message)"
+                }
+            }
+            is FirebaseLoginState.Loading -> {
+                dialogError = null // 로딩 시작 시 기존 오류 메시지 제거
+            }
+            else -> {}
+        }
+    }
+
+    // --- ★ 8. 팝업창(AlertDialog) Composable ---
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { dialogError = null }, // 바깥쪽 클릭 시 닫힘
+            title = { Text(text = "알림") },
+            text = { Text(text = dialogError ?: "알 수 없는 오류") },
+            confirmButton = {
+                TextButton(
+                    onClick = { dialogError = null } // '확인' 버튼 클릭 시 닫힘
+                ) {
+                    Text("확인")
+                }
+            }
+        )
+    }
 
     Scaffold(
         containerColor = Color.White,
@@ -75,7 +145,8 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .verticalScroll(rememberScrollState()), // ★ 스크롤 가능하게
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // "로그인" 타이틀
@@ -90,16 +161,16 @@ fun LoginScreen(
             LoginTextField(
                 label = "이메일",
                 placeholder = "이메일을 입력해 주세요",
-                value = "",
-                onValueChange = { }
+                value = email,
+                onValueChange = { email = it }
             )
             Spacer(modifier = Modifier.height(16.dp))
 
             // 비밀번호 입력 필드
             PasswordTextField(
                 label = "비밀번호",
-                value = "rnldudnjl!@",
-                onValueChange = { }
+                value = password,
+                onValueChange = { password = it }
             )
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -109,7 +180,14 @@ fun LoginScreen(
 
             // 로그인하기 버튼
             Button(
-                onClick = { /* TODO: 이메일/비번 로그인 로직 */ },
+                onClick = {
+                    // ★ 9. 버튼 클릭 시 팝업창 오류 설정
+                    if (email.isBlank() || password.isBlank()) {
+                        dialogError = "이메일과 비밀번호를 모두 입력해 주세요."
+                    } else {
+                        vm.signInWithEmailPassword(email, password)
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -141,7 +219,10 @@ fun LoginScreen(
                     viewModel = vm,
                     webClientId = WEB_CLIENT_ID,
                     onLoginSuccess = { Log.d("LoginScreen", "Firebase 로그인 성공!") },
-                    onLoginError = { message -> Log.e("LoginScreen", "로그인 실패: $message") }
+                    onLoginError = { message ->
+                        Log.e("LoginScreen", "로그인 실패: $message")
+                        dialogError = "구글 로그인 실패: $message" // ★ 팝업창
+                    }
                 )
 
                 KakaoLoginButton(
@@ -151,7 +232,7 @@ fun LoginScreen(
             }
 
             // 하단 가입 안내 텍스트
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.weight(1f, fill = false)) // ★ 스크롤 대응
             Text(
                 text = buildAnnotatedString {
                     append("가입한 적이 없나요? ")
@@ -162,12 +243,13 @@ fun LoginScreen(
                 fontSize = 13.sp,
                 color = Color.Gray,
                 modifier = Modifier
-                    .padding(bottom = 24.dp)
+                    .padding(vertical = 24.dp) // ★ 상하 패딩
                     .clickable { navController.navigate("join") }
             )
         }
     }
 }
+
 
 // --- 일반 텍스트 필드 (이메일) ---
 @OptIn(ExperimentalMaterial3Api::class)
@@ -191,14 +273,14 @@ private fun LoginTextField(
             placeholder = { Text(placeholder, fontSize = 14.sp, color = Color.Gray) },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp), // 높이 고정
+                .height(56.dp),
             shape = RoundedCornerShape(12.dp),
             singleLine = true,
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color(0xFFF0F0F0), // 배경색
+                focusedContainerColor = Color(0xFFF0F0F0),
                 unfocusedContainerColor = Color(0xFFF0F0F0),
                 disabledContainerColor = Color(0xFFF0F0F0),
-                focusedIndicatorColor = Color.Transparent, // 밑줄 제거
+                focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
                 disabledIndicatorColor = Color.Transparent
             )
@@ -254,7 +336,7 @@ private fun PasswordTextField(
     }
 }
 
-// --- 체크박스 및 비밀번호 기억 안나요 ---
+// --- 체크박스 및 비밀번호 기억 안 나요 ---
 @Composable
 private fun LoginOptionsRow() {
     var isChecked by remember { mutableStateOf(true) }
@@ -266,7 +348,7 @@ private fun LoginOptionsRow() {
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.clickable { isChecked = !isChecked } // Row 클릭 시 토글
+            modifier = Modifier.clickable { isChecked = !isChecked }
         ) {
             Checkbox(
                 checked = isChecked,
@@ -316,7 +398,7 @@ private fun OrDivider() {
     }
 }
 
-// --- ★ 10. SocialLoginButtons 함수 수정됨
+// --- (SocialLoginButtons, SocialLoginButton 함수는 원본과 동일) ---
 @Composable
 private fun SocialLoginButtons(
     onGoogleClick: () -> Unit,
@@ -328,18 +410,17 @@ private fun SocialLoginButtons(
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         SocialLoginButton(
-            iconRes = R.drawable.ic_naver, // (TODO: 네이버 아이콘으로 변경)
+            iconRes = R.drawable.ic_naver,
             modifier = Modifier.weight(1f),
             onClick = onNaverClick
         )
         SocialLoginButton(
-            iconRes = R.drawable.ic_google, // (구글 아이콘)
+            iconRes = R.drawable.ic_google,
             modifier = Modifier.weight(1f),
-            // ★ 1. onClick에 람다를 직접 전달
             onClick = onGoogleClick
         )
         SocialLoginButton(
-            iconRes = R.drawable.ic_kakao, // (TODO: 카카오 아이콘으로 변경)
+            iconRes = R.drawable.ic_kakao,
             modifier = Modifier.weight(1f),
             onClick = onKakaoClick
         )
@@ -350,14 +431,14 @@ private fun SocialLoginButtons(
 private fun SocialLoginButton(
     iconRes: Int,
     modifier: Modifier = Modifier,
-    onClick: () -> Unit // onClick 파라미터 추가
+    onClick: () -> Unit
 ) {
     Surface(
         modifier = modifier
             .height(60.dp)
-            .clickable(onClick = onClick), // clickable에 onClick 연결
+            .clickable(onClick = onClick),
         color = Color.White,
-        border = BorderStroke(1.dp, Color(0xFFE0E0E0)), // (테두리)
+        border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
         shape = RoundedCornerShape(12.dp)
     ) {
         Image(
@@ -365,7 +446,7 @@ private fun SocialLoginButton(
             contentDescription = null,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp) // 이미지와 테두리 간격
+                .padding(12.dp)
         )
     }
 }
