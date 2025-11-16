@@ -53,7 +53,7 @@ import android.R.style
 @Composable
 fun HomeScreen(
     navController: NavHostController,
-    viewModel: HomeScreenViewModel = viewModel(), // 👈 ViewModel 인스턴스 주입
+    viewModel: HomeScreenViewModel = viewModel(), // ViewModel 인스턴스 주입
     onTodoClick: () -> Unit = {},
     onScheduleClick: () -> Unit = {},
 ){
@@ -80,7 +80,14 @@ fun HomeScreen(
 
             // 2. 반려동물 섹션
             item{
-                PetSection(pets = uiState.pets)
+                PetSection(
+                    pets = uiState.pets,
+                    onPetClick = { pet ->
+                        // TODO: 실제 내비게이션 로직 구현
+                        // navController.navigate("pet_detail/${pet.id}") 형태로 구현해야 함
+                        println("Navigate to Pet Detail for: ${pet.name}")
+                    }
+                )
                 Spacer(Modifier.height(24.dp))
             }
 
@@ -191,7 +198,10 @@ fun MyTopBar() {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PetSection(pets: List<Pet>) {
+fun PetSection(
+    pets: List<Pet>,
+    onPetClick: (Pet) -> Unit // 👈 펫 클릭 이벤트 핸들러 추가
+) {
     Column {
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
@@ -237,7 +247,10 @@ fun PetSection(pets: List<Pet>) {
                     }
                     .zIndex(zIndex)
             ) {
-                PetCard(pet = pets[page])
+                PetCard(
+                    pet = pets[page],
+                    onViewDetail = onPetClick // 이벤트 연결
+                )
             }
         }
     }
@@ -245,7 +258,10 @@ fun PetSection(pets: List<Pet>) {
 
 
 @Composable
-fun PetCard(pet: Pet) {
+fun PetCard(
+    pet: Pet,
+    onViewDetail: (Pet) -> Unit // 클릭 이벤트 핸들러 추가
+) {
     Card(
         modifier = Modifier
             .width(300.dp)
@@ -285,7 +301,7 @@ fun PetCard(pet: Pet) {
                 }
             }
             Button(
-                onClick = { /* 펫 정보 보기 클릭 */ },
+                onClick = { onViewDetail(pet)}, // 상세 정보 보기 이벤트 호출
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.2f)),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)

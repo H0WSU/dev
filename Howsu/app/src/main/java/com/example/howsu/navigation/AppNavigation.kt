@@ -7,6 +7,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import com.example.howsu.screen.home.HomeScreen
+import com.example.howsu.screen.home.PetDetailScreen
 import com.example.howsu.screen.login.AuthViewModel
 import com.example.howsu.screen.login.JoinScreen
 import com.example.howsu.screen.login.LoadingScreen
@@ -16,8 +17,8 @@ import com.example.howsu.screen.schedule.ScheduleDetailScreen
 import com.example.howsu.screen.schedule.ScheduleScreen
 import com.example.howsu.screen.todo.CreateTodoScreen
 import com.example.howsu.screen.todo.TodoScreen
+import com.example.howsu.screen.home.Pet
 
-// (TODO: 다른 화면들도 Import)
 
 @Composable
 fun AppNavigation() {
@@ -99,6 +100,29 @@ fun AppNavigation() {
             CreateScheduleScreen(
                 navController = navController
                 // scheduleId = scheduleId // <- 나중에 이렇게 전달
+            )
+        }
+
+        // ★ 펫 상세 정보 화면 추가 (petId를 인자로 받음)
+        composable(
+            route = "pet_detail/{petId}" // 경로 정의
+        ) { backStackEntry ->
+            val petId = backStackEntry.arguments?.getString("petId")
+
+            // 현재는 PetDetailScreen이 Pet 객체를 직접 받으므로, 임시 Pet 객체를 전달함
+            // 실제 앱에서는 petId를 이용해 ViewModel에서 Pet 객체를 가져옴
+
+            // 임시 Pet 객체 생성 (나중에 petId를 이용한 데이터 로드 로직으로 대체)
+            val dummyPet = Pet(
+                name = "자몽", // 실제로는 ID를 통해 이름 로드
+                age = 7,
+                gender = "여아"
+            )
+
+            // PetDetailScreen 호출
+            PetDetailScreen(
+                navController = navController,
+                pet = dummyPet // TODO: 실제 Pet 객체로 대체 필요
             )
         }
     }
