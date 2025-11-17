@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding // ★ 1. (신규) 네비게이션 바 패딩
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -39,18 +40,25 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet // ★ 2. (신규) 바텀 시트
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberModalBottomSheetState // ★ 3. (신규) 바텀 시트 상태
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope // ★ 4. (신규) 코루틴 스코프
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,6 +67,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,6 +76,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.howsu.R
 import com.example.howsu.ui.theme.HowsuTheme
+import kotlinx.coroutines.launch // ★ 5. (신규) 코루틴 launch
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -84,15 +94,12 @@ fun ScheduleDetailScreen(
 
     val refreshTrigger = navController.currentBackStackEntry
         ?.savedStateHandle
-        ?.getStateFlow("refresh_needed", false) // 1. "refresh_needed" 키를 관찰
+        ?.getStateFlow("refresh_needed", false)
         ?.collectAsState()
 
     LaunchedEffect(key1 = refreshTrigger?.value) {
         if (refreshTrigger?.value == true) {
-            // 2. 신호가 true이면, 데이터를 강제로 새로고침
             viewModel.loadScheduleDetails(scheduleId)
-
-            // 3. (중요) 신호를 받았으니 다시 false로 리셋
             navController.currentBackStackEntry
                 ?.savedStateHandle
                 ?.set("refresh_needed", false)
@@ -100,6 +107,11 @@ fun ScheduleDetailScreen(
     }
 
     val schedule by viewModel.selectedSchedule.collectAsState()
+
+    // ★★★ 6. (수정) 바텀 시트 상태 관리
+    var showDeleteSheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState()
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -119,13 +131,9 @@ fun ScheduleDetailScreen(
         bottomBar = {
             DeleteScheduleBottomButton(
                 onDeleteClick = {
+                    // ★★★ 7. (수정) 삭제 버튼 클릭 시 시트 표시
                     if (scheduleId != null) {
-                        viewModel.deleteSchedule(scheduleId) {
-                            navController.previousBackStackEntry
-                                ?.savedStateHandle
-                                ?.set("refresh_needed", true)
-                            navController.popBackStack()
-                        }
+                        showDeleteSheet = true
                     } else {
                         Log.e("ScheduleDetailScreen", "scheduleId가 null이라 삭제할 수 없습니다.")
                     }
@@ -133,6 +141,42 @@ fun ScheduleDetailScreen(
             )
         }
     ) { innerPadding ->
+
+        // ★★★ 8. (수정) 바텀 시트 로직
+        if (showDeleteSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showDeleteSheet = false },
+                sheetState = sheetState
+            ) {
+                // 바텀 시트의 내용물 (새로 만든 Composable)
+                DeleteOptionsBottomSheet(
+                    onConfirm = { deletionType ->
+                        // 1. 시트를 닫음
+                        scope.launch { sheetState.hide() }.invokeOnCompletion {
+                            if (!sheetState.isVisible) {
+                                showDeleteSheet = false
+                            }
+                        }
+                        // 2. 뷰모델 호출
+                        viewModel.deleteSchedule(deletionType) {
+                            navController.previousBackStackEntry
+                                ?.savedStateHandle
+                                ?.set("refresh_needed", true)
+                            navController.popBackStack()
+                        }
+                    },
+                    onDismiss = {
+                        // '취소' 버튼 클릭 시
+                        scope.launch { sheetState.hide() }.invokeOnCompletion {
+                            if (!sheetState.isVisible) {
+                                showDeleteSheet = false
+                            }
+                        }
+                    }
+                )
+            }
+        }
+
 
         if (schedule == null) {
             Box(
@@ -146,28 +190,18 @@ fun ScheduleDetailScreen(
             return@Scaffold
         }
 
+        // --- (이하 기존 UI 코드는 변경 없음) ---
         val scheduleData = schedule!!
-
-        // 시간 포맷팅
         val dateFormatter = DateTimeFormatter.ofPattern("M월 d일 (E)", Locale.KOREAN)
         val timeFormatter = DateTimeFormatter.ofPattern("a hh:mm", Locale.KOREAN)
         val zoneId = ZoneId.systemDefault()
-
-        val startDateStr = scheduleData.startDate.toDate().toInstant().atZone(zoneId)
-            .format(dateFormatter)
-        val startTimeStr = scheduleData.startDate.toDate().toInstant().atZone(zoneId)
-            .format(timeFormatter)
-        val endDateStr = scheduleData.endDate.toDate().toInstant().atZone(zoneId)
-            .format(dateFormatter)
-        val endTimeStr = scheduleData.endDate.toDate().toInstant().atZone(zoneId)
-            .format(timeFormatter)
-
-        // 색상 파싱
+        val startDateStr = scheduleData.startDate.toDate().toInstant().atZone(zoneId).format(dateFormatter)
+        val startTimeStr = scheduleData.startDate.toDate().toInstant().atZone(zoneId).format(timeFormatter)
+        val endDateStr = scheduleData.endDate.toDate().toInstant().atZone(zoneId).format(dateFormatter)
+        val endTimeStr = scheduleData.endDate.toDate().toInstant().atZone(zoneId).format(timeFormatter)
         val scheduleColor = try {
             Color(android.graphics.Color.parseColor(scheduleData.color))
-        } catch (e: Exception) {
-            Color(0xFF4285F4) // 파싱 실패 시 파란색
-        }
+        } catch (e: Exception) { Color(0xFF4285F4) }
 
         Column(
             modifier = Modifier
@@ -175,13 +209,10 @@ fun ScheduleDetailScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 24.dp)
                 .verticalScroll(rememberScrollState()),
-            // ★ (수정) '수정하기' 화면과 동일하게 20.dp
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // ★ (수정) '수정하기' 화면과 동일하게 1.dp
             Spacer(modifier = Modifier.height(1.dp))
 
-            // --- 제목 --- (CreateScheduleScreen과 스타일 동일하게 맞춤)
             TextField(
                 value = scheduleData.title,
                 onValueChange = {},
@@ -225,30 +256,24 @@ fun ScheduleDetailScreen(
                 maxLines = 1
             )
 
-            // --- "하루 종일" (★ 수정됨) ---
             DetailAllDaySwitchRow(
                 icon = Icons.Default.Schedule,
                 title = "하루 종일",
                 isChecked = scheduleData.isAllDay
             )
 
-            // --- "날짜" (★ '하루 종일'이 아닐 때만 표시) ---
             if (!scheduleData.isAllDay) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp) // '수정하기'와 동일한 16dp
+                        .padding(horizontal = 16.dp)
                 ) {
-                    // --- 1. 시작 날짜/시간 ---
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(startDateStr, fontSize = 14.sp, color = Color.Gray)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(startTimeStr, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                     }
-
                     Spacer(modifier = Modifier.weight(1f))
                     Icon(
                         imageVector = Icons.Default.ArrowForward,
@@ -256,11 +281,7 @@ fun ScheduleDetailScreen(
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.weight(1f))
-
-                    // --- 3. 종료 날짜/시간 ---
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(endDateStr, fontSize = 14.sp, color = Color.Gray)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(endTimeStr, fontSize = 14.sp, fontWeight = FontWeight.Medium)
@@ -268,21 +289,16 @@ fun ScheduleDetailScreen(
                 }
             }
 
-            // --- "반복" (★ 수정됨) ---
             DetailSelectRow(
                 icon = Icons.Default.Refresh,
                 title = "일정 반복",
-                value = "매일" // (TODO: scheduleData.repeatRule)
+                value = scheduleData.recurrenceRule
             )
-
-            // --- "알림" (★ 수정됨) ---
             DetailSelectRow(
                 icon = Icons.Default.Notifications,
                 title = "일정 미리 알림",
-                value = "1일 전 오후 5:00" // (TODO: scheduleData.alarmRule)
+                value = scheduleData.alarmRule
             )
-
-            // --- "한 줄 메모" (★ 수정됨) ---
             DetailInfoColumn(
                 icon = Icons.Default.Comment,
                 title = "한 줄 메모"
@@ -291,38 +307,83 @@ fun ScheduleDetailScreen(
                     value = scheduleData.memo,
                     onValueChange = {},
                     readOnly = true,
-                    enabled = false, // 비활성화 상태로 readOnly 스타일 적용
+                    enabled = false,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(17.dp), // '수정하기'와 동일
+                    shape = RoundedCornerShape(17.dp),
                     placeholder = { Text(
                         "메모가 없습니다.",
-                        fontWeight = FontWeight.Medium, // '수정하기'와 동일
-                        fontSize = 13.sp // '수정하기'와 동일
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp
                     ) },
                     maxLines = 3
                 )
             }
-
-            // --- "반료동물" (★ 수정됨) ---
             DetailInfoColumn(
                 icon = Icons.Default.Pets,
-                title = "반려동물" // '수정하기'에서는 "반려동물 선택"
+                title = "반려동물"
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // '수정하기'의 PetTagChip 대신 PetChip 사용 (스타일 다름)
                     scheduleData.petNames.forEach { petName ->
                         PetChip(name = petName)
                     }
                 }
             }
-
-            // ★ (수정) '수정하기' 화면과 동일하게 32.dp
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
 
-// --- TopBar (수정 없음) ---
+// ★★★ 바텀 시트 전용 Content Composable ★★★
+@Composable
+fun DeleteOptionsBottomSheet(
+    onConfirm: (DeletionType) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding() // 하단 네비게이션 바 겹침 방지
+            .padding(top = 8.dp)
+    ) {
+
+        // (옵션 1: 단일 삭제)
+        TextButton(
+            onClick = { onConfirm(DeletionType.SINGLE) },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(0.dp)
+        ) {
+            Text(
+                "이 일정만 바로 삭제하기",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                textAlign = TextAlign.Start,
+                color = MaterialTheme.colorScheme.onSurface, // ★ 기본 색상
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+
+        // (옵션 2: 이후 삭제 - 빨간색)
+        TextButton(
+            onClick = { onConfirm(DeletionType.FUTURE) },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(0.dp)
+        ) {
+            Text(
+                "이 일정과 이후 반복 일정 모두 삭제하기",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                textAlign = TextAlign.Start,
+                color = Color.Red,
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp)) // 하단 여백
+    }
+}
+
 @Composable
 private fun DetailTopBar(onBackClick: () -> Unit, onEditClick: () -> Unit) {
     Box(
@@ -363,15 +424,12 @@ private fun DetailAllDaySwitchRow(
     title: String,
     isChecked: Boolean
 ) {
-    // 2. (신규) '수정' 화면과 동일한 색상 정의
     val customSwitchColors = SwitchDefaults.colors(
         checkedTrackColor = Color.Black,
         checkedThumbColor = Color.White,
         uncheckedTrackColor = Color.LightGray,
         uncheckedThumbColor = Color.White,
         uncheckedBorderColor = Color.LightGray,
-
-        // ★ '자세히 보기'는 disabled 상태이므로 이 색상이 적용됨
         disabledCheckedTrackColor = Color.Black,
         disabledCheckedThumbColor = Color.White,
         disabledUncheckedTrackColor = Color.LightGray,
@@ -383,31 +441,22 @@ private fun DetailAllDaySwitchRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp) // '수정'과 동일한 8dp
+            .padding(vertical = 8.dp)
     ) {
-        Icon(
-            icon,
-            title,
-            modifier = Modifier.size(22.dp) // '수정'과 동일한 22dp
-        )
-        Spacer(modifier = Modifier.width(12.dp)) // '수정'과 동일한 12dp
-        Text(
-            title,
-            fontSize = 14.sp, // '수정'과 동일한 14sp
-            fontWeight = FontWeight.Bold // '수정'과 동일한 Bold
-        )
+        Icon(icon, title, modifier = Modifier.size(22.dp))
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(title, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.weight(1f))
         Switch(
             checked = isChecked,
             onCheckedChange = null,
-            enabled = false, // 자세히 보기이므로 비활성화
-            modifier = Modifier.scale(0.8f), // '수정'과 동일한 스케일
-            colors = customSwitchColors // 3. (신규) colors 속성 적용
+            enabled = false,
+            modifier = Modifier.scale(0.8f),
+            colors = customSwitchColors
         )
     }
 }
 
-// --- ★ (신규) "반복", "알림" Row ---
 @Composable
 private fun DetailSelectRow(
     icon: ImageVector,
@@ -415,57 +464,33 @@ private fun DetailSelectRow(
     value: String
 ) {
     Column {
-        Divider(color = Color.LightGray.copy(alpha = 0.5f)) // '수정'과 동일한 Divider
+        Divider(color = Color.LightGray.copy(alpha = 0.5f))
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 16.dp) // '수정'과 동일한 16dp
+                .padding(vertical = 16.dp)
         ) {
-            Icon(
-                icon,
-                title,
-                modifier = Modifier.size(22.dp) // '수정'과 동일한 22dp
-            )
-            Spacer(modifier = Modifier.width(12.dp)) // '수정'과 동일한 12dp
-            Text(
-                title,
-                fontSize = 14.sp, // '수정'과 동일한 14sp
-                fontWeight = FontWeight.Bold // '수정'과 동일한 Bold
-            )
+            Icon(icon, title, modifier = Modifier.size(22.dp))
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(title, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.weight(1f))
-            Text(
-                value,
-                fontSize = 14.sp, // '수정'과 동일한 14sp
-                fontWeight = FontWeight.Bold, // '수정'과 동일한 Bold
-                color = Color.Gray
-            )
-            // '자세히 보기'에는 'v' 아이콘이 없으므로 생략
+            Text(value, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
         }
     }
 }
 
-// --- ★ (신규) "메모", "반려동물" Column ---
 @Composable
 private fun DetailInfoColumn(icon: ImageVector, title: String, content: @Composable () -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp) // '수정'과 동일
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                icon,
-                title,
-                modifier = Modifier.size(22.dp) // '수정'과 동일
-            )
-            Spacer(modifier = Modifier.width(8.dp)) // '수정'과 동일
-            Text(
-                title,
-                fontSize = 14.sp, // '수정'과 동일
-                fontWeight = FontWeight.Bold // '수정'과 동일
-            )
+            Icon(icon, title, modifier = Modifier.size(22.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(title, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
-        // '수정' (22dp + 8dp = 30dp)와 동일한 패딩
         Box(modifier = Modifier.padding(start = 30.dp)) {
             content()
         }
@@ -473,7 +498,6 @@ private fun DetailInfoColumn(icon: ImageVector, title: String, content: @Composa
 }
 
 
-// --- PetChip (수정 없음) ---
 @Composable
 private fun PetChip(name: String) {
     Surface(
@@ -498,7 +522,6 @@ private fun PetChip(name: String) {
     }
 }
 
-// --- BottomBar (수정 없음) ---
 @Composable
 private fun DeleteScheduleBottomButton(onDeleteClick: () -> Unit) {
     Column(
@@ -522,7 +545,6 @@ private fun DeleteScheduleBottomButton(onDeleteClick: () -> Unit) {
     }
 }
 
-// --- Preview (수정 없음) ---
 @Preview(showBackground = true, backgroundColor = 0xFFFFFFFF)
 @Composable
 fun ScheduleDetailScreenPreview() {

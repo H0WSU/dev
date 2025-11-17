@@ -1,17 +1,23 @@
 package com.example.howsu.data.model
 
 import androidx.annotation.DrawableRes
+import com.google.firebase.firestore.DocumentId
+import java.util.UUID
 
 data class Task(
-    var id: Int = 0,
-    var title: String = "",
-    var date: String = "",
-    var isChecked: Boolean = false
+    val id: String = UUID.randomUUID().toString(),
+    val title: String? = null,
+    val date: String? = null,
+    val isChecked: Boolean = false
 )
 
 data class TodoGroup(
-    var id: Int = 0,
-    var assigneeName: String = "",
-    @DrawableRes var assigneeProfileRes: Int? = null,
-    var tasks: List<Task> = emptyList()
+    @DocumentId
+    val documentId: String = "",
+
+    val assigneeId: String? = null,
+    val assigneeName: String? = null,
+    @DrawableRes val assigneeProfileRes: Int? = null,
+    val tasks: List<Task> = emptyList(),
+    val petNames: List<String> = emptyList()
 )

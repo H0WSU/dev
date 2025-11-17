@@ -1,5 +1,7 @@
 package com.example.howsu.screen.schedule
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -28,6 +30,7 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Comment
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Pets
@@ -61,14 +64,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -82,6 +89,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.howsu.R
 import com.example.howsu.data.model.Pet
 import com.example.howsu.ui.theme.HowsuTheme
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -93,7 +101,7 @@ fun CreateScheduleScreen(
     scheduleId: String? = null,
     viewModel: CreateScheduleViewModel = viewModel()
 ) {
-    // --- ViewModel 상태 구독 ---
+    // --- (기존 상태 구독 - 변경 없음) ---
     val allPets by viewModel.allPets.collectAsState()
     val selectedPets by viewModel.selectedPets.collectAsState()
     val isPetDropdownVisible by viewModel.isPetDropdownVisible.collectAsState()
@@ -103,28 +111,39 @@ fun CreateScheduleScreen(
     val selectedColor by viewModel.selectedColor.collectAsState()
     val predefinedColors = viewModel.predefinedColors
     val isColorPickerVisible by viewModel.isColorPickerVisible.collectAsState()
-
-    // ★ 날짜/시간 피커 상태
     val startDate by viewModel.startDate.collectAsState()
     val endDate by viewModel.endDate.collectAsState()
     val showDatePicker by viewModel.showDatePicker.collectAsState()
     val showTimePicker by viewModel.showTimePicker.collectAsState()
     val pickerTarget by viewModel.pickerTarget.collectAsState()
-
-    // ★ 반복/알림 상태
     val recurrenceRule by viewModel.recurrenceRule.collectAsState()
     val showRecurrencePicker by viewModel.showRecurrencePicker.collectAsState()
     val recurrenceOptions = viewModel.recurrenceOptions
     val alarmRule by viewModel.alarmRule.collectAsState()
     val showAlarmPicker by viewModel.showAlarmPicker.collectAsState()
     val alarmOptions = viewModel.alarmOptions
+    val recurrenceEndDate by viewModel.recurrenceEndDate.collectAsState()
+    val showRecurrenceEndDatePicker by viewModel.showRecurrenceEndDatePicker.collectAsState()
+
+    // --- (기존 쉐이크 애니메이션 - 변경 없음) ---
+    val scope = rememberCoroutineScope()
+    val shakeOffset = remember { Animatable(0f) }
+    fun triggerShake() {
+        scope.launch {
+            shakeOffset.animateTo(0f)
+            repeat(3) {
+                shakeOffset.animateTo(15f, tween(50))
+                shakeOffset.animateTo(-15f, tween(50))
+            }
+            shakeOffset.animateTo(0f, tween(50))
+        }
+    }
 
     LaunchedEffect(key1 = Unit) {
         viewModel.initialize(scheduleId)
     }
 
-    // --- ★ (신규) 날짜/시간 선택 다이얼로그 ---
-    // 날짜 선택기
+    // --- (기존 다이얼로그 - 변경 없음) ---
     if (showDatePicker) {
         val targetMillis = if (pickerTarget == DateTimePickerTarget.START) startDate else endDate
         val datePickerState = rememberDatePickerState(
@@ -145,7 +164,6 @@ fun CreateScheduleScreen(
         }
     }
 
-    // 시간 선택기
     if (showTimePicker) {
         val targetMillis = if (pickerTarget == DateTimePickerTarget.START) startDate else endDate
         val initialTime = Date(targetMillis)
@@ -153,7 +171,7 @@ fun CreateScheduleScreen(
             initialHour = initialTime.hours,
             initialMinute = initialTime.minutes
         )
-        TimePickerDialog( // (이 함수는 아래 13번에 새로 만듭니다)
+        TimePickerDialog(
             onDismissRequest = viewModel::onTimePickerDismissed,
             confirmButton = {
                 TextButton(onClick = {
@@ -168,6 +186,27 @@ fun CreateScheduleScreen(
         }
     }
 
+    if (showRecurrenceEndDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = recurrenceEndDate ?: System.currentTimeMillis()
+        )
+        DatePickerDialog(
+            onDismissRequest = { viewModel.onRecurrenceEndDateSelected(null) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.onRecurrenceEndDateSelected(datePickerState.selectedDateMillis)
+                }) { Text("확인") }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.onRecurrenceEndDateSelected(null) }) { Text("취소") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    val context = LocalContext.current
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -176,67 +215,80 @@ fun CreateScheduleScreen(
                 onCloseClick = { navController.popBackStack() }
             )
         },
-        bottomBar = {
-            CreateScheduleBottomButton(
-                onCreateClick = {
-                    viewModel.saveSchedule {
-                        // '자세히 보기' 화면에 "refresh" 신호 전달
-                        navController.previousBackStackEntry
-                            ?.savedStateHandle
-                            ?.set("refresh_needed", true) // "refresh_needed" 키에 true 저장
+        // ★★★ (수정) bottomBar 속성 제거
+        // bottomBar = { ... }
+    ) { innerPadding ->
 
-                        navController.popBackStack() // 2. 그 다음에 뒤로 감
+        // ★★★ (신규) Box로 래핑하여 버튼을 띄움
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding) // TopAppBar의 패딩은 여전히 적용
+        ) {
+            // (기존) 스크롤 가능한 본문
+            CreateScheduleContent (
+                modifier = Modifier.fillMaxSize(), // ★ Box를 꽉 채우도록
+                shakeOffset = shakeOffset.value,
+                title = title,
+                memo = memo,
+                isAllDay = isAllDay,
+                allPets = allPets,
+                selectedPets = selectedPets,
+                isPetDropdownVisible = isPetDropdownVisible,
+                selectedColor = selectedColor,
+                predefinedColors = predefinedColors,
+                isColorPickerVisible = isColorPickerVisible,
+                onColorSelected = viewModel::onColorSelected,
+                onColorPickerClicked = viewModel::onColorPickerClicked,
+                onColorPickerDismissed = viewModel::onColorPickerDismissed,
+                onTitleChanged = viewModel::onTitleChanged,
+                onMemoChanged = viewModel::onMemoChanged,
+                onAllDayToggled = viewModel::onAllDayToggled,
+                onPetDropdownClicked = viewModel::onPetDropdownClicked,
+                onPetDropdownDismissed = viewModel::onPetDropdownDismissed,
+                onPetSelected = viewModel::onPetSelected,
+                onPetTagRemoved = viewModel::onPetTagRemoved,
+                startDate = startDate,
+                endDate = endDate,
+                onDatePickerClicked = viewModel::onDatePickerClicked,
+                onTimePickerClicked = viewModel::onTimePickerClicked,
+                recurrenceRule = recurrenceRule,
+                showRecurrencePicker = showRecurrencePicker,
+                recurrenceOptions = recurrenceOptions,
+                onRecurrenceClicked = viewModel::onRecurrenceClicked,
+                onRecurrenceDismissed = viewModel::onRecurrenceDismissed,
+                onRecurrenceSelected = viewModel::onRecurrenceSelected,
+                alarmRule = alarmRule,
+                showAlarmPicker = showAlarmPicker,
+                alarmOptions = alarmOptions,
+                onAlarmClicked = viewModel::onAlarmClicked,
+                onAlarmDismissed = viewModel::onAlarmDismissed,
+                onAlarmSelected = viewModel::onAlarmSelected,
+                recurrenceEndDate = recurrenceEndDate,
+                onRecurrenceEndDateClicked = viewModel::onRecurrenceEndDateClicked
+            )
+
+            // ★★★ (신규) 하단 버튼을 Box의 바닥에 정렬
+            CreateScheduleBottomButton(
+                modifier = Modifier.align(Alignment.BottomCenter), // ★ 여기에 배치
+                onCreateClick = {
+                    if (title.isBlank()) {
+                        triggerShake()
+                    } else {
+                        viewModel.saveSchedule(context = context) {
+                            navController.previousBackStackEntry
+                                ?.savedStateHandle
+                                ?.set("refresh_needed", true)
+                            navController.popBackStack()
+                        }
                     }
                 }
             )
         }
-    ) { innerPadding ->
-        CreateScheduleContent (
-            modifier = Modifier.padding(innerPadding),
-            title = title,
-            memo = memo,
-            isAllDay = isAllDay,
-            allPets = allPets,
-            selectedPets = selectedPets,
-            isPetDropdownVisible = isPetDropdownVisible,
-            selectedColor = selectedColor,
-            predefinedColors = predefinedColors,
-            isColorPickerVisible = isColorPickerVisible,
-            onColorSelected = viewModel::onColorSelected,
-            onColorPickerClicked = viewModel::onColorPickerClicked,
-            onColorPickerDismissed = viewModel::onColorPickerDismissed,
-            onTitleChanged = viewModel::onTitleChanged,
-            onMemoChanged = viewModel::onMemoChanged,
-            onAllDayToggled = viewModel::onAllDayToggled,
-            onPetDropdownClicked = viewModel::onPetDropdownClicked,
-            onPetDropdownDismissed = viewModel::onPetDropdownDismissed,
-            onPetSelected = viewModel::onPetSelected,
-            onPetTagRemoved = viewModel::onPetTagRemoved,
-
-            // ★ 상태 및 핸들러 전달
-            startDate = startDate,
-            endDate = endDate,
-            onDatePickerClicked = viewModel::onDatePickerClicked,
-            onTimePickerClicked = viewModel::onTimePickerClicked,
-
-            recurrenceRule = recurrenceRule,
-            showRecurrencePicker = showRecurrencePicker,
-            recurrenceOptions = recurrenceOptions,
-            onRecurrenceClicked = viewModel::onRecurrenceClicked,
-            onRecurrenceDismissed = viewModel::onRecurrenceDismissed,
-            onRecurrenceSelected = viewModel::onRecurrenceSelected,
-
-            alarmRule = alarmRule,
-            showAlarmPicker = showAlarmPicker,
-            alarmOptions = alarmOptions,
-            onAlarmClicked = viewModel::onAlarmClicked,
-            onAlarmDismissed = viewModel::onAlarmDismissed,
-            onAlarmSelected = viewModel::onAlarmSelected
-        )
     }
 }
 
-// 상단 바 (★ 닫기 버튼 테두리 제거됨)
+// (기존) 상단 바 - 변경 없음
 @Composable
 private fun CreateScheduleTopBar(
     title: String,
@@ -260,7 +312,6 @@ private fun CreateScheduleTopBar(
             modifier = Modifier
                 .size(39.dp)
                 .align(Alignment.CenterEnd)
-            // .border(...) // ★ 테두리 삭제됨
         ) {
             Icon(
                 imageVector = Icons.Default.Close,
@@ -271,13 +322,24 @@ private fun CreateScheduleTopBar(
     }
 }
 
-// 하단 버튼
+// ★★★ (수정) 하단 버튼 - modifier 파라미터 추가, 패딩 수정
 @Composable
-private fun CreateScheduleBottomButton(onCreateClick: () -> Unit) {
+private fun CreateScheduleBottomButton(
+    modifier: Modifier = Modifier, // ★ 1. modifier 파라미터 추가
+    onCreateClick: () -> Unit
+) {
     Column(
-        modifier = Modifier
+        modifier = modifier // ★ 2. 전달받은 modifier 사용 (align(BottomCenter))
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 60.dp)
+            // ★ 3. 배경을 투명하게 (Scaffold 배경이 보이도록)
+            .background(Color.Transparent)
+            // ★ 4. (수정) 패딩 변경 (상단 공백 16dp, 하단 공백 32dp)
+            .padding(
+                start = 24.dp,
+                end = 24.dp,
+                top = 16.dp,
+                bottom = 16.dp
+            )
     ) {
         Button(
             onClick = onCreateClick,
@@ -292,7 +354,7 @@ private fun CreateScheduleBottomButton(onCreateClick: () -> Unit) {
     }
 }
 
-// --- 섹션 래퍼 ---
+// (기존) 섹션 래퍼 - 변경 없음
 @Composable
 private fun CreateScheduleSection(
     icon: Painter,
@@ -320,10 +382,11 @@ private fun CreateScheduleSection(
 }
 
 
-// 본문 (스크롤 영역)
+// ★★★ (수정) 본문 (스크롤 영역) - 하단 패딩 추가
 @Composable
 private fun CreateScheduleContent(
     modifier: Modifier = Modifier,
+    shakeOffset: Float,
     title: String,
     memo: String,
     isAllDay: Boolean,
@@ -343,38 +406,46 @@ private fun CreateScheduleContent(
     onPetDropdownDismissed: () -> Unit,
     onPetSelected: (Pet) -> Unit,
     onPetTagRemoved: (Pet) -> Unit,
-
-    // ★ 날짜/시간/반복/알림 파라미터
     startDate: Long,
     endDate: Long,
     onDatePickerClicked: (DateTimePickerTarget) -> Unit,
     onTimePickerClicked: (DateTimePickerTarget) -> Unit,
-
     recurrenceRule: String,
     showRecurrencePicker: Boolean,
     recurrenceOptions: List<String>,
     onRecurrenceClicked: () -> Unit,
     onRecurrenceDismissed: () -> Unit,
     onRecurrenceSelected: (String) -> Unit,
-
     alarmRule: String,
     showAlarmPicker: Boolean,
     alarmOptions: List<String>,
     onAlarmClicked: () -> Unit,
     onAlarmDismissed: () -> Unit,
-    onAlarmSelected: (String) -> Unit
+    onAlarmSelected: (String) -> Unit,
+    recurrenceEndDate: Long?,
+    onRecurrenceEndDateClicked: () -> Unit
 ) {
+    val dateFormatter = SimpleDateFormat("yyyy.MM.dd 까지", Locale.KOREAN)
+    val recurrenceEndDateStr = recurrenceEndDate?.let { dateFormatter.format(Date(it)) } ?: "계속 반복"
+
     Column(
         modifier = modifier
-            .fillMaxSize()
+            // .fillMaxSize() // ★ Box에서 이미 적용됨
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp),
+            // ★ (수정) padding(horizontal = 24.dp) -> padding(...)
+            .padding(
+                start = 24.dp,
+                end = 24.dp,
+                // ★ (신규) 버튼 높이(56) + 상하패딩(16+32) = 104dp + 여유 16dp
+                bottom = 120.dp
+            ),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         Spacer(modifier = Modifier.height(1.dp))
 
-        // --- 섹션 1: 제목 ---
+        // --- (기존) 섹션 1: 제목 ---
         ScheduleTitleField(
+            shakeOffset = shakeOffset,
             title = title,
             selectedColor = selectedColor,
             onTitleChanged = onTitleChanged,
@@ -385,12 +456,13 @@ private fun CreateScheduleContent(
             onColorSelected = onColorSelected
         )
 
-        // --- 섹션 2: 하루 종일 ---
+        // --- (기존) 섹션 2: 하루 종일 ---
         AllDaySwitch(
             isChecked = isAllDay,
             onCheckedChange = onAllDayToggled
         )
 
+        // --- (기존) 시간 선택 ---
         if (!isAllDay) {
             ScheduleTimePicker(
                 startDate = startDate,
@@ -402,23 +474,18 @@ private fun CreateScheduleContent(
             )
         }
 
-        Box(modifier = Modifier.fillMaxWidth()) { // 클릭 영역을 위한 Box
+        // --- (기존) 일정 반복 ---
+        Box(modifier = Modifier.fillMaxWidth()) {
             ScheduleSelectRow(
                 icon = Icons.Default.Refresh,
                 title = "일정 반복",
                 value = recurrenceRule,
-                onClick = onRecurrenceClicked // 이 클릭으로 메뉴를 토글
+                onClick = onRecurrenceClicked
             )
-
-            // ★ 1. 메뉴를 오른쪽 정렬하기 위한 추가 Box
-            Box(
-                modifier = Modifier.align(Alignment.TopEnd)
-            ) {
-                // ★ 2. DropdownMenu 자체의 modifier = Modifier.fillMaxWidth() 삭제
+            Box(modifier = Modifier.align(Alignment.TopEnd)) {
                 DropdownMenu(
                     expanded = showRecurrencePicker,
                     onDismissRequest = onRecurrenceDismissed
-                    // ★ modifier = Modifier.fillMaxWidth() 삭제!
                 ) {
                     recurrenceOptions.forEach { rule ->
                         DropdownMenuItem(
@@ -430,25 +497,30 @@ private fun CreateScheduleContent(
             }
         }
 
+        // --- (기존) '반복 종료 날짜' UI ---
+        if (recurrenceRule != "반복 안 함") {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                ScheduleSelectRow(
+                    icon = Icons.Default.Event,
+                    title = "반복 종료",
+                    value = recurrenceEndDateStr,
+                    onClick = onRecurrenceEndDateClicked
+                )
+            }
+        }
 
-        // --- ★ 섹션 5: 일정 미리 알림 (수정됨) ---
-        Box(modifier = Modifier.fillMaxWidth()) { // 클릭 영역을 위한 Box
+        // --- (기존) 일정 미리 알림 ---
+        Box(modifier = Modifier.fillMaxWidth()) {
             ScheduleSelectRow(
                 icon = Icons.Default.Notifications,
                 title = "일정 미리 알림",
                 value = alarmRule,
-                onClick = onAlarmClicked // 이 클릭으로 메뉴를 토글
+                onClick = onAlarmClicked
             )
-
-            // ★ 1. 메뉴를 오른쪽 정렬하기 위한 추가 Box
-            Box(
-                modifier = Modifier.align(Alignment.TopEnd)
-            ) {
-                // ★ 2. DropdownMenu 자체의 modifier = Modifier.fillMaxWidth() 삭제
+            Box(modifier = Modifier.align(Alignment.TopEnd)) {
                 DropdownMenu(
                     expanded = showAlarmPicker,
                     onDismissRequest = onAlarmDismissed
-                    // ★ modifier = Modifier.fillMaxWidth() 삭제!
                 ) {
                     alarmOptions.forEach { rule ->
                         DropdownMenuItem(
@@ -460,13 +532,13 @@ private fun CreateScheduleContent(
             }
         }
 
-        // --- 섹션 6: 한 줄 메모 ---
+        // --- (기존) 섹션 6: 한 줄 메모 ---
         CreateScheduleSection(
             icon = rememberVectorPainter(image = Icons.Default.Comment),
             title = "한 줄 메모"
         ) { ScheduleMemoField(memo = memo, onMemoChanged = onMemoChanged) }
 
-        // --- 섹션 7: 반려동물 선택 ---
+        // --- (기존) 섹션 7: 반려동물 선택 ---
         CreateScheduleSection(
             icon = rememberVectorPainter(image = Icons.Default.Pets),
             title = "반려동물 선택"
@@ -482,15 +554,16 @@ private fun CreateScheduleContent(
             )
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        // (삭제) Spacer(modifier = Modifier.height(32.dp)) -> 상단 Column의 padding(bottom=120.dp)로 대체
     }
 }
 
-// --- 본문 컴포넌트들 ---
+// --- (이하 나머지 Composable 함수들 - 변경 없음) ---
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ScheduleTitleField(
+    shakeOffset: Float,
     title: String,
     selectedColor: String,
     onTitleChanged: (String) -> Unit,
@@ -504,8 +577,12 @@ private fun ScheduleTitleField(
         value = title,
         onValueChange = onTitleChanged,
         placeholder = { Text("제목", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Gray) },
-        modifier = Modifier.fillMaxWidth(),
-        textStyle = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold), // 폰트 통일
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                translationX = shakeOffset
+            },
+        textStyle = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold),
         trailingIcon = {
             Box {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -521,7 +598,6 @@ private fun ScheduleTitleField(
                             .clip(CircleShape)
                             .background(Color(android.graphics.Color.parseColor(selectedColor)))
                             .clickable { onColorPickerClicked() }
-                            .border(BorderStroke(1.dp, Color.LightGray), CircleShape)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                 }
@@ -541,7 +617,6 @@ private fun ScheduleTitleField(
             focusedContainerColor = Color.Transparent,
             unfocusedContainerColor = Color.Transparent,
             disabledContainerColor = Color.Transparent,
-            // 밑줄 색상 통일
             focusedIndicatorColor = Color.LightGray.copy(alpha = 0.5f),
             unfocusedIndicatorColor = Color.LightGray.copy(alpha = 0.5f)
         ),
@@ -585,17 +660,12 @@ private fun ColorPickerRow(
 
 @Composable
 private fun AllDaySwitch(isChecked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    // 2. (신규) 스위치 색상 정의
     val customSwitchColors = SwitchDefaults.colors(
-        // "On" 상태 (선택됨)
         checkedTrackColor = Color.Black,
         checkedThumbColor = Color.White,
-        // "Off" 상태 (선택 안 됨)
         uncheckedTrackColor = Color.LightGray,
         uncheckedThumbColor = Color.White,
         uncheckedBorderColor = Color.LightGray,
-
-        // (비활성화 상태도 똑같이 보이도록 설정 - DetailScreen용)
         disabledCheckedTrackColor = Color.Black,
         disabledCheckedThumbColor = Color.White,
         disabledUncheckedTrackColor = Color.LightGray,
@@ -618,12 +688,11 @@ private fun AllDaySwitch(isChecked: Boolean, onCheckedChange: (Boolean) -> Unit)
             checked = isChecked,
             onCheckedChange = onCheckedChange,
             modifier = Modifier.scale(0.8f),
-            colors = customSwitchColors // 3. (신규) colors 속성 적용
+            colors = customSwitchColors
         )
     }
 }
 
-// --- ★ (수정됨) ScheduleTimePicker ---
 @Composable
 private fun ScheduleTimePicker(
     startDate: Long,
@@ -633,9 +702,7 @@ private fun ScheduleTimePicker(
     onEndDateClick: () -> Unit,
     onEndTimeClick: () -> Unit
 ) {
-    // Long(Millis) -> "M월 d일 (E)"
     val dateFormatter = SimpleDateFormat("M월 d일 (E)", Locale.KOREAN)
-    // Long(Millis) -> "오전/오후 hh:mm"
     val timeFormatter = SimpleDateFormat("a hh:mm", Locale.KOREAN)
 
     Row(
@@ -644,54 +711,47 @@ private fun ScheduleTimePicker(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
     ) {
-        // --- 시작 시간 ---
         Column(
-            // modifier = Modifier.weight(1f),
-            horizontalAlignment = Alignment.CenterHorizontally // ★ 1. 시작 Column 중앙 정렬
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = dateFormatter.format(Date(startDate)),
                 fontSize = 14.sp,
                 color = Color.Gray,
-                modifier = Modifier.clickable(onClick = onStartDateClick) // 날짜 클릭
+                modifier = Modifier.clickable(onClick = onStartDateClick)
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = timeFormatter.format(Date(startDate)),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                modifier = Modifier.clickable(onClick = onStartTimeClick) // 시간 클릭
+                modifier = Modifier.clickable(onClick = onStartTimeClick)
             )
         }
 
-        Spacer(modifier = Modifier.weight(1f)) // ★ (신규) 왼쪽 스페이서
-
+        Spacer(modifier = Modifier.weight(1f))
         Icon(
             Icons.Default.ArrowForward,
             "에서",
-            modifier = Modifier
-                .size(20.dp)
+            modifier = Modifier.size(20.dp)
         )
+        Spacer(modifier = Modifier.weight(1f))
 
-        Spacer(modifier = Modifier.weight(1f)) // ★ (수정) 오른쪽 스페이서
-
-        // --- 종료 시간 ---
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally, // ★ 2. 종료 Column 중앙 정렬
-            // modifier = Modifier.weight(1f)
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
                 text = dateFormatter.format(Date(endDate)),
                 fontSize = 14.sp,
                 color = Color.Gray,
-                modifier = Modifier.clickable(onClick = onEndDateClick) // 날짜 클릭
+                modifier = Modifier.clickable(onClick = onEndDateClick)
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = timeFormatter.format(Date(endDate)),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                modifier = Modifier.clickable(onClick = onEndTimeClick) // 시간 클릭
+                modifier = Modifier.clickable(onClick = onEndTimeClick)
             )
         }
     }
@@ -806,7 +866,6 @@ private fun PetTagChip(pet: Pet, onRemoveClick: () -> Unit) {
     }
 }
 
-// --- ★ (신규) TimePicker 다이얼로그 래퍼 ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimePickerDialog(
@@ -820,15 +879,13 @@ fun TimePickerDialog(
         modifier = Modifier.fillMaxWidth()
     ) {
         Surface(
-            shape = RoundedCornerShape(28.dp) // 다이얼로그 모서리
+            shape = RoundedCornerShape(28.dp)
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // TimePicker 본문 (시간 선택 휠)
                 content()
-                // 확인/취소 버튼
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End

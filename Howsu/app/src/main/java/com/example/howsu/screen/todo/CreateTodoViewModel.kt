@@ -1,26 +1,35 @@
 package com.example.howsu.screen.todo
 
-// ★ 1. 날짜 포맷을 위한 임포트 3줄
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.data.model.Pet
+import com.example.howsu.data.model.Task
+import com.example.howsu.data.model.TodoGroup
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.firestore.toObject
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
 
 class CreateTodoViewModel : ViewModel() {
 
     private val db = Firebase.firestore
+    private var currentTodoDocumentId: String? = null
+    private val _isEditMode = MutableStateFlow(false)
+    val isEditMode: StateFlow<Boolean> = _isEditMode.asStateFlow()
 
-    // --- (모든 State 변수와 init, loadInitialData, 이벤트 핸들러는 동일) ---
+    // --- (기존 State - 변경 없음) ---
     private val _familyMembers = MutableStateFlow<List<FamilyMember>>(emptyList())
     val familyMembers: StateFlow<List<FamilyMember>> = _familyMembers.asStateFlow()
     private val _selectedMember = MutableStateFlow<FamilyMember?>(null)
@@ -38,33 +47,78 @@ class CreateTodoViewModel : ViewModel() {
     private val _isPetDropdownVisible = MutableStateFlow(false)
     val isPetDropdownVisible: StateFlow<Boolean> = _isPetDropdownVisible.asStateFlow()
 
-    init {
-        loadInitialData()
-    }
-
-    private fun loadInitialData() {
+    // (기존) initialize
+    fun initialize(documentId: String?) {
         viewModelScope.launch {
-            // (임시) 더미 데이터로 가족 목록
-            val dummyFamily = listOf(
-                FamilyMember(userId = "user_id_1", relationship = "언니", profileImageUrl = null, nickName = "이구역의짱"),
-                FamilyMember(userId = "user_id_2", relationship = "엄마", profileImageUrl = null, nickName = "엄마2"),
-                FamilyMember(userId = "user_id_3", relationship = "형", profileImageUrl = null, nickName = "형2")
-            )
-            _familyMembers.value = dummyFamily
-            if (dummyFamily.isNotEmpty()) {
-                _selectedMember.value = dummyFamily.first()
+            loadInitialData()
+            if (documentId != null) {
+                currentTodoDocumentId = documentId
+                _isEditMode.value = true
+                loadTodoForEdit(documentId)
+            } else {
+                _isEditMode.value = false
+                if (_familyMembers.value.isNotEmpty()) {
+                    _selectedMember.value = _familyMembers.value.first()
+                }
             }
-            // (임시) 더미 데이터로 반려동물 목록
-            val dummyPets = listOf(
-                Pet(petId = "pet_id_1", name = "자몽", profileImageUrl = null),
-                Pet(petId = "pet_id_2", name = "레몬", profileImageUrl = null),
-                Pet(petId = "pet_id_3", name = "망고", profileImageUrl = null)
-            )
-            _allPets.value = dummyPets
         }
     }
 
-    // --- (UI 이벤트 핸들러들은 동일) ---
+    // (기존) loadInitialData
+    private suspend fun loadInitialData() {
+        val dummyFamily = listOf(
+            FamilyMember(userId = "user_id_1", relationship = "언니", profileImageUrl = null, nickName = "이구역의짱"),
+            FamilyMember(userId = "user_id_2", relationship = "엄마", profileImageUrl = null, nickName = "엄마2"),
+            FamilyMember(userId = "user_id_3", relationship = "형", profileImageUrl = null, nickName = "형2")
+        )
+        _familyMembers.value = dummyFamily
+
+        val dummyPets = listOf(
+            Pet(petId = "pet_id_1", name = "자몽", profileImageUrl = null),
+            Pet(petId = "pet_id_2", name = "레몬", profileImageUrl = null),
+            Pet(petId = "pet_id_3", name = "망고", profileImageUrl = null),
+            Pet(petId = "pet_id_4", name = "수박", profileImageUrl = null),
+            Pet(petId = "pet_id_5", name = "키위", profileImageUrl = null)
+        )
+        _allPets.value = dummyPets
+    }
+
+    private suspend fun loadTodoForEdit(documentId: String) {
+        try {
+            val doc = db.collection("todoGroups").document(documentId).get().await()
+            val group = doc.toObject<TodoGroup>()
+            if (group != null) {
+                _selectedMember.value = _familyMembers.value.find { it.userId == group.assigneeId }
+                _selectedPets.value = _allPets.value.filter { group.petNames.contains(it.name) }
+
+                // ★★★ (수정) 여기서 제목을 ""로 비우는 대신, 그룹의 '첫 번째' 태스크 제목을 불러옵니다. ★★★
+                val taskToEdit = group.tasks.firstOrNull() // 그룹의 첫 번째 태스크
+                if (taskToEdit != null) {
+                    _taskTitle.value = taskToEdit.title ?: ""
+                } else {
+                    _taskTitle.value = "" // 태스크가 없는 그룹이면 비워둠
+                }
+
+                // (선택) 날짜도 첫 번째 태스크의 날짜로 맞출 수 있습니다.
+                val firstTaskDate = taskToEdit?.date
+                if (firstTaskDate != null) {
+                    try {
+                        // 날짜 형식이 "yyyy. MM. dd"이므로 파싱합니다.
+                        val formatter = SimpleDateFormat("yyyy. MM. dd", Locale.KOREA)
+                        _selectedDate.value = formatter.parse(firstTaskDate)?.time ?: System.currentTimeMillis()
+                    } catch (e: Exception) {
+                        _selectedDate.value = System.currentTimeMillis() // 파싱 실패 시 오늘 날짜
+                    }
+                } else {
+                    _selectedDate.value = System.currentTimeMillis() // 태스크가 없으면 오늘 날짜
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("CreateTodoVM", "수정할 할 일($documentId) 로드 실패", e)
+        }
+    }
+
+    // --- (기존 UI 이벤트 핸들러 - 변경 없음) ---
     fun onMemberSelected(member: FamilyMember) { _selectedMember.value = member }
     fun onTaskTitleChanged(newTitle: String) { _taskTitle.value = newTitle.take(20) }
     fun onDatePickerClicked() { _isDatePickerVisible.value = true }
@@ -87,59 +141,69 @@ class CreateTodoViewModel : ViewModel() {
         }
     }
 
-    /**
-     * '투두 생성 완료' 버튼 클릭 (★ 여기가 수정되었습니다 ★)
-     */
-    fun createTodo(onComplete: () -> Unit) {
+    // ★★★ (대폭 수정) saveTodo (펫 병합 로직 수정) ★★★
+    fun saveTodo(onComplete: () -> Unit) {
         val assignee = _selectedMember.value
         val title = _taskTitle.value
         val dateInMillis = _selectedDate.value
-        val pets = _selectedPets.value
 
         if (assignee == null || title.isBlank()) {
             return
         }
 
-        // --- '투두 등록' 로직 ---
-
-        // ★ 2. 날짜 포맷 변경 (Long -> "yyyy. MM. dd")
         val formattedDate = SimpleDateFormat("yyyy. MM. dd", Locale.KOREA).format(Date(dateInMillis))
 
-        // ★ 3. 담당자 이름 포맷 변경 ("언니" -> "언니(이)가")
-        val formattedAssigneeName = when (assignee.relationship) {
-            "언니" -> "언니(이)가"
-            "엄마" -> "엄마(이)가"
-            "형" -> "형(이)가"
-            else -> "${assignee.relationship}(이)가"
+        val newTask = Task(
+            id = UUID.randomUUID().toString(),
+            title = title,
+            date = formattedDate,
+            isChecked = false
+        )
+
+        viewModelScope.launch {
+            try {
+                if (_isEditMode.value && currentTodoDocumentId != null) {
+                    // --- 수정 모드 (Task 추가 + Pet 병합) ---
+                    val docRef = db.collection("todoGroups").document(currentTodoDocumentId!!)
+
+                    // 1. Task Map 변환
+                    val taskMap = mapOf(
+                        "id" to newTask.id,
+                        "title" to newTask.title,
+                        "date" to newTask.date,
+                        "isChecked" to newTask.isChecked
+                    )
+
+                    // 2. (수정) 펫 이름 목록 (중복 제거)
+                    // (수정 모드에서는 _selectedPets가 기존+신규 펫을 모두 들고 있음)
+                    val mergedPetNames = _selectedPets.value.map { it.name }.distinct()
+
+                    // 3. 'tasks'는 추가(arrayUnion), 'petNames'는 덮어쓰기(set)
+                    docRef.update(
+                        "tasks", FieldValue.arrayUnion(taskMap),
+                        "petNames", mergedPetNames
+                    ).await()
+
+                    Log.d("CreateTodoVM", "기존 할 일 그룹에 Task/Pet 추가 성공")
+
+                } else {
+                    // --- 생성 모드 (새 그룹 생성) ---
+                    val newTodoGroup = TodoGroup(
+                        assigneeId = assignee.userId,
+                        assigneeName = assignee.relationship,
+                        assigneeProfileRes = null,
+                        tasks = listOf(newTask),
+                        petNames = _selectedPets.value.map { it.name }
+                    )
+
+                    db.collection("todoGroups").add(newTodoGroup).await()
+                    Log.d("CreateTodoVM", "새 할 일 그룹 생성 성공")
+                }
+                onComplete()
+
+            } catch (e: Exception) {
+                Log.e("CreateTodoVM", "할 일 저장/수정 실패", e)
+            }
         }
-
-        // ★ 4. Task 맵 생성 (Task 모델에 맞게)
-        val newTasks = listOf(
-            mapOf(
-                "id" to (0..10000).random(), // 임시 ID
-                "title" to title,
-                "date" to formattedDate, // ★ 포맷된 날짜 사용
-                "isChecked" to false
-            )
-        )
-
-        // ★ 5. TodoGroup 맵 생성 (TodoGroup 모델에 맞게)
-        val newTodoGroup = mapOf(
-            "id" to (0..10000).random(), // 임시 ID
-            "assigneeName" to formattedAssigneeName, // ★ 포맷된 이름 사용
-            "assigneeProfileRes" to null,
-            "tasks" to newTasks
-        )
-
-        // ★ 6. Firestore에 저장
-        db.collection("todoGroups")
-            .add(newTodoGroup)
-            .addOnSuccessListener {
-                println("--- 할 일 생성 성공 ---")
-                onComplete() // ★ 성공 시에만 화면 이동
-            }
-            .addOnFailureListener { e ->
-                println("--- 할 일 생성 실패 ---: $e")
-            }
     }
 }

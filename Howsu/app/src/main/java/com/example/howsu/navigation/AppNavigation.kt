@@ -6,11 +6,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
+import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.screen.feed.FeedHomeScreen
 import com.example.howsu.screen.feed.FeedViewModel
 import com.example.howsu.screen.feed.FeedWriteScreen
-import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.screen.home.HomeScreen
+import com.example.howsu.screen.home.Pet
 import com.example.howsu.screen.home.PetDetailScreen
 import com.example.howsu.screen.login.AuthViewModel
 import com.example.howsu.screen.login.JoinScreen
@@ -21,7 +22,6 @@ import com.example.howsu.screen.schedule.ScheduleDetailScreen
 import com.example.howsu.screen.schedule.ScheduleScreen
 import com.example.howsu.screen.todo.CreateTodoScreen
 import com.example.howsu.screen.todo.TodoScreen
-import com.example.howsu.screen.home.Pet
 
 // (TODO: 다른 화면들도 Import)
 
@@ -74,43 +74,38 @@ fun AppNavigation() {
             HomeScreen(navController = navController)
         }
 
-        // TODO: 나중에 "home" 또는 "schedule" 경로도 여기에 추가
+        // --- (스케줄) ---
         composable(route = "schedule") {
             ScheduleScreen(navController = navController)
         }
-
         composable(route = "create_schedule") {
             CreateScheduleScreen(navController = navController)
         }
+        composable(route = "schedule_detail/{scheduleId}") { backStackEntry ->
+            val scheduleId = backStackEntry.arguments?.getString("scheduleId")
+            ScheduleDetailScreen(navController = navController, scheduleId = scheduleId)
+        }
+        composable(route = "edit_schedule/{scheduleId}") { backStackEntry ->
+            val scheduleId = backStackEntry.arguments?.getString("scheduleId")
+            CreateScheduleScreen(navController = navController, scheduleId = scheduleId)
+        }
 
+        // --- (투두) ---
         composable(route = "todo") {
             TodoScreen(navController = navController)
         }
-
         composable(route = "create_todo") {
             CreateTodoScreen(navController = navController)
         }
 
-        composable(
-            route = "schedule_detail/{scheduleId}"
-        ) { backStackEntry ->
-            // URL 경로에서 scheduleId를 꺼냅니다.
-            val scheduleId = backStackEntry.arguments?.getString("scheduleId")
-            ScheduleDetailScreen(
-                navController = navController,
-                scheduleId = scheduleId
-            )
-        }
+        composable(route = "edit_todo/{documentId}") { backStackEntry ->
+            // 1. documentId를 가져옴
+            val documentId = backStackEntry.arguments?.getString("documentId")
 
-        // ★ 3. (신규) 일정 수정 화면
-        composable(
-            route = "edit_schedule/{scheduleId}"
-        ) { backStackEntry ->
-            val scheduleId = backStackEntry.arguments?.getString("scheduleId")
-
-            CreateScheduleScreen(
+            // 2. CreateTodoScreen에 documentId 전달
+            CreateTodoScreen(
                 navController = navController,
-                scheduleId = scheduleId // ★ 1. scheduleId를 여기에 전달
+                documentId = documentId
             )
         }
 
