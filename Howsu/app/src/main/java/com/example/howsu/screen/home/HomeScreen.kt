@@ -44,6 +44,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.unit.sp
 import java.time.format.TextStyle
 import android.R.style
+import android.annotation.SuppressLint
 
 // ----------------------------------------------------
 // HomeScreen.kt
@@ -65,8 +66,15 @@ fun HomeScreen(
         bottomBar = { MyBottomNavigationBar(navController = navController) },
         floatingActionButton = {
             MyFloatingActionButton(
-                onTodoClick = onTodoClick,
-                onScheduleClick = onScheduleClick
+                onTodoClick = {
+                    navController.navigate("create_todo")
+                },
+                onScheduleClick = {
+                    navController.navigate("create_schedule")
+                },
+                onFeedCreateClick = {
+                    navController.navigate("create_feed")
+                }
             )
         }
     ){ paddingValues ->
@@ -151,8 +159,10 @@ fun HomeScreenPreview() {
 fun MyTopBar() {
     CenterAlignedTopAppBar(
         navigationIcon = {
+            // 기존 UserProfileHeader의 왼쪽 프로필 정보
             Row(
                 verticalAlignment = Alignment.CenterVertically,
+                // TopAppBar의 기본 패딩을 고려하여 조절
                 modifier = Modifier.padding(start = 20.dp)
             ) {
                 Surface(
@@ -196,6 +206,7 @@ fun MyTopBar() {
     )
 }
 
+@SuppressLint("RestrictedApi")
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PetSection(
@@ -234,6 +245,7 @@ fun PetSection(
                     (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
                     ).absoluteValue
 
+            // 애니메이션 효과
             val scale = lerp(0.85f, 1f, 1 - pageOffset)
             val alpha = lerp(0.4f, 1f, 1 - pageOffset)
             val zIndex = lerp(-1f, 1f, 1 - pageOffset)
