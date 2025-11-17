@@ -25,9 +25,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBackIosNew
 import androidx.compose.material.icons.filled.ArrowForwardIos
+import androidx.compose.material.icons.filled.Event // ★ (신규) '하루 종일' 아이콘
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -75,7 +78,6 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleScreen(
@@ -90,7 +92,6 @@ fun ScheduleScreen(
     var showMonthPicker by remember { mutableStateOf(false) }
 
     // --- 캘린더 확장/축소 상태 ---
-    // false = A (심플 뷰), true = B (상세 뷰)
     var isCalendarExpanded by remember { mutableStateOf(false) }
 
     // --- 새로고침 로직 ---
@@ -101,9 +102,7 @@ fun ScheduleScreen(
 
     LaunchedEffect(key1 = refreshTrigger?.value) {
         if (refreshTrigger?.value == true) {
-            // ViewModel의 통합 새로고침 함수 호출
             viewModel.refreshAllSchedules()
-
             navController.currentBackStackEntry
                 ?.savedStateHandle
                 ?.set("refresh_needed", false)
@@ -113,46 +112,38 @@ fun ScheduleScreen(
     // --- NestedScrollConnection 로직 ---
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
-            // 1. 스크롤 '시작' (위로 스크롤)
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                // available.y < 0 : 위로 스크롤 중
-                // isCalendarExpanded : 캘린더가 펴져있을 때
                 if (available.y < 0 && isCalendarExpanded) {
-                    // 캘린더가 펴져있으면 스크롤을 '소비'하고 캘린더를 닫음
                     isCalendarExpanded = false
-                    return available.consume() // 스크롤을 '먹음' (목록이 스크롤 안 됨)
+                    return available.consume()
                 }
-                return Offset.Zero // 캘린더가 닫혀있으면 스크롤을 '안 먹음' (목록이 스크롤 됨)
+                return Offset.Zero
             }
 
-            // 2. 스크롤 '끝' (아래로 스크롤)
             override fun onPostScroll(
                 consumed: Offset,
                 available: Offset,
                 source: NestedScrollSource
             ): Offset {
-                // available.y > 0 : 아래로 스크롤 중 (목록이 최상단이라 더 이상 스크롤이 안 될 때)
                 if (available.y > 0 && !isCalendarExpanded) {
-                    // 캘린더가 닫혀있으면 스크롤을 '소비'하고 캘린더를 폄
                     isCalendarExpanded = true
                     return available.consume()
                 }
                 return Offset.Zero
             }
 
-            // (빠르게 스크롤 시)
             override suspend fun onPreFling(available: Velocity): Velocity {
-                if (available.y < 0 && isCalendarExpanded) { // 위로 플링
+                if (available.y < 0 && isCalendarExpanded) {
                     isCalendarExpanded = false
-                    return available // 플링을 '먹음'
+                    return available
                 }
                 return Velocity.Zero
             }
 
             override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                if (available.y > 0 && !isCalendarExpanded) { // 아래로 플링
+                if (available.y > 0 && !isCalendarExpanded) {
                     isCalendarExpanded = true
-                    return available // 플링을 '먹음'
+                    return available
                 }
                 return Velocity.Zero
             }
@@ -210,26 +201,20 @@ fun ScheduleScreen(
                     .fillMaxWidth()
                     .background(Color.White)
                     .animateContentSize(animationSpec = tween(100))
-                    // ★★★ (신규) 캘린더 영역에서도 스크롤(드래그)을 감지하도록 수정
                     .pointerInput(Unit) {
                         detectVerticalDragGestures { change, dragAmount ->
-                            // 이 제스처를 '소비'해서 하위(LazyColumn)로 전달되지 않게 함
                             change.consume()
-
-                            val y = dragAmount
-                            // (임계값 10)
-                            if (y < -10 && isCalendarExpanded) { // 위로 드래그
+                            val y = dragAmount // .y 제거
+                            if (y < -10 && isCalendarExpanded) {
                                 isCalendarExpanded = false
-                            } else if (y > 10 && !isCalendarExpanded) { // 아래로 드래그
+                            } else if (y > 10 && !isCalendarExpanded) {
                                 isCalendarExpanded = true
                             }
                         }
                     }
             ) {
-                // ★★★ (수정) 'AnimatedContent'를 제거하고 일반 if/else로 변경
-                // (깜빡임/이중 애니메이션 방지)
                 if (isCalendarExpanded) {
-                    // --- 디자인 B (상세 뷰: 텍스트 표시) ---
+                    // --- 디자인 B (상세 뷰) ---
                     DetailedCalendarMonthView(
                         selectedDate = selectedDate.dayOfMonth,
                         onDateClick = viewModel::onDateSelected,
@@ -237,7 +222,7 @@ fun ScheduleScreen(
                         monthSchedules = monthSchedules
                     )
                 } else {
-                    // --- 디자인 A (심플 뷰: 선 표시) ---
+                    // --- 디자인 A (심플 뷰) ---
                     SimpleCalendarMonthView(
                         selectedDate = selectedDate.dayOfMonth,
                         onDateClick = viewModel::onDateSelected,
@@ -261,6 +246,7 @@ fun ScheduleScreen(
                     DayHeader(selectedDate = selectedDate)
                 }
 
+                // ★★★ (수정) 목록 로직 변경 ---
                 if (schedules.isEmpty()) {
                     item {
                         Box(
@@ -271,7 +257,26 @@ fun ScheduleScreen(
                         }
                     }
                 } else {
-                    items(schedules, key = { it.id }) { schedule ->
+                    // 1. '하루 종일' 일정
+                    val allDaySchedules = schedules.filter { it.isAllDay }
+                    items(allDaySchedules, key = { "all-day-${it.id}" }) { schedule ->
+                        AllDayScheduleItem(
+                            schedule = schedule,
+                            onClick = {
+                                navController.navigate("schedule_detail/${schedule.id}")
+                            }
+                        )
+                    }
+
+                    // 2. '시간 지정' 일정
+                    val timedSchedules = schedules.filter { !it.isAllDay }
+
+                    // '하루 종일'과 '시간 지정' 사이에 간격
+                    if (allDaySchedules.isNotEmpty() && timedSchedules.isNotEmpty()) {
+                        item { Spacer(modifier = Modifier.height(8.dp)) }
+                    }
+
+                    items(timedSchedules, key = { "timed-${it.id}" }) { schedule ->
                         DayScheduleItem(
                             schedule = schedule,
                             onClick = {
@@ -284,6 +289,7 @@ fun ScheduleScreen(
                         )
                     }
                 }
+                // ★★★ (수정 끝) ---
 
                 item {
                     Spacer(modifier = Modifier.height(100.dp)) // FAB 여백
@@ -415,8 +421,7 @@ fun SimpleCalendarMonthView(
 }
 
 
-// --- 디자인 B (상세 뷰: 텍스트 표시) ---
-// --- ★ (수정) 디자인 B (상세 뷰: 텍스트 표시 + 구분선) ---
+// --- 디자인 B (상세 뷰: 텍스트 표시 + 구분선) ---
 @Composable
 fun DetailedCalendarMonthView(
     selectedDate: Int,
@@ -438,14 +443,13 @@ fun DetailedCalendarMonthView(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            // ★ (수정) Column의 좌우 패딩을 제거 (구분선을 꽉 채우기 위해)
             .padding(vertical = 8.dp)
     ) {
         // --- 1. 요일 헤더 ---
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp) // ★ 패딩을 여기에만 적용
+                .padding(horizontal = 16.dp)
         ) {
             daysOfWeek.forEach { day ->
                 Text(
@@ -463,7 +467,7 @@ fun DetailedCalendarMonthView(
         // --- 2. 날짜 그리드 ---
         Column {
             dates.forEach { week ->
-                // ★★★ (신규) 각 주(week)가 시작하기 전에 구분선 추가
+                // 각 주(week)가 시작하기 전에 구분선 추가
                 Divider(
                     color = Color.Gray.copy(alpha = 0.2f),
                     thickness = 1.dp
@@ -473,32 +477,33 @@ fun DetailedCalendarMonthView(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp) // ★ 패딩을 여기에만 적용
+                        .padding(horizontal = 16.dp)
                 ) {
                     week.forEach { day ->
+
+                        // ★★★ (수정) 날짜 셀 전체에 테두리 적용
+                        val isSelected = day == selectedDate
+                        val borderModifier = if (isSelected) {
+                            Modifier.border(2.dp, Color(0xFF34A853), RoundedCornerShape(8.dp))
+                        } else Modifier
+
                         // 날짜 셀
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .heightIn(min = 80.dp) // 최소 높이
+                                .then(borderModifier) // ★★★ (수정) 테두리 적용
                                 .clickable { if (day != null) onDateClick(day) }
                                 .padding(2.dp),
                             contentAlignment = Alignment.TopStart
                         ) {
                             if (day != null) {
                                 val schedulesForDay = monthSchedules[day] ?: emptyList()
-                                val isSelected = day == selectedDate
-
-                                val borderModifier = if (isSelected) {
-                                    Modifier.border(2.dp, Color(0xFF34A853), RoundedCornerShape(8.dp))
-                                } else Modifier
 
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 4.dp, horizontal = 2.dp)
-                                        .then(borderModifier)
-                                        .padding(2.dp),
+                                        .padding(vertical = 4.dp, horizontal = 2.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     // 1. 날짜 텍스트
@@ -565,7 +570,7 @@ private fun ScheduleTagItem(schedule: Schedule) {
 }
 
 /**
- * '시간 지정' 일정을 위한 바(Bar) Composable
+ * '시간 지정' 일정을 위한 바(Bar) Composable (시간 텍스트 제거)
  */
 @Composable
 private fun ScheduleBarItem(schedule: Schedule) {
@@ -573,13 +578,10 @@ private fun ScheduleBarItem(schedule: Schedule) {
         Color(android.graphics.Color.parseColor(schedule.color))
     } catch (e: Exception) { Color.Black }
 
-    // (시작 시간 포맷팅 로직 삭제됨)
-
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 1. 세로 선
         Box(
             modifier = Modifier
                 .width(3.dp)
@@ -588,9 +590,6 @@ private fun ScheduleBarItem(schedule: Schedule) {
         )
         Spacer(modifier = Modifier.width(4.dp))
 
-        // 2. (삭제됨) "10:30" 텍스트
-
-        // 3. "일정 제목"
         Text(
             text = schedule.title,
             fontSize = 10.sp,
@@ -672,7 +671,7 @@ fun DayHeader(selectedDate: LocalDate) {
     }
 }
 
-// --- 일정 아이템 (하단 목록용) ---
+// --- 일정 아이템 (하단 목록용 - '시간 지정' 전용) ---
 @Composable
 fun DayScheduleItem(
     schedule: Schedule,
@@ -681,24 +680,21 @@ fun DayScheduleItem(
 ) {
     val zoneId = ZoneId.systemDefault()
 
+    // '하루 종일' 체크는 이제 상위에서 필터링되므로, 항상 시간 표시
     val startTimeString = schedule.startDate.toDate().toInstant()
         .atZone(zoneId)
         .format(DateTimeFormatter.ofPattern("H:mm"))
 
-    val timeRangeString = if (schedule.isAllDay) {
-        "하루 종일"
-    } else {
-        val formatterAmPm = DateTimeFormatter.ofPattern("a h:mm", Locale.KOREAN)
-        val start = schedule.startDate.toDate().toInstant().atZone(zoneId).format(formatterAmPm)
-        val end = schedule.endDate.toDate().toInstant().atZone(zoneId).format(formatterAmPm)
-        "$start - $end"
-    }
+    val formatterAmPm = DateTimeFormatter.ofPattern("a h:mm", Locale.KOREAN)
+    val start = schedule.startDate.toDate().toInstant().atZone(zoneId).format(formatterAmPm)
+    val end = schedule.endDate.toDate().toInstant().atZone(zoneId).format(formatterAmPm)
+    val timeRangeString = "$start - $end"
 
     val scheduleColor = try {
         Color(android.graphics.Color.parseColor(schedule.color))
     } catch (e: Exception) { Color.Black }
 
-    val hasPet = schedule.petNames.isNotEmpty()
+    // val hasPet = schedule.petNames.isNotEmpty() // OverlappingPetIcons가 알아서 처리
 
     Row(
         modifier = modifier
@@ -709,7 +705,7 @@ fun DayScheduleItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = if (schedule.isAllDay) "종일" else startTimeString,
+            text = startTimeString, // '종일' 텍스트가 필요 없음
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
             color = Color.Gray,
@@ -738,24 +734,126 @@ fun DayScheduleItem(
             )
         }
         Spacer(modifier = Modifier.width(16.dp))
-        if (hasPet) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color.Gray.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Pets,
-                    contentDescription = schedule.petNames.firstOrNull(),
-                    tint = scheduleColor,
-                    modifier = Modifier.size(24.dp)
+
+        // ★★★ (수정) 펫 아이콘을 새 컴포저블로 대체
+        OverlappingPetIcons(
+            petNames = schedule.petNames,
+            color = scheduleColor
+        )
+    }
+}
+
+// --- ★★★ (신규) '하루 종일' 일정 아이템 ---
+@Composable
+fun AllDayScheduleItem(
+    schedule: Schedule,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val scheduleColor = try {
+        Color(android.graphics.Color.parseColor(schedule.color))
+    } catch (e: Exception) { Color.Black }
+
+    // 선택한 색상의 연한 버전
+    val lightBackgroundColor = scheduleColor.copy(alpha = 0.2f)
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 6.dp) // 리스트 항목 간 패딩
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = lightBackgroundColor),
+        elevation = CardDefaults.cardElevation(0.dp) // 그림자 제거
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 캘린더 아이콘 (사진 참조)
+            Icon(
+                imageVector = Icons.Filled.Event, // 캘린더 모양 아이콘
+                contentDescription = "하루 종일",
+                tint = scheduleColor // 아이콘은 진한 색상
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = schedule.title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.Black.copy(alpha = 0.8f) // 너무 진하지 않게
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "하루 종일",
+                    fontSize = 14.sp,
+                    color = Color.Gray
                 )
             }
-        } else {
-            Spacer(modifier = Modifier.width(40.dp))
+            // 펫 아이콘 (겹치는)
+            OverlappingPetIcons(
+                petNames = schedule.petNames,
+                color = scheduleColor
+            )
         }
+    }
+}
+
+
+// --- ★★★ (신규) 겹치는 펫 아이콘 ---
+@Composable
+fun OverlappingPetIcons(
+    petNames: List<String>,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    if (petNames.isEmpty()) {
+        Spacer(modifier = modifier.width(40.dp)) // 펫이 없으면 공간만 차지
+        return
+    }
+
+    Box(
+        modifier = modifier
+            // 펫이 2개 이상이면 64dp, 1개면 40dp
+            .width(if (petNames.size > 1) 64.dp else 40.dp)
+            .height(40.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        // Icon 2 (오른쪽, 뒤에)
+        if (petNames.size > 1) {
+            PetIconCircle(
+                petName = petNames[1],
+                color = color.copy(alpha = 0.7f), // 뒤에 아이콘은 살짝 연하게
+                modifier = Modifier.padding(start = 24.dp) // 24dp 겹치게
+            )
+        }
+
+        // Icon 1 (왼쪽, 위에)
+        PetIconCircle(
+            petName = petNames[0],
+            color = color,
+            modifier = Modifier // ★★★ (수정) 흰색 테두리(border) 제거
+        )
+    }
+}
+
+// --- ★★★ (신규) 펫 아이콘 원형 헬퍼 ---
+@Composable
+private fun PetIconCircle(petName: String, color: Color, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(Color.Gray.copy(alpha = 0.1f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Pets,
+            contentDescription = petName,
+            tint = color,
+            modifier = Modifier.size(24.dp)
+        )
     }
 }
 
