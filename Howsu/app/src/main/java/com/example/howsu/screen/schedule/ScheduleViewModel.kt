@@ -1,5 +1,3 @@
-// /screen/schedule/ScheduleViewModel.kt
-
 package com.example.howsu.screen.schedule
 
 import android.util.Log
@@ -13,6 +11,7 @@ import com.google.firebase.firestore.toObjects
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
@@ -23,91 +22,154 @@ import java.util.Date
 class ScheduleViewModel : ViewModel() {
 
     private val db = Firebase.firestore
+    private val zoneId = ZoneId.systemDefault() // zoneId를 멤버 변수로 선언
 
+    // --- 1. 기존 상태 (선택된 날짜, 현재 월, 선택된 날의 일정 목록) ---
     private val _selectedDate = MutableStateFlow(LocalDate.now())
     val selectedDate = _selectedDate.asStateFlow()
+
     private val _currentMonth = MutableStateFlow(YearMonth.now())
     val currentMonth = _currentMonth.asStateFlow()
+
     private val _schedules = MutableStateFlow<List<Schedule>>(emptyList())
-    val schedules = _schedules.asStateFlow()
+    val schedules = _schedules.asStateFlow() // 하단 목록용
 
+    // --- ★ 2. (신규) 캘린더 UI(색상 선)를 위한 현재 '월'의 전체 일정 ---
+    private val _monthSchedules = MutableStateFlow<Map<Int, List<Schedule>>>(emptyMap())
+    val monthSchedules = _monthSchedules.asStateFlow() // 캘린더 인디케이터용
 
-    // --- ★ 3. (신규) 일정 상세보기를 위한 상태 ---
+    // --- 3. (기존) 일정 상세보기용 상태 ---
     private val _selectedSchedule = MutableStateFlow<Schedule?>(null)
     val selectedSchedule = _selectedSchedule.asStateFlow()
 
     init {
+        // 앱 시작 시, 1. 선택된 날짜의 목록 / 2. 현재 월의 전체 일정을 모두 불러옴
         fetchSchedulesForDate(_selectedDate.value)
+        loadMonthSchedules(_currentMonth.value) // ★ 신규 호출
     }
 
-    // ... (onDateSelected, onMonthChange, fetchSchedulesForDate, getHourFromTimestamp 등 기존 함수들) ...
-    // (onDateSelected, onMonthChange, fetchSchedulesForDate는 여기에 있어야 합니다)
+    /**
+     * 날짜를 클릭했을 때 호출 (기존과 동일)
+     * _schedules (하단 목록)만 업데이트
+     */
     fun onDateSelected(day: Int) {
         val newDate = _currentMonth.value.atDay(day)
         _selectedDate.value = newDate
         fetchSchedulesForDate(newDate)
     }
+
+    /**
+     * 이전/다음 달 버튼 클릭 (★ 수정됨)
+     */
     fun onMonthChange(isNext: Boolean) {
         val newMonth = if (isNext) _currentMonth.value.plusMonths(1) else _currentMonth.value.minusMonths(1)
         _currentMonth.value = newMonth
+
+        loadMonthSchedules(newMonth) // ★ 신규: 월 전체 일정을 새로고침
+        onDateSelected(1)          // ★ 추가: 1일을 기본으로 선택
     }
 
+    /**
+     * 월/년 픽커에서 선택 (★ 수정됨)
+     */
     fun onMonthYearChange(year: Int, month: Int) {
         val newYearMonth = YearMonth.of(year, month)
         _currentMonth.value = newYearMonth
 
-        // 1. 현재 선택되어 있던 날짜(일)를 가져옴
+        loadMonthSchedules(newYearMonth) // ★ 신규: 월 전체 일정을 새로고침
+
+        // (기존 로직 유지 - 선택한 '일'을 보존하려는 좋은 로직)
         val currentDay = _selectedDate.value.dayOfMonth
-
-        // 2. 새로 선택된 월의 마지막 날짜를 확인
         val maxDayInNewMonth = newYearMonth.lengthOfMonth()
-
-        // 3. 날짜 보정 (예: 31일이었다가 2월로 가면 -> 28일로)
         val newDay = currentDay.coerceAtMost(maxDayInNewMonth)
-
-        // 4. (★핵심) onDateSelected를 강제로 호출해서
-        //    날짜(_selectedDate)와 일정(_schedules)을 모두 새로고침
         onDateSelected(newDay)
     }
+
+    /**
+     * [선택된 날짜]의 일정만 불러오기 (기존과 동일)
+     * (하단 목록을 채우는 용도)
+     */
     private fun fetchSchedulesForDate(date: LocalDate) {
         viewModelScope.launch {
             try {
-                val zoneId = ZoneId.systemDefault()
                 val startOfDay = date.atStartOfDay(zoneId)
-                val endOfDay = date.plusDays(1).atStartOfDay(zoneId)
+                val endOfDay = date.plusDays(1).atStartOfDay(zoneId) // 다음 날 0시
                 val startTimestamp = Timestamp(Date.from(startOfDay.toInstant()))
                 val endTimestamp = Timestamp(Date.from(endOfDay.toInstant()))
 
                 val querySnapshot = db.collection("schedules")
                     .whereGreaterThanOrEqualTo("startDate", startTimestamp)
-                    .whereLessThan("startDate", endTimestamp)
+                    .whereLessThan("startDate", endTimestamp) // endOfDay 미만
                     .orderBy("startDate")
                     .get()
                     .await()
 
-                val scheduleList = querySnapshot.toObjects<Schedule>()
-                _schedules.value = scheduleList
+                _schedules.value = querySnapshot.toObjects<Schedule>()
             } catch (e: Exception) {
+                Log.e("ScheduleVM", "선택일 일정 로드 실패", e)
                 _schedules.value = emptyList()
             }
         }
     }
-    fun getHourFromTimestamp(timestamp: Timestamp): Int {
-        val instant = timestamp.toDate().toInstant()
-        return instant.atZone(ZoneId.systemDefault()).hour
+
+    /**
+     * ★★★ (신규) [현재 월]의 전체 일정을 불러오기
+     * (캘린더의 색상 선을 채우는 용도)
+     */
+    private fun loadMonthSchedules(yearMonth: YearMonth) {
+        viewModelScope.launch {
+            try {
+                // 1. 현재 월의 시작 (1일 00:00)
+                val startOfMonth = yearMonth.atDay(1).atStartOfDay(zoneId)
+                // 2. 다음 달의 시작 (다음 달 1일 00:00)
+                val startOfNextMonth = yearMonth.plusMonths(1).atDay(1).atStartOfDay(zoneId)
+
+                val startTimestamp = Timestamp(Date.from(startOfMonth.toInstant()))
+                val endTimestamp = Timestamp(Date.from(startOfNextMonth.toInstant())) // (쿼리용)
+
+                // 3. 'startDate'가 이번 달 1일 00:00 ~ 다음 달 1일 00:00 "미만"인 일정
+                val querySnapshot = db.collection("schedules")
+                    .whereGreaterThanOrEqualTo("startDate", startTimestamp)
+                    .whereLessThan("startDate", endTimestamp)
+                    .get()
+                    .await()
+
+                val schedulesList = querySnapshot.toObjects<Schedule>()
+
+                // 4. List<Schedule> -> Map<Int, List<Schedule>>로 가공
+                val groupedSchedules = schedulesList
+                    .groupBy { schedule ->
+                        // startDate의 '일(day)'을 기준으로 그룹화
+                        schedule.startDate.toDate().toInstant()
+                            .atZone(zoneId)
+                            .toLocalDate()
+                            .dayOfMonth
+                    }
+
+                _monthSchedules.value = groupedSchedules
+                Log.d("ScheduleVM", "월간 일정(${yearMonth}) 로드 성공")
+
+            } catch (e: Exception) {
+                Log.e("ScheduleVM", "월간 일정 로드 실패", e)
+                _monthSchedules.value = emptyMap() // 실패 시 비워줌
+            }
+        }
     }
 
+    // (기존) 시간 변환 함수
+    fun getHourFromTimestamp(timestamp: Timestamp): Int {
+        val instant = timestamp.toDate().toInstant()
+        return instant.atZone(zoneId).hour
+    }
 
-    // --- ★ 4. (신규) ID로 일정 1개 불러오는 함수 ---
+    // (기존) 일정 상세 로드 함수
     fun loadScheduleDetails(scheduleId: String?) {
         if (scheduleId == null || scheduleId == "temp_id") {
             Log.e("ScheduleViewModel", "유효하지 않은 scheduleId: $scheduleId")
             _selectedSchedule.value = null
             return
         }
-
-        // 화면이 다시 열릴 때를 대비해 이전 값 초기화 (로딩 표시)
-        _selectedSchedule.value = null
+        _selectedSchedule.value = null // 로딩 시작
 
         viewModelScope.launch {
             try {
@@ -120,7 +182,9 @@ class ScheduleViewModel : ViewModel() {
         }
     }
 
-    // ★ 5. (신규) 일정 삭제 함수 (이전에 추가함)
+    /**
+     * 일정 삭제 함수 (★ 수정됨)
+     */
     fun deleteSchedule(scheduleId: String, onComplete: () -> Unit) {
         if (scheduleId.isBlank() || scheduleId == "temp_id") {
             Log.e("ScheduleViewModel", "유효하지 않은 ID로 삭제를 시도했습니다: $scheduleId")
@@ -134,11 +198,22 @@ class ScheduleViewModel : ViewModel() {
 
                 // (추가) 목록 화면 갱신
                 fetchSchedulesForDate(_selectedDate.value)
+                // (★★★ 신규) 캘린더(색상 선)도 갱신
+                loadMonthSchedules(_currentMonth.value)
 
                 onComplete()
             } catch (e: Exception) {
                 Log.e("ScheduleViewModel", "일정 삭제 실패", e)
             }
         }
+    }
+
+    /**
+     * ★★★ (신규) 일정 생성/수정 후 ScheduleScreen에서 호출할 새로고침 함수
+     */
+    fun refreshAllSchedules() {
+        Log.d("ScheduleVM", "모든 일정 새로고침 (목록 + 월간 캘린더)")
+        fetchSchedulesForDate(_selectedDate.value)
+        loadMonthSchedules(_currentMonth.value)
     }
 }
