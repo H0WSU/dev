@@ -1,6 +1,7 @@
 package com.example.howsu.screen.todo
 
 // --- (필요한 Import) ---
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
@@ -68,7 +69,6 @@ import com.example.howsu.R
 import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.data.model.Pet
 import com.example.howsu.ui.theme.HowsuTheme
-
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -178,7 +178,7 @@ private fun CreateTodoBottomButton(onCreateClick: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 24.dp)
+            .padding(horizontal = 24.dp, vertical = 60.dp)
     ) {
         Button(
             onClick = onCreateClick,
