@@ -1,92 +1,66 @@
 package com.example.howsu.screen.home
 
+// 필요한 모든 Compose 및 기타 Import
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow // 👈 LazyRow 임포트
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Pets
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.*
+import androidx.compose.runtime.* // remember, mutableStateOf, collectAsState, getValue, setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.unit.fontscaling.MathUtils.lerp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.howsu.common.MyBottomNavigationBar
 import com.example.howsu.common.MyFloatingActionButton
 import kotlin.math.absoluteValue
-import androidx.compose.ui.unit.fontscaling.MathUtils.lerp
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.ui.draw.shadow
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.ui.unit.sp
+import java.time.format.TextStyle
+import android.R.style
+import android.annotation.SuppressLint
 
-
-// 임시 데이터 모델
-data class Reminder(
-    val text : String,
-    val date: String,
-    val isDone : Boolean
-)
-data class Pet(
-    val name : String,
-    val age : Int,
-    val gender : String,
-    val imageUrl: String = ""
-)
-data class FamilyMember(
-    val name: String,
-    val isUser: Boolean = false
-)
-data class ScheduleDay(
-    val dayOfWeek: String,
-    val dayOfMonth: Int,
-    val isSelected: Boolean
-)
-
+// ----------------------------------------------------
+// HomeScreen.kt
+// UI 컴포넌트 정의 및 ViewModel 연결
+// ----------------------------------------------------
 
 @Composable
 fun HomeScreen(
     navController: NavHostController,
+    viewModel: HomeScreenViewModel = viewModel(), // ViewModel 인스턴스 주입
     onTodoClick: () -> Unit = {},
     onScheduleClick: () -> Unit = {},
 ){
+    // ViewModel의 상태를 수집하여 State로 변환
+    val uiState by viewModel.uiState.collectAsState()
+
     Scaffold (
         topBar = { MyTopBar() },
         bottomBar = { MyBottomNavigationBar(navController = navController) },
@@ -110,19 +84,17 @@ fun HomeScreen(
                 .padding(paddingValues),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            item{
-                Spacer(Modifier.height(24.dp))
-            }
+            item{ Spacer(Modifier.height(24.dp)) }
 
             // 2. 반려동물 섹션
             item{
                 PetSection(
-                    pets = listOf(
-                        Pet("자몽",7,"여아"),
-                        Pet("두부", 2,"남아"),
-                        Pet("코코", 5,"남아"),
-                        Pet("복실", 1,"여아")
-                    )
+                    pets = uiState.pets,
+                    onPetClick = { pet ->
+                        // TODO: 실제 내비게이션 로직 구현
+                        // navController.navigate("pet_detail/${pet.id}") 형태로 구현해야 함
+                        println("Navigate to Pet Detail for: ${pet.name}")
+                    }
                 )
                 Spacer(Modifier.height(24.dp))
             }
@@ -130,42 +102,31 @@ fun HomeScreen(
             // 3. 가족 구성원 섹션
             item{
                 FamilySection(
-                    members = listOf(
-                        FamilyMember("언니", isUser = true),
-                        FamilyMember("엄마", isUser = false),
-                    )
+                    members = uiState.familyMembers,
+                    showInviteDialog = uiState.showInviteDialog,
+                    onOpenInviteDialog = { viewModel.onInviteDialogVisibilityChange(true) },
+                    onDismissInviteDialog = { viewModel.onInviteDialogVisibilityChange(false) },
+                    onInvite = viewModel::inviteFamilyMember
                 )
                 Spacer(Modifier.height(24.dp))
             }
 
             // 4. 일정 섹션
             item{
-                ScheduleSection(
-                    scheduleDays = listOf(
-                        ScheduleDay("화", 13, false),
-                        ScheduleDay("수", 14, false),
-                        ScheduleDay("목", 15, true), // 오늘 날짜처럼 보이게 선택됨
-                        ScheduleDay("금", 16, false),
-                        ScheduleDay("토", 17, false),
-                        ScheduleDay("일", 18, false),
-                    )
-                )
+                ScheduleSection(scheduleDays = uiState.scheduleDays)
                 Spacer(Modifier.height(24.dp))
             }
 
             // 5. 리마인더 목록
             item { Text("리마인더", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))}
             item{Spacer(Modifier.height(16.dp))}
-            items(
-                listOf(
-                    Reminder("츄르 사오기", "2025. 10. 28", false),
-                    Reminder("병원 방문하기", "2025. 10. 28", false),
-                    Reminder("목욕시키기", "2025. 10. 28", true)
+            items(uiState.reminders) { reminder ->
+                ReminderItem(
+                    reminder = reminder,
+                    onCheckedChange = { isChecked -> viewModel.onReminderCheckedChange(reminder, isChecked) }
                 )
-            ) { reminder ->
-                ReminderItem(reminder)
             }
-            item { Spacer(Modifier.height(80.dp)) } // FAB와의 간격 확보
+            item { Spacer(Modifier.height(80.dp)) }
         }
     }
 }
@@ -179,6 +140,8 @@ fun HomeScreen(
 fun HomeScreenPreview() {
     val navController = rememberNavController()
     MaterialTheme {
+        // Preview에서는 ViewModel을 직접 생성자로 전달하지 않고 기본 함수를 사용하거나
+        // Mock ViewModel을 사용하는 것이 일반적입니다. 여기서는 기본 설정으로 둡니다.
         HomeScreen(
             navController = navController,
             onTodoClick = {},
@@ -186,6 +149,7 @@ fun HomeScreenPreview() {
         )
     }
 }
+
 // ----------------------------------------------------
 // 하위 컴포넌트들
 // ----------------------------------------------------
@@ -203,7 +167,7 @@ fun MyTopBar() {
             ) {
                 Surface(
                     shape = CircleShape,
-                    modifier = Modifier.size(40.dp), // TopBar에 맞게 크기 조정
+                    modifier = Modifier.size(40.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
                 ) {
                     Icon(
@@ -213,7 +177,7 @@ fun MyTopBar() {
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Spacer(Modifier.width(8.dp)) // 간격 조정
+                Spacer(Modifier.width(8.dp))
                 Column {
                     Text(
                         text = "자몽이 언니",
@@ -228,9 +192,8 @@ fun MyTopBar() {
                 }
             }
         },
-        title = { /* 가운데 타이틀은 비워둠 */ },
+        title = { /* ... */ },
         actions = {
-            // 기존 UserProfileHeader의 오른쪽 알림 버튼
             IconButton(onClick = { /* 알림 클릭 */ }) {
                 Icon(
                     Icons.Filled.Notifications,
@@ -243,13 +206,13 @@ fun MyTopBar() {
     )
 }
 
-// ----------------------------------------------------
-// 펫 카드 스크롤 가능
-// ----------------------------------------------------
-
+@SuppressLint("RestrictedApi")
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PetSection(pets: List<Pet>) {
+fun PetSection(
+    pets: List<Pet>,
+    onPetClick: (Pet) -> Unit // 👈 펫 클릭 이벤트 핸들러 추가
+) {
     Column {
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
@@ -296,7 +259,10 @@ fun PetSection(pets: List<Pet>) {
                     }
                     .zIndex(zIndex)
             ) {
-                PetCard(pet = pets[page])
+                PetCard(
+                    pet = pets[page],
+                    onViewDetail = onPetClick // 이벤트 연결
+                )
             }
         }
     }
@@ -304,8 +270,10 @@ fun PetSection(pets: List<Pet>) {
 
 
 @Composable
-fun PetCard(pet: Pet) {
-    val cardWidth = 300.dp
+fun PetCard(
+    pet: Pet,
+    onViewDetail: (Pet) -> Unit // 클릭 이벤트 핸들러 추가
+) {
     Card(
         modifier = Modifier
             .width(300.dp)
@@ -322,12 +290,11 @@ fun PetCard(pet: Pet) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // 👈 반려동물 이미지 대신 동물 아이콘 사용
                 Surface(
                     modifier = Modifier
                         .size(70.dp)
                         .clip(RoundedCornerShape(12.dp)),
-                    color = Color.White.copy(alpha = 0.15f) // 아이콘 배경색
+                    color = Color.White.copy(alpha = 0.15f)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
@@ -338,7 +305,6 @@ fun PetCard(pet: Pet) {
                         )
                     }
                 }
-
                 Spacer(Modifier.width(12.dp))
                 Column {
                     Text(pet.name, color = Color.White, style = MaterialTheme.typography.titleMedium)
@@ -346,9 +312,8 @@ fun PetCard(pet: Pet) {
                     Text("${pet.age}세 | ${pet.gender}", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodyMedium)
                 }
             }
-
             Button(
-                onClick = { /* 펫 정보 보기 클릭 */ },
+                onClick = { onViewDetail(pet)}, // 상세 정보 보기 이벤트 호출
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.2f)),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
@@ -361,7 +326,13 @@ fun PetCard(pet: Pet) {
 
 
 @Composable
-fun FamilySection(members: List<FamilyMember>) {
+fun FamilySection(
+    members: List<FamilyMember>,
+    showInviteDialog: Boolean,
+    onOpenInviteDialog: () -> Unit,
+    onDismissInviteDialog: () -> Unit,
+    onInvite: (email: String) -> Unit
+) {
     Column {
         Text(
             "가족 구성원",
@@ -381,7 +352,7 @@ fun FamilySection(members: List<FamilyMember>) {
                     shape = CircleShape,
                     modifier = Modifier
                         .size(60.dp)
-                        .clickable { /* 새 멤버 추가 클릭 */ },
+                        .clickable { onOpenInviteDialog() },
                     color = Color.LightGray.copy(alpha = 0.5f)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -393,6 +364,13 @@ fun FamilySection(members: List<FamilyMember>) {
             }
         }
     }
+
+    if (showInviteDialog) {
+        FamilyInvitationDialog(
+            onDismissRequest = onDismissInviteDialog,
+            onInvite = onInvite
+        )
+    }
 }
 
 @Composable
@@ -403,7 +381,6 @@ fun FamilyMemberItem(member: FamilyMember) {
             modifier = Modifier.size(60.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
         ) {
-            // 👈 가족 구성원 이미지 대신 사람 아이콘 사용
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = Icons.Default.Person,
@@ -467,7 +444,10 @@ fun ScheduleDayItem(day: ScheduleDay) {
 }
 
 @Composable
-fun ReminderItem(reminder: Reminder) {
+fun ReminderItem(
+    reminder: Reminder,
+    onCheckedChange: (Boolean) -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -481,7 +461,7 @@ fun ReminderItem(reminder: Reminder) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
             Checkbox(
                 checked = reminder.isDone,
-                onCheckedChange = { /* 체크박스 상태 변경 */ },
+                onCheckedChange = onCheckedChange,
                 modifier = Modifier.size(40.dp)
             )
             Spacer(Modifier.width(4.dp))
@@ -497,4 +477,117 @@ fun ReminderItem(reminder: Reminder) {
             color = Color.Gray
         )
     }
+}
+
+// ----------------------------------------------------
+// 가족 초대 다이얼로그
+// ----------------------------------------------------
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FamilyInvitationDialog(
+    onDismissRequest: () -> Unit,
+    onInvite: (email: String) -> Unit
+) {
+    var emailInput by remember { mutableStateOf("") }
+    var isError by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        // 👈 크기 조절이 일어나는 위치
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp)), // shape를 modifier에 적용
+
+        title = {
+            Text(
+                "가족 구성원 초대",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+        },
+        // 다이얼로그의 내용 (이메일 입력 필드와 버튼)
+        text = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // 1. 이메일 입력 필드
+                TextField(
+                    value = emailInput,
+                    onValueChange = {
+                        emailInput = it
+                        isError = false
+                    },
+                    placeholder = {
+                        Text(
+                            text ="초대할 이메일을 입력해 주세요.",
+                            style = MaterialTheme.typography.bodySmall)
+                    },
+                    singleLine = true,
+                    isError = isError,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    // 디자인에 맞게 배경색 및 형태 커스텀
+                    colors = TextFieldDefaults.colors(
+                        // 배경색 지정
+                        focusedContainerColor = Color.LightGray.copy(alpha = 0.5f),
+                        unfocusedContainerColor = Color.LightGray.copy(alpha = 0.5f),
+                        disabledContainerColor = Color.LightGray.copy(alpha = 0.5f),
+
+                        // 하단 밑줄(Indicator)을 제거하기 위해 투명하게 설정
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        disabledIndicatorColor = Color.Transparent,
+                        errorIndicatorColor = Color.Transparent,
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    // 너비를 버튼 공간을 제외하고 채움
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp) // 높이 지정 (버튼과 맞추기)
+                )
+
+                Spacer(Modifier.width(8.dp))
+
+                // 2. 초대하기 버튼
+                Button(
+                    onClick = {
+                        if (emailInput.contains("@") && emailInput.contains(".")) {
+                            onInvite(emailInput)
+                        } else {
+                            isError = true
+                        }
+                    },
+                    enabled = emailInput.isNotBlank() && !isError,
+                    // 디자인에 맞는 색상 및 형태 적용
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Black, // 검은색 배경
+                        contentColor = Color.White // 흰색 텍스트
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                    modifier = Modifier.height(56.dp) // 높이 지정
+                ) {
+                    Text("초대하기", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                }
+            }
+
+            // 유효성 검사 오류 메시지
+            if (isError) {
+                Text(
+                    text = "유효한 이메일 주소를 입력해 주세요.",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+                )
+            }
+        },
+        // 취소/확인
+        confirmButton = { /* 비워둠 */ },
+        dismissButton = { /* 비워둠 */ },
+        shape = RoundedCornerShape(16.dp)
+    )
 }
