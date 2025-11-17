@@ -46,9 +46,9 @@ class CreateTodoViewModel : ViewModel() {
         viewModelScope.launch {
             // (임시) 더미 데이터로 가족 목록
             val dummyFamily = listOf(
-                FamilyMember(userId = "user_id_1", relationship = "언니", profileImageUrl = null),
-                FamilyMember(userId = "user_id_2", relationship = "엄마", profileImageUrl = null),
-                FamilyMember(userId = "user_id_3", relationship = "형", profileImageUrl = null)
+                FamilyMember(userId = "user_id_1", relationship = "언니", profileImageUrl = null, nickName = "이구역의짱"),
+                FamilyMember(userId = "user_id_2", relationship = "엄마", profileImageUrl = null, nickName = "엄마2"),
+                FamilyMember(userId = "user_id_3", relationship = "형", profileImageUrl = null, nickName = "형2")
             )
             _familyMembers.value = dummyFamily
             if (dummyFamily.isNotEmpty()) {

@@ -6,6 +6,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
+import com.example.howsu.screen.feed.FeedHomeScreen
+import com.example.howsu.screen.feed.FeedViewModel
+import com.example.howsu.screen.feed.FeedWriteScreen
+import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.screen.home.HomeScreen
 import com.example.howsu.screen.login.AuthViewModel
 import com.example.howsu.screen.login.JoinScreen
@@ -24,10 +28,19 @@ fun AppNavigation() {
     // 4. 내비게이션 컨트롤러 생성
     val navController = rememberNavController()
 
+    val member = FamilyMember(
+        userId = "user123",
+        relationship = "언니",              // 혹은 "엄마", "아빠" 같은 값
+        profileImageUrl = "\"C:\\KakaoTalk_20251030_100121311.jpg\"",            // 일단 프로필 없다고 가정, 있으면 URL
+        nickName = "이구역의짱"
+    )
+
+    val feedViewModel: FeedViewModel = viewModel()
+
     // 5. NavHost가 화면을 관리
     NavHost(
         navController = navController,
-        startDestination = "loading" // ★ 앱 시작 시 보여줄 첫 화면
+        startDestination = "feed" // ★ 앱 시작 시 보여줄 첫 화면
     ) {
         composable(route = "loading") {
             LoadingScreen(navController = navController)
@@ -100,6 +113,31 @@ fun AppNavigation() {
                 navController = navController
                 // scheduleId = scheduleId // <- 나중에 이렇게 전달
             )
+        }
+
+        composable(route = "feed") {
+            FeedHomeScreen(navController = navController, viewModel = feedViewModel, member = member)
+        }
+
+        composable(route = "create_feed") {
+            FeedWriteScreen(
+                viewModel = feedViewModel,
+                onFinishWrite = { navController.popBackStack() }
+            )
+        }
+
+        // ★ 피드 수정 화면
+        composable("edit_feed/{postId}") { backStackEntry ->
+            val postId = backStackEntry.arguments?.getString("postId")?.toLongOrNull()
+            val post = feedViewModel.posts.find { it.id == postId }
+
+            if (post != null) {
+                FeedWriteScreen(
+                    viewModel = feedViewModel,
+                    onFinishWrite = { navController.popBackStack() },
+                    editPost = post
+                )
+            }
         }
     }
 }

@@ -1,20 +1,22 @@
-package com.example.howsu.feed
+package com.example.howsu.data.model
 
 import java.text.SimpleDateFormat
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
-
-//feed 등록 데이터
 
 data class FeedPost (
     val id : Long = System.currentTimeMillis(),
     val title : String,
     val content : String,
-    val imageUrls : List<String> = emptyList(),
+    val imageUris : List<String> = emptyList(),
+    val videoUris : List<String> = emptyList(),
     val hashtags : List<String> = emptyList(),
     val likeCount : Int = 0,
     val commentCount:Int = 0,
-    val createdAt: String = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date())
+    val createdAt: Long = System.currentTimeMillis()
 )
+
+//탭(전체/글/사진/동영상) 상태용
+enum class FeedFilter{
+    ALL, TEXT, IMAGE, VIDEO
+}

@@ -92,8 +92,15 @@ fun HomeScreen(
         bottomBar = { MyBottomNavigationBar(navController = navController) },
         floatingActionButton = {
             MyFloatingActionButton(
-                onTodoClick = onTodoClick,       // HomeScreen의 파라미터를 전달
-                onScheduleClick = onScheduleClick // HomeScreen의 파라미터를 전달
+                onTodoClick = {
+                    navController.navigate("create_todo")
+                },
+                onScheduleClick = {
+                    navController.navigate("create_schedule")
+                },
+                onFeedCreateClick = {
+                    navController.navigate("create_feed")
+                }
             )
         }
     ){ paddingValues ->

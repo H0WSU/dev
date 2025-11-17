@@ -1,10 +1,13 @@
 package com.example.howsu.feed
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -15,44 +18,73 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.howsu.data.model.FamilyMember
+import coil.compose.AsyncImage
+
 
 @Composable
-fun FeedHomeTopBar(){
-    Row {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(Color.LightGray)
-        )
-        Spacer(Modifier.width(8.dp))
+fun FeedHomeTopBar(
+    member: FamilyMember,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 왼쪽 프로필 이미지
+        if (member.profileImageUrl != null) {
+            AsyncImage(
+                model = member.profileImageUrl,
+                contentDescription = "프로필 이미지",
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .border(1.dp, Color.LightGray, CircleShape)
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(Color.Gray)
+            )
+        }
 
-        Column {
+        Spacer(Modifier.width(12.dp))
+
+        // 가운데 텍스트(위: 안내문구, 아래: 닉네임)
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
             Text(
                 text = "소중한 추억을 공유하세요",
                 fontSize = 16.sp,
                 color = Color.LightGray
             )
+
+            Spacer(Modifier.height(4.dp))
+
             Text(
-                text = "이구역의짱",  //추후 닉네임
+                text = member.nickName,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold
             )
         }
 
-        IconButton(onClick = {/* 추후 검색 기능 추가*/}) {
+        // 오른쪽 아이콘들
+        IconButton(onClick = { /* 추후 검색 기능 */ }) {
             Icon(Icons.Default.Search, contentDescription = "검색")
         }
 
-        IconButton(onClick = {/* 추후 검색 기능 추가*/}) {
+        IconButton(onClick = { /* 추후 메뉴 기능 */ }) {
             Icon(Icons.Default.Menu, contentDescription = "메뉴")
         }
     }
-
 }
