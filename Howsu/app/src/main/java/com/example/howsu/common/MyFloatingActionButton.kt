@@ -33,7 +33,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun MyFloatingActionButton(
     onTodoClick: () -> Unit,
-    onScheduleClick: () -> Unit
+    onScheduleClick: () -> Unit,
+    onFeedCreateClick: () -> Unit
 ) {
     var isMenuExpanded by remember { mutableStateOf(false) }
 
@@ -72,6 +73,19 @@ fun MyFloatingActionButton(
                     modifier = Modifier.size(56.dp)
                 ) {
                     Text("일정", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+
+                // '피드 추가' 버튼
+                FloatingActionButton(
+                    onClick = {
+                        onFeedCreateClick() // 파라미터로 받은 onScheduleClick 실행
+                        isMenuExpanded = false // 메뉴 닫기
+                    },
+                    containerColor = Color(0xFF6E6E6E),
+                    shape = CircleShape,
+                    modifier = Modifier.size(56.dp)
+                ) {
+                    Text(text = "피드", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         }

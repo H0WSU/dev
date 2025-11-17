@@ -108,7 +108,11 @@ fun TodoScreen(
                 },
                 onScheduleClick = {
                     navController.navigate("create_schedule")
+                },
+                onFeedCreateClick = {
+                    navController.navigate("create_feed")
                 }
+
             )
         }
     ) { innerPadding ->
