@@ -7,7 +7,6 @@ import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.data.model.Pet
 import com.example.howsu.data.model.Task
 import com.example.howsu.data.model.TodoGroup
-import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.firestore.toObject
 import com.google.firebase.ktx.Firebase
@@ -26,6 +25,7 @@ class CreateTodoViewModel : ViewModel() {
 
     private val db = Firebase.firestore
     private var currentTodoDocumentId: String? = null
+    private var currentTaskId: String? = null // ★ (신규) 수정할 태스크의 ID
     private val _isEditMode = MutableStateFlow(false)
     val isEditMode: StateFlow<Boolean> = _isEditMode.asStateFlow()
 
@@ -56,7 +56,13 @@ class CreateTodoViewModel : ViewModel() {
                 _isEditMode.value = true
                 loadTodoForEdit(documentId)
             } else {
+                // (수정) 생성 모드일 때 변수 초기화
+                currentTodoDocumentId = null
+                currentTaskId = null
                 _isEditMode.value = false
+                _taskTitle.value = "" // (추가)
+                _selectedPets.value = emptyList() // (추가)
+                _selectedDate.value = System.currentTimeMillis() // (추가)
                 if (_familyMembers.value.isNotEmpty()) {
                     _selectedMember.value = _familyMembers.value.first()
                 }
@@ -83,6 +89,7 @@ class CreateTodoViewModel : ViewModel() {
         _allPets.value = dummyPets
     }
 
+    // ★★★ (수정) loadTodoForEdit (태스크 ID 저장) ★★★
     private suspend fun loadTodoForEdit(documentId: String) {
         try {
             val doc = db.collection("todoGroups").document(documentId).get().await()
@@ -91,26 +98,26 @@ class CreateTodoViewModel : ViewModel() {
                 _selectedMember.value = _familyMembers.value.find { it.userId == group.assigneeId }
                 _selectedPets.value = _allPets.value.filter { group.petNames.contains(it.name) }
 
-                // ★★★ (수정) 여기서 제목을 ""로 비우는 대신, 그룹의 '첫 번째' 태스크 제목을 불러옵니다. ★★★
-                val taskToEdit = group.tasks.firstOrNull() // 그룹의 첫 번째 태스크
+                // (수정) 그룹의 '첫 번째' 태스크를 수정 대상으로 간주
+                val taskToEdit = group.tasks.firstOrNull()
                 if (taskToEdit != null) {
+                    currentTaskId = taskToEdit.id // ★ (신규) 태스크 ID 저장
                     _taskTitle.value = taskToEdit.title ?: ""
                 } else {
-                    _taskTitle.value = "" // 태스크가 없는 그룹이면 비워둠
+                    currentTaskId = null
+                    _taskTitle.value = ""
                 }
 
-                // (선택) 날짜도 첫 번째 태스크의 날짜로 맞출 수 있습니다.
                 val firstTaskDate = taskToEdit?.date
                 if (firstTaskDate != null) {
                     try {
-                        // 날짜 형식이 "yyyy. MM. dd"이므로 파싱합니다.
                         val formatter = SimpleDateFormat("yyyy. MM. dd", Locale.KOREA)
                         _selectedDate.value = formatter.parse(firstTaskDate)?.time ?: System.currentTimeMillis()
                     } catch (e: Exception) {
-                        _selectedDate.value = System.currentTimeMillis() // 파싱 실패 시 오늘 날짜
+                        _selectedDate.value = System.currentTimeMillis()
                     }
                 } else {
-                    _selectedDate.value = System.currentTimeMillis() // 태스크가 없으면 오늘 날짜
+                    _selectedDate.value = System.currentTimeMillis()
                 }
             }
         } catch (e: Exception) {
@@ -141,7 +148,7 @@ class CreateTodoViewModel : ViewModel() {
         }
     }
 
-    // ★★★ (대폭 수정) saveTodo (펫 병합 로직 수정) ★★★
+    // ★★★ (대폭 수정) saveTodo (진짜 '수정' 로직 구현) ★★★
     fun saveTodo(onComplete: () -> Unit) {
         val assignee = _selectedMember.value
         val title = _taskTitle.value
@@ -153,41 +160,51 @@ class CreateTodoViewModel : ViewModel() {
 
         val formattedDate = SimpleDateFormat("yyyy. MM. dd", Locale.KOREA).format(Date(dateInMillis))
 
-        val newTask = Task(
-            id = UUID.randomUUID().toString(),
-            title = title,
-            date = formattedDate,
-            isChecked = false
-        )
-
         viewModelScope.launch {
             try {
-                if (_isEditMode.value && currentTodoDocumentId != null) {
-                    // --- 수정 모드 (Task 추가 + Pet 병합) ---
+                // --- 수정 모드 ---
+                // (주의: 이 로직은 그룹의 '첫 번째' 태스크만 수정하는 한계가 있음)
+                if (_isEditMode.value && currentTodoDocumentId != null && currentTaskId != null) {
+
                     val docRef = db.collection("todoGroups").document(currentTodoDocumentId!!)
+                    val document = docRef.get().await()
+                    val group = document.toObject<TodoGroup>() ?: return@launch
 
-                    // 1. Task Map 변환
-                    val taskMap = mapOf(
-                        "id" to newTask.id,
-                        "title" to newTask.title,
-                        "date" to newTask.date,
-                        "isChecked" to newTask.isChecked
-                    )
+                    // 1. (수정) 기존 tasks 리스트에서 'currentTaskId'를 찾아 제목/날짜를 업데이트
+                    val updatedTasks = group.tasks.map { task ->
+                        if (task.id == currentTaskId) {
+                            task.copy(title = title, date = formattedDate) // ★ 수정
+                        } else {
+                            task // ★ 나머지는 그대로 둠
+                        }
+                    }
 
-                    // 2. (수정) 펫 이름 목록 (중복 제거)
-                    // (수정 모드에서는 _selectedPets가 기존+신규 펫을 모두 들고 있음)
+                    // 2. 펫 이름 목록
                     val mergedPetNames = _selectedPets.value.map { it.name }.distinct()
 
-                    // 3. 'tasks'는 추가(arrayUnion), 'petNames'는 덮어쓰기(set)
+                    // 3. (수정) 담당자
+                    val finalAssigneeId = assignee.userId
+                    val finalAssigneeName = assignee.relationship
+
+                    // 4. (수정) 'tasks'와 'petNames' 필드 전체를 덮어쓰기 (arrayUnion 아님)
                     docRef.update(
-                        "tasks", FieldValue.arrayUnion(taskMap),
-                        "petNames", mergedPetNames
+                        "tasks", updatedTasks,
+                        "petNames", mergedPetNames,
+                        "assigneeId", finalAssigneeId,
+                        "assigneeName", finalAssigneeName
                     ).await()
 
-                    Log.d("CreateTodoVM", "기존 할 일 그룹에 Task/Pet 추가 성공")
+                    Log.d("CreateTodoVM", "기존 할 일 그룹 수정 성공")
 
                 } else {
                     // --- 생성 모드 (새 그룹 생성) ---
+                    val newTask = Task(
+                        id = UUID.randomUUID().toString(),
+                        title = title,
+                        date = formattedDate,
+                        isChecked = false
+                    )
+
                     val newTodoGroup = TodoGroup(
                         assigneeId = assignee.userId,
                         assigneeName = assignee.relationship,

@@ -1,9 +1,7 @@
 package com.example.howsu.screen.todo
 
-// import androidx.compose.material.icons.filled.ArrowBackIosNew // ★ 2. (삭제)
-// import androidx.compose.material.icons.filled.ArrowForwardIos // ★ 3. (삭제)
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border // ★ (신규) border 임포트
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -44,6 +42,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,25 +59,21 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.times
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
 import com.example.howsu.R
 import com.example.howsu.common.MyBottomNavigationBar
 import com.example.howsu.common.MyFloatingActionButton
 import com.example.howsu.data.model.Task
 import com.example.howsu.data.model.TodoGroup
-import com.example.howsu.ui.theme.HowsuTheme
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,7 +83,12 @@ fun TodoScreen(
 ) {
     val todoGroups by viewModel.todoGroups.collectAsState(initial = emptyList())
     val selectedDate by viewModel.selectedDate.collectAsState()
+    val currentWeekStart by viewModel.currentWeekStart.collectAsState()
     var showDatePicker by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        viewModel.resetToToday()
+    }
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
@@ -129,9 +129,7 @@ fun TodoScreen(
                 )
             )
         },
-        bottomBar = {
-            MyBottomNavigationBar(navController = navController)
-        },
+        bottomBar = { MyBottomNavigationBar(navController = navController) },
         floatingActionButton = {
             MyFloatingActionButton(
                 onTodoClick = { navController.navigate("create_todo") },
@@ -145,12 +143,13 @@ fun TodoScreen(
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
-            val today = LocalDate.now() // ★ (신규) 오늘 날짜 가져오기
+            val today = LocalDate.now()
 
             CalendarWeekRow(
                 selectedDate = selectedDate,
-                today = today, // ★ (신규) 오늘 날짜 전달
-                onDateChange = viewModel::onDateChange,
+                currentWeekStart = currentWeekStart,
+                today = today,
+                onWeekSwipe = viewModel::onWeekSwipe,
                 onWeekDaySelected = viewModel::onWeekDaySelected
             )
 
@@ -173,17 +172,17 @@ fun TodoScreen(
     }
 }
 
-// ★★★ 5. (수정) 주간 캘린더 (스와이프 + 동그라미 + 테두리) ★★★
+// ★★★ 핵심 수정: 터치와 스와이프 완벽 분리 및 UI 수정 ★★★
 @Composable
 fun CalendarWeekRow(
     selectedDate: LocalDate,
-    today: LocalDate, // ★ (신규) '오늘' 날짜 받기
-    onDateChange: (days: Long) -> Unit, // (Boolean -> Long)
+    currentWeekStart: LocalDate,
+    today: LocalDate,
+    onWeekSwipe: (days: Long) -> Unit,
     onWeekDaySelected: (LocalDate) -> Unit
 ) {
-    val startOfWeek = selectedDate.with(DayOfWeek.SUNDAY)
+    val startOfWeek = currentWeekStart
     val weekDates = List(7) { i -> startOfWeek.plusDays(i.toLong()) }
-
     val dayFormatter = DateTimeFormatter.ofPattern("d", Locale.KOREAN)
     val dayOfWeekFormatter = DateTimeFormatter.ofPattern("E", Locale.KOREAN)
 
@@ -191,89 +190,79 @@ fun CalendarWeekRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp, horizontal = 16.dp)
-            // ★ (신규) 스와이프 제스처 추가
             .pointerInput(Unit) {
-                var totalDragAmount = 0f // 1. 드래그 거리를 저장할 변수
-
+                // ★★★ 터치 분리 로직 ★★★
+                var totalDrag = 0f
                 detectHorizontalDragGestures(
-                    // 2. 드래그하는 동안 x축 이동 거리를 totalDragAmount에 누적
-                    onHorizontalDrag = { change, dragAmount ->
-                        change.consume()
-                        totalDragAmount += dragAmount
-                    },
-                    // 3. 드래그가 끝나면(손가락을 떼면)
                     onDragEnd = {
-                        if (totalDragAmount > 50) { // ★ 오른쪽으로 50px 이상
-                            onDateChange(-7) // 이전 주 (7일 빼기)
-                        } else if (totalDragAmount < -50) { // ★ 왼쪽으로 50px 이상
-                            onDateChange(7) // 다음 주 (7일 더하기)
-                        }
-                        totalDragAmount = 0f // 4. 거리 리셋
+                        // 드래그가 끝났을 때, 이동 거리가 충분히 길어야만(100px) 주 이동 실행
+                        if (totalDrag < -100f) onWeekSwipe(7)
+                        else if (totalDrag > 100f) onWeekSwipe(-7)
+                        totalDrag = 0f
                     },
-                    // 5. 드래그가 취소돼도 리셋
-                    onDragCancel = {
-                        totalDragAmount = 0f
+                    onHorizontalDrag = { change, dragAmount ->
+                        totalDrag += dragAmount
+
+                        // ★ 중요: 움직임이 30px 이상일 때만 이벤트를 '소비(consume)'함
+                        // 즉, 살짝 움직이는 건(30px 미만) 클릭으로 통과되고,
+                        // 크게 움직여야만 스와이프로 인식됨.
+                        if (abs(totalDrag) > 30f) {
+                            change.consume()
+                        }
                     }
                 )
             },
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceAround // ★ (수정) SpaceEvenly -> SpaceAround
+        horizontalArrangement = Arrangement.SpaceAround
     ) {
-        // ★ (삭제) < 버튼
-
         weekDates.forEach { date ->
             val isSelected = date == selectedDate
-            val isToday = date == today // ★ (신규) 오늘인지 확인
+            val isToday = date == today
+
+            // ★ UI 로직:
+            // 1. 오늘 날짜(isToday) = 검은색 채워진 동그라미 + 흰색 글씨
+            // 2. 선택된 날짜(isSelected)이면서 오늘이 아님 = 검은색 테두리 + 검은색 글씨
+            // 3. 그 외 = 투명 + 검은색 글씨
+
+            val backgroundColor = if (isToday) Color.Black else Color.Transparent
+            val borderColor = if (isSelected && !isToday) Color.Black else Color.Transparent
+            val textColor = if (isToday) Color.White else Color.Black
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .weight(1f) // ★ 동일 너비
+                    .weight(1f)
                     .clip(RoundedCornerShape(12.dp))
-                    .clickable { onWeekDaySelected(date) }
+                    .clickable { onWeekDaySelected(date) } // 클릭은 여기서 처리
                     .padding(vertical = 8.dp, horizontal = 4.dp)
             ) {
-                // "월"
                 Text(
                     text = date.format(dayOfWeekFormatter),
                     fontSize = 12.sp,
-                    color = Color.Gray // ★ 선택 여부와 관계없이 회색
+                    color = Color.Gray
                 )
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // "17" (★ 수정 - 동그라미/테두리)
                 Box(
                     modifier = Modifier
-                        .size(32.dp) // 동그라미 크기
+                        .size(32.dp)
                         .clip(CircleShape)
-                        .background(
-                            if (isSelected) Color.Black else Color.Transparent // ★ 선택 시 검은 배경
-                        )
-                        .then(
-                            // ★ (신규) 오늘이고, 선택되지 않았을 때만 테두리
-                            if (isToday && !isSelected) {
-                                Modifier.border(1.5.dp, Color.Black, CircleShape)
-                            } else {
-                                Modifier
-                            }
-                        ),
+                        .background(backgroundColor)
+                        .border(1.5.dp, borderColor, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = date.format(dayFormatter),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (isSelected) Color.White else Color.Black // ★ 선택 시 흰색
+                        color = textColor
                     )
                 }
             }
         }
-
-        // ★ (삭제) > 버튼
     }
 }
 
-// (기존) 날짜 헤더 (변경 없음)
 @Composable
 fun DailyHeader(selectedDate: LocalDate) {
     val formatter = DateTimeFormatter.ofPattern("M월 d일 E요일", Locale.KOREAN)
@@ -293,8 +282,6 @@ fun DailyHeader(selectedDate: LocalDate) {
     }
 }
 
-
-// (기존) TodoGroupCard (변경 없음)
 @Composable
 fun TodoGroupCard(
     group: TodoGroup,
@@ -306,13 +293,9 @@ fun TodoGroupCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Column(
-            modifier = Modifier.padding(vertical = 10.dp)
-        ) {
+        Column(modifier = Modifier.padding(vertical = 10.dp)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -341,11 +324,7 @@ fun TodoGroupCard(
 
                 Box {
                     IconButton(onClick = { isMenuExpanded = true }) {
-                        Icon(
-                            Icons.Default.MoreVert,
-                            contentDescription = "더보기",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Icon(Icons.Default.MoreVert, contentDescription = "더보기", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     DropdownMenu(
                         expanded = isMenuExpanded,
@@ -367,7 +346,7 @@ fun TodoGroupCard(
                         )
                     }
                 }
-            } // --- Row 끝 ---
+            }
 
             Spacer(modifier = Modifier.height(1.dp))
 
@@ -388,7 +367,6 @@ fun TodoGroupCard(
     }
 }
 
-// ★★★ 6. (수정) TaskItemRow (Row 전체 클릭) ★★★
 @Composable
 fun TaskItemRow(
     task: Task,
@@ -397,8 +375,8 @@ fun TaskItemRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(4.dp))
-            .clickable { onCheckedChange(!task.isChecked) }, // ★ (신규) Row 전체 클릭
+            .height(48.dp)
+            .padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Checkbox(
@@ -409,108 +387,71 @@ fun TaskItemRow(
                 uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant
             )
         )
+
         Text(
             text = task.title ?: "",
             modifier = Modifier
-                .padding(start = 0.5.dp)
-                .weight(0.5f),
+                .weight(1f)
+                .padding(start = 8.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Medium,
-            fontSize = 12.sp,
+            fontSize = 15.sp,
             maxLines = 1,
             textDecoration = if (task.isChecked) TextDecoration.LineThrough else TextDecoration.None
         )
-        Spacer(modifier = Modifier.width(10.dp))
+
         Text(
             text = task.date ?: "",
             fontWeight = FontWeight.Medium,
             fontSize = 11.sp,
-            color = Color.Black
+            color = Color.Gray,
+            modifier = Modifier.padding(start = 8.dp)
         )
     }
 }
 
 
-@Preview(showBackground = true)
-@Composable
-fun TodoScreenPreview() {
-    HowsuTheme {
-        val navController = rememberNavController()
-        TodoScreen(navController = navController)
-    }
-}
-
-// ★★★ 7. (수정) 펫 아이콘 (3개 + N개)
+// --- (기존 펫 아이콘 관련 코드 유지) ---
 @Composable
 private fun OverlappingPetIcons(
     petNames: List<String>,
     color: Color,
     modifier: Modifier = Modifier
 ) {
-    if (petNames.isEmpty()) {
-        return
-    }
-
-    val displayNames = petNames.take(3) // ★ 최대 3개만 표시
+    if (petNames.isEmpty()) return
+    val displayNames = petNames.take(3)
     val remaining = (petNames.size - displayNames.size).coerceAtLeast(0)
-
-    // (아이콘 32dp, 겹침 12dp -> (3-1)*20 + 32 = 72dp)
-    // (남은 숫자(+N) 너비 24dp)
     val width = (32 + (displayNames.size - 1) * 20 + (if (remaining > 0) 24 else 0)).dp
-    val overlap = 20.dp // 겹치는 너비 (32dp 아이콘 기준)
+    val overlap = 20.dp
 
     Box(
-        modifier = modifier
-            .width(width)
-            .height(32.dp),
+        modifier = modifier.width(width).height(32.dp),
         contentAlignment = Alignment.CenterStart
     ) {
-        // (수정) 뒤에서부터 그림 (Z-index)
         displayNames.reversed().forEachIndexed { index, name ->
             PetIconCircle(
                 petName = name,
                 color = color.copy(alpha = 1f - (index * 0.2f)),
-                modifier = Modifier
-                    .padding(start = ((displayNames.size - 1) - index) * overlap)
-                    .size(32.dp)
+                modifier = Modifier.padding(start = ((displayNames.size - 1) - index) * overlap).size(32.dp)
             )
         }
-
-        // "+N" 텍스트 (4개 이상일 때)
         if (remaining > 0) {
             Box(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .size(24.dp)
-                    .clip(CircleShape)
-                    .background(Color.Gray.copy(alpha = 0.3f)),
+                modifier = Modifier.align(Alignment.CenterEnd).size(24.dp).clip(CircleShape).background(Color.Gray.copy(alpha = 0.3f)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "+$remaining",
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = color
-                )
+                Text(text = "+$remaining", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = color)
             }
         }
     }
 }
 
-// (기존) 펫 아이콘 헬퍼
 @Composable
 private fun PetIconCircle(petName: String, color: Color, modifier: Modifier = Modifier) {
     Box(
-        modifier = modifier
-            .clip(CircleShape)
-            .background(Color.Gray.copy(alpha = 0.1f)),
+        modifier = modifier.clip(CircleShape).background(Color.Gray.copy(alpha = 0.1f)),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.Pets,
-            contentDescription = petName,
-            tint = color,
-            modifier = Modifier.size(20.dp)
-        )
+        Icon(imageVector = Icons.Default.Pets, contentDescription = petName, tint = color, modifier = Modifier.size(20.dp))
     }
 }

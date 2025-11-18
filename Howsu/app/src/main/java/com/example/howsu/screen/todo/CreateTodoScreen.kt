@@ -355,7 +355,7 @@ private fun CreateTodoContent(
                 members = familyMembers,
                 selectedMember = selectedMember,
                 onMemberSelected = onMemberSelected,
-                enabled = !isEditMode // ★ 수정 모드 시 비활성화 (유지)
+                enabled = true
             )
         }
 
