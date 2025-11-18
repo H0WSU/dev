@@ -2,12 +2,12 @@ package com.example.howsu.data.model
 
 import androidx.annotation.DrawableRes
 import com.google.firebase.firestore.DocumentId
-import java.util.UUID
 
 data class Task(
-    val id: String = UUID.randomUUID().toString(),
+    val id: String = "", // <-- Firestore가 DB 값을 채워넣을 수 있도록 빈 값으로 변경
     val title: String? = null,
     val date: String? = null,
+    @JvmField
     val isChecked: Boolean = false
 )
 

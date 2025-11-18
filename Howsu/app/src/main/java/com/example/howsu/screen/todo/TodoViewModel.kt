@@ -51,7 +51,6 @@ class TodoViewModel : ViewModel() {
         fetchTodoGroups()
     }
 
-    // ★ (수정) 오늘 날짜로 리셋할 때도 '이번 주 일요일(시작일)'을 정확히 계산
     fun resetToToday() {
         val today = LocalDate.now()
         _selectedDate.value = today
@@ -86,22 +85,34 @@ class TodoViewModel : ViewModel() {
 
     fun onTaskCheckedChange(documentId: String, taskId: String, isChecked: Boolean) {
         viewModelScope.launch {
+            val docRef = db.collection("todoGroups").document(documentId)
             try {
-                val docRef = db.collection("todoGroups").document(documentId)
-                val document = docRef.get().await()
-                val group = document.toObject(TodoGroup::class.java) ?: return@launch
+                // 'get'/'update' 대신 'transaction'을 사용
+                db.runTransaction { transaction ->
+                    val snapshot = transaction.get(docRef)
+                    val group = snapshot.toObject(TodoGroup::class.java)
+                        ?: throw Exception("Group not found") // 그룹이 없으면 중단
 
-                val newTasks = group.tasks.map { task ->
-                    if (task.id == taskId) task.copy(isChecked = isChecked)
-                    else task
-                }
-                docRef.update("tasks", newTasks).await()
+                    val newTasks = group.tasks.map { task ->
+                        if (task.id == taskId) {
+                            task.copy(isChecked = isChecked)
+                        } else {
+                            task
+                        }
+                    }
+
+                    transaction.update(docRef, "tasks", newTasks)
+
+                    // (트랜잭션이 성공하면 null을 반환)
+                    null
+                }.await()
+                // 트랜잭션이 성공하면 snapshotListener가 알아서 UI를 갱신합니다.
+
             } catch (e: Exception) {
-                Log.e("TodoViewModel", "태스크 업데이트 실패", e)
+                Log.e("TodoViewModel", "태스크 업데이트 실패 (Transaction)", e)
             }
         }
     }
-
     fun onWeekDaySelected(date: LocalDate) {
         _selectedDate.value = date
     }
