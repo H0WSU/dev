@@ -214,7 +214,7 @@ private fun CreateTodoTopBar(title: String, onCloseClick: () -> Unit) {
         )
         IconButton(
             onClick = onCloseClick,
-            modifier = Modifier
+            modifier = Modifier.fillMaxWidth()
                 .size(39.dp)
                 .align(Alignment.CenterEnd)
             // ★ (삭제) .border(...)

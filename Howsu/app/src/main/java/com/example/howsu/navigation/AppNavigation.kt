@@ -1,17 +1,20 @@
 package com.example.howsu.navigation // (1. 새 패키지 이름)
 
+import android.annotation.SuppressLint
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
-import com.example.howsu.data.model.FamilyMember
+import com.example.howsu.Pet.PetRegisterViewModel
 import com.example.howsu.screen.feed.FeedHomeScreen
 import com.example.howsu.screen.feed.FeedViewModel
 import com.example.howsu.screen.feed.FeedWriteScreen
+import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.screen.home.HomeScreen
-import com.example.howsu.screen.home.Pet
 import com.example.howsu.screen.home.PetDetailScreen
 import com.example.howsu.screen.login.AuthViewModel
 import com.example.howsu.screen.login.JoinScreen
@@ -23,9 +26,13 @@ import com.example.howsu.screen.schedule.ScheduleScreen
 import com.example.howsu.screen.setting.SettingScreen
 import com.example.howsu.screen.todo.CreateTodoScreen
 import com.example.howsu.screen.todo.TodoScreen
+import com.example.howsu.screen.home.Pet
+import com.example.howsu.screen.pet.PetRegisterCompleteScreen
+import com.example.howsu.screen.pet.PetRegisterScreen
 
 // (TODO: 다른 화면들도 Import)
 
+@SuppressLint("ViewModelConstructorInComposable")
 @Composable
 fun AppNavigation() {
     // 4. 내비게이션 컨트롤러 생성
@@ -39,11 +46,12 @@ fun AppNavigation() {
     )
 
     val feedViewModel: FeedViewModel = viewModel()
+    val petRegisterViewModel : PetRegisterViewModel = viewModel()
 
     // 5. NavHost가 화면을 관리
     NavHost(
         navController = navController,
-        startDestination = "loading" // ★ 앱 시작 시 보여줄 첫 화면
+        startDestination = "register_pet" // ★ 앱 시작 시 보여줄 첫 화면
     ) {
         composable(route = "loading") {
             LoadingScreen(navController = navController)
@@ -161,6 +169,32 @@ fun AppNavigation() {
                     editPost = post
                 )
             }
+        }
+
+        //닉네임 등록 및 반려동물 등록 화면
+        composable(route = "register_pet") {
+            PetRegisterScreen(viewModel = petRegisterViewModel,navController = navController)
+        }
+
+        // 반려동물 등록 완료 화면
+        composable("pet_register_complete") {
+            val vm = PetRegisterViewModel() // 위와 같은 인스턴스를 공유해야 함
+            val uiState by vm.uiState.collectAsState()
+
+            PetRegisterCompleteScreen(
+                uiState = uiState,
+                onAddMore = {
+                    vm.resetForNewPet()
+                    navController.navigate("pet_register") {
+                        popUpTo("pet_register_complete") { inclusive = true }
+                    }
+                },
+                onFinish = {
+                    navController.navigate("home") {
+                        popUpTo("home") { inclusive = true }
+                    }
+                }
+            )
         }
     }
 
