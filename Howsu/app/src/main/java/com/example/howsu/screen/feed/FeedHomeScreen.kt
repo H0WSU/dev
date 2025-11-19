@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.example.howsu.common.MyBottomNavigationBar
 import com.example.howsu.common.MyFloatingActionButton
 import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.data.model.FeedFilter
@@ -98,7 +99,13 @@ fun FeedHomeScreen(
                 onFeedCreateClick = { navController.navigate("create_feed") }
             )
         }
-
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+        ) {
+            MyBottomNavigationBar(navController = navController)
+        }
 
     }
 }
