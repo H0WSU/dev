@@ -140,8 +140,7 @@ fun CreateTodoScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             CreateTodoTopBar(
-                // ★★★ (수정) "할 일 수정하기"
-                title = if (isEditMode) "할 일 수정하기" else "투두 생성하기",
+                title = if (isEditMode) "투두 수정하기" else "투두 생성하기",
                 onCloseClick = { navController.popBackStack() }
             )
         },
@@ -196,7 +195,6 @@ fun CreateTodoScreen(
     }
 }
 
-// ★★★ 2. (수정) 상단 바 (X 버튼 테두리 제거) ★★★
 @Composable
 private fun CreateTodoTopBar(title: String, onCloseClick: () -> Unit) {
     Box(
@@ -214,7 +212,7 @@ private fun CreateTodoTopBar(title: String, onCloseClick: () -> Unit) {
         )
         IconButton(
             onClick = onCloseClick,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
                 .size(39.dp)
                 .align(Alignment.CenterEnd)
             // ★ (삭제) .border(...)
@@ -392,7 +390,7 @@ private fun CreateTodoContent(
                 onDropdownDismissed = onPetDropdownDismissed,
                 onPetSelected = onPetSelected,
                 onPetTagRemoved = onPetTagRemoved,
-                enabled = true // ★★★ (수정) 수정 모드에서도 펫은 추가/삭제 가능
+                enabled = true
             )
         }
     }

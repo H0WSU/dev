@@ -4,9 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.howsu.data.model.Pet
@@ -133,29 +131,59 @@ class CreateScheduleViewModel : ViewModel() {
         }
     }
 
-    fun onPetDropdownClicked() { _isPetDropdownVisible.value = true }
-    fun onPetDropdownDismissed() { _isPetDropdownVisible.value = false }
+    fun onPetDropdownClicked() {
+        _isPetDropdownVisible.value = true
+    }
+
+    fun onPetDropdownDismissed() {
+        _isPetDropdownVisible.value = false
+    }
+
     fun onPetSelected(pet: Pet) {
         if (!_selectedPets.value.any { it.petId == pet.petId }) {
             _selectedPets.update { it + pet }
         }
         _isPetDropdownVisible.value = false
     }
-    fun onPetTagRemoved(pet: Pet) { _selectedPets.update { it.filterNot { p -> p.petId == pet.petId } } }
-    fun onTitleChanged(newTitle: String) { _title.value = newTitle }
-    fun onMemoChanged(newMemo: String) { _memo.value = newMemo.take(20) }
-    fun onAllDayToggled(isChecked: Boolean) { _isAllDay.value = isChecked }
+
+    fun onPetTagRemoved(pet: Pet) {
+        _selectedPets.update { it.filterNot { p -> p.petId == pet.petId } }
+    }
+
+    fun onTitleChanged(newTitle: String) {
+        _title.value = newTitle
+    }
+
+    fun onMemoChanged(newMemo: String) {
+        _memo.value = newMemo.take(20)
+    }
+
+    fun onAllDayToggled(isChecked: Boolean) {
+        _isAllDay.value = isChecked
+    }
+
     fun onColorSelected(hexColor: String) {
         _selectedColor.value = hexColor
         _isColorPickerVisible.value = false
     }
-    fun onColorPickerClicked() { _isColorPickerVisible.value = true }
-    fun onColorPickerDismissed() { _isColorPickerVisible.value = false }
+
+    fun onColorPickerClicked() {
+        _isColorPickerVisible.value = true
+    }
+
+    fun onColorPickerDismissed() {
+        _isColorPickerVisible.value = false
+    }
+
     fun onDatePickerClicked(target: DateTimePickerTarget) {
         _pickerTarget.value = target
         _showDatePicker.value = true
     }
-    fun onDatePickerDismissed() { _showDatePicker.value = false }
+
+    fun onDatePickerDismissed() {
+        _showDatePicker.value = false
+    }
+
     fun onDateSelected(selectedMillis: Long?) {
         _showDatePicker.value = false
         val selectedDate = Instant.ofEpochMilli(selectedMillis ?: System.currentTimeMillis())
@@ -163,16 +191,22 @@ class CreateScheduleViewModel : ViewModel() {
             .toLocalDate()
         updateDateTime(date = selectedDate)
     }
+
     fun onTimePickerClicked(target: DateTimePickerTarget) {
         _pickerTarget.value = target
         _showTimePicker.value = true
     }
-    fun onTimePickerDismissed() { _showTimePicker.value = false }
+
+    fun onTimePickerDismissed() {
+        _showTimePicker.value = false
+    }
+
     fun onTimeSelected(hour: Int, minute: Int) {
         _showTimePicker.value = false
         val selectedTime = LocalTime.of(hour, minute)
         updateDateTime(time = selectedTime)
     }
+
     private fun updateDateTime(date: LocalDate? = null, time: LocalTime? = null) {
         val targetState =
             if (_pickerTarget.value == DateTimePickerTarget.START) _startDate else _endDate
@@ -190,14 +224,28 @@ class CreateScheduleViewModel : ViewModel() {
             _endDate.value = newMillis + 3600000 // + 1 hour
         }
     }
-    fun onRecurrenceClicked() { _showRecurrencePicker.value = true }
-    fun onRecurrenceDismissed() { _showRecurrencePicker.value = false }
+
+    fun onRecurrenceClicked() {
+        _showRecurrencePicker.value = true
+    }
+
+    fun onRecurrenceDismissed() {
+        _showRecurrencePicker.value = false
+    }
+
     fun onRecurrenceSelected(rule: String) {
         _recurrenceRule.value = rule
         _showRecurrencePicker.value = false
     }
-    fun onAlarmClicked() { _showAlarmPicker.value = true }
-    fun onAlarmDismissed() { _showAlarmPicker.value = false }
+
+    fun onAlarmClicked() {
+        _showAlarmPicker.value = true
+    }
+
+    fun onAlarmDismissed() {
+        _showAlarmPicker.value = false
+    }
+
     fun onAlarmSelected(rule: String) {
         _alarmRule.value = rule
         _showAlarmPicker.value = false
@@ -226,14 +274,8 @@ class CreateScheduleViewModel : ViewModel() {
         _recurrenceEndDate.value = selectedDate
     }
 
-    // (참고: '계속 반복'을 위한 초기화 기능, UI에 버튼 추가 시 사용)
-    // fun onRecurrenceEndDateClear() {
-    //     _recurrenceEndDate.value = null
-    // }
-    // ★★★ (신규 끝) ★★★
 
     // --- ★ (수정) 저장 및 알림/반복 로직 ---
-    @RequiresApi(Build.VERSION_CODES.S)
     fun saveSchedule(context: Context, onComplete: () -> Unit) {
         val title = _title.value
 
@@ -376,7 +418,6 @@ class CreateScheduleViewModel : ViewModel() {
     }
 
     // --- ★ 12. (신규) 알림 예약 헬퍼 ---
-    @RequiresApi(Build.VERSION_CODES.S)
     private fun scheduleAlarm(
         context: Context,
         scheduleId: String,
@@ -385,46 +426,44 @@ class CreateScheduleViewModel : ViewModel() {
         alarmRule: String
     ) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-
-        // 1. 알림 시간 계산
         val triggerAtMillis = calculateAlarmTime(startDateMillis, alarmRule)
 
-        // 2. 알림 시간이 유효하고, 과거가 아닐 때만 예약
         if (triggerAtMillis != null && triggerAtMillis > System.currentTimeMillis()) {
-
-            // 3. 알림을 수신할 Receiver 인텐트 생성
             val intent = Intent(context, AlarmReceiver::class.java).apply {
                 putExtra("SCHEDULE_ID", scheduleId)
                 putExtra("SCHEDULE_TITLE", title)
             }
 
-            // 4. PendingIntent 생성 (알림 ID로 scheduleId의 해시코드 사용)
             val pendingIntent = PendingIntent.getBroadcast(
                 context,
-                scheduleId.hashCode(), // 각 알림을 고유하게 식별할 ID
+                scheduleId.hashCode(),
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-            // 5. 알림 예약 (정시 알림)
             try {
-                if (alarmManager.canScheduleExactAlarms()) {
-                    alarmManager.setExact(
-                        AlarmManager.RTC_WAKEUP,
-                        triggerAtMillis,
-                        pendingIntent
-                    )
-                    Log.d("CreateScheduleVM", "알림 예약 성공: $scheduleId at $triggerAtMillis")
+                // ★ 수정된 부분: 버전(SDK_INT)을 확인해서 분기 처리
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                    // 안드로이드 12(S) 이상: 권한 체크 필요
+                    if (alarmManager.canScheduleExactAlarms()) {
+                        alarmManager.setExact(
+                            AlarmManager.RTC_WAKEUP,
+                            triggerAtMillis,
+                            pendingIntent
+                        )
+                    } else {
+                        // 권한 없으면 일반 알림으로 (또는 로그 출력)
+                        alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
+                    }
                 } else {
-                    Log.w("CreateScheduleVM", "정시 알림 예약 권한이 없습니다.")
-                    alarmManager.set(
-                        AlarmManager.RTC_WAKEUP,
-                        triggerAtMillis,
-                        pendingIntent
-                    )
+                    // 안드로이드 12 미만: 권한 체크 없이 바로 정확한 알림 사용 가능
+                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
                 }
+
+                Log.d("CreateScheduleVM", "알림 예약 성공")
+
             } catch (e: SecurityException) {
-                Log.e("CreateScheduleVM", "알림 예약 실패. 권한 필요 (SCHEDULE_EXACT_ALARM)", e)
+                Log.e("CreateScheduleVM", "알림 예약 실패", e)
             }
         }
     }

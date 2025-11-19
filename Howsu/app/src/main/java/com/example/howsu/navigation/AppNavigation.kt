@@ -10,25 +10,25 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import com.example.howsu.Pet.PetRegisterViewModel
+import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.screen.feed.FeedHomeScreen
 import com.example.howsu.screen.feed.FeedViewModel
 import com.example.howsu.screen.feed.FeedWriteScreen
-import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.screen.home.HomeScreen
+import com.example.howsu.screen.home.Pet
 import com.example.howsu.screen.home.PetDetailScreen
 import com.example.howsu.screen.login.AuthViewModel
 import com.example.howsu.screen.login.JoinScreen
 import com.example.howsu.screen.login.LoadingScreen
 import com.example.howsu.screen.login.LoginScreen
+import com.example.howsu.screen.pet.PetRegisterCompleteScreen
+import com.example.howsu.screen.pet.PetRegisterScreen
 import com.example.howsu.screen.schedule.CreateScheduleScreen
 import com.example.howsu.screen.schedule.ScheduleDetailScreen
 import com.example.howsu.screen.schedule.ScheduleScreen
 import com.example.howsu.screen.setting.SettingScreen
 import com.example.howsu.screen.todo.CreateTodoScreen
 import com.example.howsu.screen.todo.TodoScreen
-import com.example.howsu.screen.home.Pet
-import com.example.howsu.screen.pet.PetRegisterCompleteScreen
-import com.example.howsu.screen.pet.PetRegisterScreen
 
 // (TODO: 다른 화면들도 Import)
 
@@ -51,7 +51,7 @@ fun AppNavigation() {
     // 5. NavHost가 화면을 관리
     NavHost(
         navController = navController,
-        startDestination = "register_pet" // ★ 앱 시작 시 보여줄 첫 화면
+        startDestination = "loading" // ★ 앱 시작 시 보여줄 첫 화면
     ) {
         composable(route = "loading") {
             LoadingScreen(navController = navController)
