@@ -5,12 +5,15 @@ import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import com.example.howsu.R // (R 임포트 경로 확인)
 
 class AlarmReceiver : BroadcastReceiver() {
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onReceive(context: Context, intent: Intent) {
         val scheduleId = intent.getStringExtra("SCHEDULE_ID") ?: return
         val title = intent.getStringExtra("SCHEDULE_TITLE") ?: "예약된 일정"
@@ -21,6 +24,7 @@ class AlarmReceiver : BroadcastReceiver() {
         sendNotification(context, scheduleId, title)
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     private fun sendNotification(context: Context, scheduleId: String, title: String) {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val channelId = "SCHEDULE_NOTIFICATIONS"

@@ -4,12 +4,15 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.howsu.data.model.Pet
 import com.example.howsu.data.model.Schedule
 import com.google.firebase.Timestamp
+import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.firestore.toObject
 import com.google.firebase.ktx.Firebase
@@ -230,13 +233,20 @@ class CreateScheduleViewModel : ViewModel() {
     // ★★★ (신규 끝) ★★★
 
     // --- ★ (수정) 저장 및 알림/반복 로직 ---
+    @RequiresApi(Build.VERSION_CODES.S)
     fun saveSchedule(context: Context, onComplete: () -> Unit) {
         val title = _title.value
+
+        // ★ 1. 유저 확인 및 familyId 확보 (투두와 동일한 패턴)
+        val currentUser = Firebase.auth.currentUser
+        val myFamilyId = currentUser?.uid ?: return
+
         if (title.isBlank()) {
             return
         }
 
         val baseScheduleMap = mapOf(
+            "familyId" to myFamilyId, // ★ 2. 맵에 familyId 추가
             "title" to title,
             "memo" to _memo.value,
             "isAllDay" to _isAllDay.value,
@@ -366,6 +376,7 @@ class CreateScheduleViewModel : ViewModel() {
     }
 
     // --- ★ 12. (신규) 알림 예약 헬퍼 ---
+    @RequiresApi(Build.VERSION_CODES.S)
     private fun scheduleAlarm(
         context: Context,
         scheduleId: String,

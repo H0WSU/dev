@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.howsu.data.model.Schedule
 import com.google.firebase.Timestamp
+import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.firestore.toObject
 import com.google.firebase.firestore.toObjects
@@ -72,6 +73,13 @@ class ScheduleViewModel : ViewModel() {
     }
 
     private fun fetchSchedulesForDate(date: LocalDate) {
+        val currentUser = Firebase.auth.currentUser
+        if (currentUser == null) {
+            _schedules.value = emptyList()
+            return
+        }
+        val currentFamilyId = currentUser.uid // ★ 내 아이디 가져오기
+
         viewModelScope.launch {
             try {
                 val startOfDay = date.atStartOfDay(zoneId)
@@ -80,6 +88,7 @@ class ScheduleViewModel : ViewModel() {
                 val endTimestamp = Timestamp(Date.from(endOfDay.toInstant()))
 
                 val querySnapshot = db.collection("schedules")
+                    .whereEqualTo("familyId", currentFamilyId) // ★ [필수] 내 가족(나)의 일정만
                     .whereGreaterThanOrEqualTo("startDate", startTimestamp)
                     .whereLessThan("startDate", endTimestamp)
                     .orderBy("startDate")
@@ -94,6 +103,10 @@ class ScheduleViewModel : ViewModel() {
     }
 
     private fun loadMonthSchedules(yearMonth: YearMonth) {
+        val currentUser = Firebase.auth.currentUser
+        if (currentUser == null) return
+        val currentFamilyId = currentUser.uid
+
         viewModelScope.launch {
             try {
                 val startOfMonth = yearMonth.atDay(1).atStartOfDay(zoneId)
@@ -102,6 +115,7 @@ class ScheduleViewModel : ViewModel() {
                 val endTimestamp = Timestamp(Date.from(startOfNextMonth.toInstant()))
 
                 val querySnapshot = db.collection("schedules")
+                    .whereEqualTo("familyId", currentFamilyId) // ★ [필수]
                     .whereGreaterThanOrEqualTo("startDate", startTimestamp)
                     .whereLessThan("startDate", endTimestamp)
                     .get()
@@ -149,34 +163,27 @@ class ScheduleViewModel : ViewModel() {
 
     // ★★★ (대폭 수정) 일정 삭제 함수 ★★★
     fun deleteSchedule(deletionType: DeletionType, onComplete: () -> Unit) {
-        val schedule = _selectedSchedule.value
-        if (schedule == null) {
-            Log.e("ScheduleViewModel", "삭제할 일정이 선택되지 않았습니다.")
-            return
-        }
+        val schedule = _selectedSchedule.value ?: return
+
+        // ★ 안전장치: 현재 로그인한 사람 확인
+        val currentUser = Firebase.auth.currentUser ?: return
+        val currentFamilyId = currentUser.uid
 
         viewModelScope.launch {
             try {
                 when (deletionType) {
                     DeletionType.SINGLE -> {
-                        // 1. 단일 일정 삭제 (기존 로직)
                         db.collection("schedules").document(schedule.id).delete().await()
-                        Log.d("ScheduleViewModel", "단일 일정 삭제 성공: ${schedule.id}")
                     }
-
-                    // "이후 일정" 또는 "모든 일정"은 쿼리가 필요함
                     DeletionType.FUTURE, DeletionType.ALL -> {
-                        // "반복 안 함" 일정이면 단일 삭제와 동일하게 처리
                         if (schedule.recurrenceRule == "반복 안 함") {
                             db.collection("schedules").document(schedule.id).delete().await()
-                            Log.d("ScheduleViewModel", "반복 없는 일정, 단일 삭제: ${schedule.id}")
                         } else {
-                            // 쿼리 기준: 제목과 반복 규칙이 같아야 함 (가장 중요)
                             var query = db.collection("schedules")
+                                .whereEqualTo("familyId", currentFamilyId) // ★ [중요] 내 일정 중에서만 검색
                                 .whereEqualTo("title", schedule.title)
                                 .whereEqualTo("recurrenceRule", schedule.recurrenceRule)
 
-                            // "이후"일 경우에만 시간 필터 추가
                             if (deletionType == DeletionType.FUTURE) {
                                 query = query.whereGreaterThanOrEqualTo("startDate", schedule.startDate)
                             }

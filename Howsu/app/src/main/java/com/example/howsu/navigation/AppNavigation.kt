@@ -20,6 +20,7 @@ import com.example.howsu.screen.login.LoginScreen
 import com.example.howsu.screen.schedule.CreateScheduleScreen
 import com.example.howsu.screen.schedule.ScheduleDetailScreen
 import com.example.howsu.screen.schedule.ScheduleScreen
+import com.example.howsu.screen.setting.SettingScreen
 import com.example.howsu.screen.todo.CreateTodoScreen
 import com.example.howsu.screen.todo.TodoScreen
 
@@ -67,6 +68,11 @@ fun AppNavigation() {
                     authViewModel = authViewModel
                 )
             }
+        }
+
+        // 세팅 화면 추가 (테스트)
+        composable(route = "profile") {
+            SettingScreen(navController = navController)
         }
 
         // home화면 추가

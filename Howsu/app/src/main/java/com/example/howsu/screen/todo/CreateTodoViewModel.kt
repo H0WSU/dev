@@ -7,6 +7,7 @@ import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.data.model.Pet
 import com.example.howsu.data.model.Task
 import com.example.howsu.data.model.TodoGroup
+import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.firestore.toObject
 import com.google.firebase.ktx.Firebase
@@ -148,16 +149,19 @@ class CreateTodoViewModel : ViewModel() {
         }
     }
 
-    // ★★★ (대폭 수정) saveTodo (진짜 '수정' 로직 구현) ★★★
     fun saveTodo(onComplete: () -> Unit) {
         val assignee = _selectedMember.value
         val title = _taskTitle.value
         val dateInMillis = _selectedDate.value
 
+        val currentUser = Firebase.auth.currentUser
+
+        // 유효성 검사 및 familyId 확보
+        val myFamilyId = currentUser?.uid ?: return
+
         if (assignee == null || title.isBlank()) {
             return
         }
-
         val formattedDate = SimpleDateFormat("yyyy. MM. dd", Locale.KOREA).format(Date(dateInMillis))
 
         viewModelScope.launch {
@@ -186,12 +190,12 @@ class CreateTodoViewModel : ViewModel() {
                     val finalAssigneeId = assignee.userId
                     val finalAssigneeName = assignee.relationship
 
-                    // 4. (수정) 'tasks'와 'petNames' 필드 전체를 덮어쓰기 (arrayUnion 아님)
                     docRef.update(
                         "tasks", updatedTasks,
                         "petNames", mergedPetNames,
-                        "assigneeId", finalAssigneeId,
-                        "assigneeName", finalAssigneeName
+                        "assigneeId", assignee.userId,
+                        "assigneeName", assignee.relationship,
+                        "familyId", myFamilyId // 혹시 모르니 familyId도 업데이트
                     ).await()
 
                     Log.d("CreateTodoVM", "기존 할 일 그룹 수정 성공")
@@ -206,6 +210,7 @@ class CreateTodoViewModel : ViewModel() {
                     )
 
                     val newTodoGroup = TodoGroup(
+                        familyId = myFamilyId,
                         assigneeId = assignee.userId,
                         assigneeName = assignee.relationship,
                         assigneeProfileRes = null,

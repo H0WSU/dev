@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.howsu.data.model.TodoGroup
+import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,18 +49,24 @@ class TodoViewModel : ViewModel() {
     }
 
     init {
+        // 초기화 시점에 데이터를 가져옴
         fetchTodoGroups()
     }
 
-    fun resetToToday() {
-        val today = LocalDate.now()
-        _selectedDate.value = today
-        // "오늘이 포함된 주의 일요일"을 계산
-        _currentWeekStart.value = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
-    }
-
     private fun fetchTodoGroups() {
+        val currentUser = Firebase.auth.currentUser
+        if (currentUser == null) {
+            _allTodoGroups.value = emptyList()
+            return
+        }
+
+        // ★ [핵심 로직]
+        // 가족 기능 구현 전: 내 UID를 familyId로 사용
+        // 가족 기능 구현 후: API로 받아온 shared_family_id를 사용하면 됨
+        val currentFamilyId = currentUser.uid
+
         db.collection("todoGroups")
+            .whereEqualTo("familyId", currentFamilyId) // ★ 이 조건이 있어야 내 것만 보임!
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     Log.w("TodoViewModel", "Listen failed.", error)
@@ -76,6 +83,13 @@ class TodoViewModel : ViewModel() {
                     _allTodoGroups.value = groups
                 }
             }
+    }
+
+    fun resetToToday() {
+        val today = LocalDate.now()
+        _selectedDate.value = today
+        // "오늘이 포함된 주의 일요일"을 계산
+        _currentWeekStart.value = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
     }
 
     fun deleteGroup(documentId: String) {

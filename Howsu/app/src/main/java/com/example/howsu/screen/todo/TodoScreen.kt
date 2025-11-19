@@ -282,6 +282,17 @@ fun DailyHeader(selectedDate: LocalDate) {
     }
 }
 
+// 한글 받침 확인 함수
+fun hasBatchim(text: String): Boolean {
+    if (text.isEmpty()) return false
+    val lastChar = text.last()
+
+    // 한글 유니코드 범위: 가(0xAC00) ~ 힣(0xD7A3)
+    if (lastChar < '\uAC00' || lastChar > '\uD7A3') return false
+
+    // (글자 - 0xAC00) % 28 의 결과가 0보다 크면 받침이 있는 것
+    return (lastChar.code - 0xAC00) % 28 > 0
+}
 @Composable
 fun TodoGroupCard(
     group: TodoGroup,
@@ -299,17 +310,18 @@ fun TodoGroupCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 4.dp),
+                    .padding(start = 23.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 val assigneeName = group.assigneeName ?: ""
+                val particle = if (hasBatchim(assigneeName)) "이" else "가"
                 Text(
                     text = buildAnnotatedString {
-                        withStyle(style = SpanStyle(fontWeight = FontWeight.SemiBold, fontSize = 14.sp)) {
+                        withStyle(style = SpanStyle(fontWeight = FontWeight.SemiBold, fontSize = 18.sp)) {
                             append(assigneeName)
                         }
-                        withStyle(style = SpanStyle(fontWeight = FontWeight.Medium, fontSize = 10.sp)) {
-                            append("(이)가")
+                        withStyle(style = SpanStyle(fontWeight = FontWeight.Medium, fontSize = 15.sp)) {
+                            append(particle)
                         }
                     },
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -375,7 +387,7 @@ fun TaskItemRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(48.dp)
+            .height(40.dp)
             .padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -392,7 +404,7 @@ fun TaskItemRow(
             text = task.title ?: "",
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 8.dp),
+                .padding(start = 3.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Medium,
             fontSize = 15.sp,
