@@ -100,7 +100,7 @@ fun JoinScreen(
             is FirebaseLoginState.Success -> {
                 Log.d("JoinScreen", "Firebase 회원가입 및 로그인 성공!")
                 // TODO: (중요) 회원가입 성공 시 홈 화면으로 이동
-                navController.navigate("todo") { popUpTo("auth_graph") { inclusive = true } }
+                navController.navigate("loading") { popUpTo("auth_graph") { inclusive = true } }
             }
 
             is FirebaseLoginState.Error -> {
