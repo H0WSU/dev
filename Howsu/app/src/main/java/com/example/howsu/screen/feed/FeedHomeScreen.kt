@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -38,75 +40,62 @@ fun FeedHomeScreen(
     val filteredPosts = viewModel.filteredPosts
     val selectedFilter = viewModel.selectedFilter
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
 
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
+        // --- 상단 앱 바 ---
+        topBar = {
+            Column {
+                FeedHomeTopBar(
+                    member,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                )
 
-            Spacer(modifier = Modifier.height(10.dp))
-            // 1) TopBar — 상태바 넘치지 않도록 패딩
-            FeedHomeTopBar(member,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()       // ★ 상단 잘림 방지 핵심
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            )
+                Spacer(modifier = Modifier.height(4.dp))
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // 2) TabRow — TopBar 바로 아래 적당한 간격
-            FilterTabRow(
-                selectedFilter = selectedFilter,
-                onFilterSelected = { filter ->
-                    viewModel.changeFilter(filter)
-                }
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 3) 피드 목록 — 스크롤 가능
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .padding(top = 4.dp),
-            ) {
-                items(filteredPosts, key = { it.id }) { post ->
-                    FeedItem(
-                        post = post,
-                        onClick = {
-
-                            navController.navigate("edit_feed/${post.id}")
-                        },
-                        onDeleteClick = {
-                            viewModel.deletePost(post.id)
-                        }
-                    )
-                }
+                FilterTabRow(
+                    selectedFilter = selectedFilter,
+                    onFilterSelected = { filter ->
+                        viewModel.changeFilter(filter)
+                    }
+                )
             }
+        },
 
-        }
-        // 4) FAB — 오른쪽 아래 고정
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-        ) {
+        // --- 하단 네비게이션 ---
+        bottomBar = {
+            MyBottomNavigationBar(navController)
+        },
+
+        floatingActionButton = {
             MyFloatingActionButton(
                 onTodoClick = { navController.navigate("create_todo") },
                 onScheduleClick = { navController.navigate("create_schedule") },
                 onFeedCreateClick = { navController.navigate("create_feed") }
             )
         }
-        Box(
+    ) { padding ->            // ★ 여기가 content
+        LazyColumn(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
+                .padding(padding)    // ★ 시스템 패딩 적용 매우 중요
+                .padding(top = 8.dp)
         ) {
-            MyBottomNavigationBar(navController = navController)
+            items(filteredPosts, key = { it.id }) { post ->
+                FeedItem(
+                    post = post,
+                    onClick = {
+                        navController.navigate("edit_feed/${post.id}")
+                    },
+                    onDeleteClick = {
+                        viewModel.deletePost(post.id)
+                    }
+                )
+            }
         }
-
     }
 }
 

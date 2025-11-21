@@ -3,6 +3,17 @@ package com.example.howsu.screen.pet
 import android.annotation.SuppressLint
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -56,11 +67,16 @@ import com.example.howsu.R
 import com.example.howsu.data.model.BirthdayInputType
 import com.example.howsu.data.model.PetRegisterStep
 import com.example.howsu.data.model.PetRegisterUiState
+import com.example.howsu.screen.schedule.MonthYearPickerDialog
 import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+
 
 
 /* -----------------------------------------------------------------------
@@ -85,56 +101,53 @@ fun PetRegisterScreen(
     ) { uri ->
         if (uri != null) {
             val url = uri.toString()
+            // 이제는 모든 스텝에서 펫 프로필 사진만 사용
             when (uiState.step) {
-                PetRegisterStep.NICKNAME -> {
-                    viewModel.updateUserProfileImage(url)  // 닉네임 단계 → 유저 이미지
-                }
                 PetRegisterStep.PHOTO_NAME,
                 PetRegisterStep.GENDER_WEIGHT,
                 PetRegisterStep.BIRTHDAY -> {
-                    viewModel.updatePetProfileImage(url)   // 나머지 단계 → 펫 이미지
+                    viewModel.updatePetProfileImage(url)
                 }
             }
         }
     }
 
+    // 제목 + 스텝 번호 (3단계)
     val (title, stepIndex) = when (uiState.step) {
-        PetRegisterStep.NICKNAME    -> "닉네임 등록하기" to 1
-        PetRegisterStep.PHOTO_NAME  -> "반려동물 등록하기" to 2
-        PetRegisterStep.GENDER_WEIGHT -> "반려동물 등록하기" to 3
-        PetRegisterStep.BIRTHDAY    -> "반려동물 등록하기" to 4
+        PetRegisterStep.PHOTO_NAME       -> "반려동물 등록하기" to 1
+        PetRegisterStep.GENDER_WEIGHT    -> "반려동물 등록하기" to 2
+        PetRegisterStep.BIRTHDAY         -> "반려동물 등록하기" to 3
     }
 
-    val isNicknameStep = uiState.step == PetRegisterStep.NICKNAME
     val isLastStep = uiState.step == PetRegisterStep.BIRTHDAY
 
-    // 닉네임 단계에서는 닉네임 필수, 그 외 단계는 ViewModel 로직 사용
-    val nextButtonEnabled =
-        if (isNicknameStep) uiState.nickName.isNotBlank()
-        else viewModel.isNextEnabled()
+    // 다음 버튼 활성화 여부는 ViewModel 로직만 사용
+    val nextButtonEnabled = viewModel.isNextEnabled()
 
     Scaffold(
         topBar = {
             PetRegisterTopBar(
                 title = title,
                 step = stepIndex,
-                totalStep = 4,
+                totalStep = 3,                       // 스텝 개수 3개로 변경
                 onBack = {
-                    if (uiState.step == PetRegisterStep.NICKNAME) {
+                    if (uiState.step == PetRegisterStep.PHOTO_NAME) {
+                        // 첫 단계에서는 이전 화면으로
                         navController.popBackStack()
                     } else {
+                        // 그 외에는 이전 스텝으로 이동
                         viewModel.previousStep()
                     }
                 },
-                showBack = uiState.step != PetRegisterStep.NICKNAME, // ← 닉네임 단계면 false
+                showBack = true,                    // 이제 항상 뒤로가기 표시
                 onCloseClick = { showExitDialog = true }
             )
         },
         bottomBar = {
             PetRegisterBottomBar(
-                enabled = nextButtonEnabled,                          // ← 여기만 수정
-                isLastStep = uiState.step == PetRegisterStep.BIRTHDAY,
-                showSkip = uiState.step != PetRegisterStep.NICKNAME,
+                enabled = nextButtonEnabled,
+                isLastStep = isLastStep,
+                showSkip = true,                    // 닉네임 스텝 없으니 항상 "건너뛰기" 보여줄지 여부는 선택
                 onNext = {
                     if (uiState.step == PetRegisterStep.BIRTHDAY) {
                         viewModel.submit { _ ->
@@ -154,15 +167,6 @@ fun PetRegisterScreen(
                 .padding(padding)
         ) {
             when (uiState.step) {
-                PetRegisterStep.NICKNAME ->
-                    NicknameStep(
-                        state = uiState,
-                        onNickname = viewModel::updateNickName,
-                        onPickImage = {
-                            imagePickerLauncher.launch("image/*")
-                        }
-                    )
-
                 PetRegisterStep.PHOTO_NAME ->
                     PhotoNameStep(
                         state = uiState,
@@ -187,38 +191,61 @@ fun PetRegisterScreen(
                         onExact = viewModel::updateBirthdayExact,
                         onYear = viewModel::updateBirthdayYear,
                         onMonth = viewModel::updateBirthdayMonth,
-                        onDatePickerClicked = { showDatePicker = true },
-                        selectedDate = datePickerState.selectedDateMillis
-                            ?: System.currentTimeMillis()
+                        onDatePickerClicked = { showDatePicker = true }
                     )
             }
         }
     }
 
-    // 달력 다이얼로그
+    // 달력 다이얼로그 (EXACT / APPROX 공통)
+// 달력 다이얼로그
     if (showDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val millis = datePickerState.selectedDateMillis
-                        if (millis != null) {
-                            val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                            val formatted = formatter.format(Date(millis))
-                            viewModel.updateBirthdayExact(formatted)
+
+        if (uiState.birthdayInputType == BirthdayInputType.EXACT) {
+            // 1) 정확히 알고 있어요 → 날짜 캘린더
+            DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val millis = datePickerState.selectedDateMillis
+                            if (millis != null) {
+                                val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                                val formatted = formatter.format(Date(millis))
+                                viewModel.updateBirthdayExact(formatted)
+                            }
+                            showDatePicker = false
                         }
-                        showDatePicker = false
+                    ) { Text("확인") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text("취소")
                     }
-                ) { Text("확인") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("취소")
                 }
+            ) {
+                DatePicker(state = datePickerState)
             }
-        ) {
-            DatePicker(state = datePickerState)
+
+        } else {
+            // 2) 대략만 알고 있어요 → 년/월 다이얼로그 (Schedule 화면과 동일)
+
+            val cal = Calendar.getInstance()
+            val initialYear = uiState.birthdayYearApprox.toIntOrNull()
+                ?: cal.get(Calendar.YEAR)
+            val initialMonth = uiState.birthdayMonthApprox.toIntOrNull()
+                ?: (cal.get(Calendar.MONTH) + 1)   // 0~11 → 1~12
+
+            MonthYearPickerDialog(
+                initialYear = initialYear,
+                initialMonth = initialMonth,
+                onDismiss = { showDatePicker = false },
+                onConfirm = { year, month ->
+                    viewModel.updateBirthdayYear(year.toString())
+                    viewModel.updateBirthdayMonth(month.toString())
+                    showDatePicker = false
+                }
+            )
         }
     }
 
@@ -458,53 +485,6 @@ fun PetProfileCircle(
     }
 }
 
-
-/* -----------------------------------------------------------------------
-   Step 0 : 닉네임 등록
-   ----------------------------------------------------------------------- */
-
-@Composable
-fun NicknameStep(
-    state: PetRegisterUiState,
-    onNickname: (String) -> Unit,
-    onPickImage: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(modifier = Modifier.height(28.dp))
-
-        PetProfileCircle(
-            imageUrl = state.profileUserImageUrl,
-            size = 200.dp,
-            onClick = onPickImage
-        )
-
-        Text(
-            text = "사용할 닉네임을 입력해 주세요.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = Color.DarkGray
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        OutlinedTextField(
-            value = state.nickName,
-            onValueChange = onNickname,
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("닉네임 입력하기") },
-            singleLine = true,
-            shape = RoundedCornerShape(16.dp)
-        )
-
-        Spacer(modifier = Modifier.weight(1f))
-    }
-}
-
 /* -----------------------------------------------------------------------
    Step 1 : 반려동물 이름 + 사진
    ----------------------------------------------------------------------- */
@@ -572,7 +552,7 @@ fun GenderWeightStep(
 
         PetProfileCircle(
             imageUrl = state.profilePetImageUrl,
-            size = 100.dp
+            size = 120.dp
         )
 
         Text(
@@ -686,6 +666,7 @@ fun GenderChip(
    Step 3 : 생년월일 (정확 / 대략)
    ----------------------------------------------------------------------- */
 
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun BirthdayStep(
     state: PetRegisterUiState,
@@ -693,101 +674,130 @@ fun BirthdayStep(
     onExact: (String) -> Unit,
     onYear: (String) -> Unit,
     onMonth: (String) -> Unit,
-    onDatePickerClicked: () -> Unit,
-    selectedDate: Long
+    onDatePickerClicked: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(16.dp))
 
         PetProfileCircle(
             imageUrl = state.profilePetImageUrl,
-            size = 100.dp
+            size = 120.dp
         )
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         Text(
             text = state.petName.ifBlank { "우리 아이" },
             style = MaterialTheme.typography.titleMedium
         )
 
+        Spacer(modifier = Modifier.height(12.dp))
+
         Text(
             text = "생년월일을 알고 있나요?",
             style = MaterialTheme.typography.bodyMedium
         )
 
+        Spacer(modifier = Modifier.height(16.dp))
+
+        /* ---------- 1) 정확히 알고 있어요 ---------- */
         Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        onType(BirthdayInputType.EXACT)
+                        onDatePickerClicked()          // 라디오 줄 전체 눌러도 달력 열기
+                    },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 RadioButton(
                     selected = state.birthdayInputType == BirthdayInputType.EXACT,
-                    onClick = { onType(BirthdayInputType.EXACT) }
+                    onClick = {
+                        onType(BirthdayInputType.EXACT)
+                        onDatePickerClicked()          // 동그라미만 눌러도 달력 열기
+                    }
                 )
                 Text(text = "정확히 알고 있어요")
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                RadioButton(
-                    selected = state.birthdayInputType == BirthdayInputType.APPROX,
-                    onClick = { onType(BirthdayInputType.APPROX) }
-                )
-                Text(text = "대략만 알고 있어요")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        when (state.birthdayInputType) {
-            BirthdayInputType.EXACT -> {
+            AnimatedVisibility(
+                visible = state.birthdayInputType == BirthdayInputType.EXACT,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
                 DatePickerField(
-                    selectedDateMillis = selectedDate,
+                    birthdayExact = state.birthdayExact,   // ← 문자열 기준
                     onClick = onDatePickerClicked
                 )
             }
+        }
 
-            BirthdayInputType.APPROX -> {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = state.birthdayYearApprox,
-                        onValueChange = onYear,
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("년도 (예: 2021)") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(16.dp)
-                    )
-                    OutlinedTextField(
-                        value = state.birthdayMonthApprox,
-                        onValueChange = onMonth,
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("월 (1~12)") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(16.dp)
-                    )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        /* ---------- 2) 제대로 알지 못해요 (대략) ---------- */
+        Column(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.clickable {
+                    onType(BirthdayInputType.APPROX)
+                    onDatePickerClicked()   // ← 년/월 다이얼로그 열기
                 }
+            ) {
+                RadioButton(
+                    selected = state.birthdayInputType == BirthdayInputType.APPROX,
+                    onClick = {
+                        onType(BirthdayInputType.APPROX)
+                        onDatePickerClicked()
+                    }
+                )
+                Text(text = "대략만 알고 있어요")
+            }
+
+            AnimatedVisibility(
+                visible = state.birthdayInputType == BirthdayInputType.APPROX,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                ApproxYearMonthField(
+                    year = state.birthdayYearApprox,
+                    month = state.birthdayMonthApprox,
+                    onClick = onDatePickerClicked   // 카드 눌러도 연/월 다이얼로그
+                )
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DatePickerField(
-    selectedDateMillis: Long,
+    birthdayExact: String,
     onClick: () -> Unit
 ) {
-    val formatter = SimpleDateFormat("yyyy년 MM월 dd일", Locale.getDefault())
-    val dateString = formatter.format(Date(selectedDateMillis))
+    // 표시용 문자열 계산
+    val displayText = remember(birthdayExact) {
+        if (birthdayExact.isBlank()) {
+            "날짜를 선택해 주세요"
+        } else {
+            runCatching {
+                val localDate = LocalDate.parse(birthdayExact) // yyyy-MM-dd
+                val formatter = DateTimeFormatter.ofPattern("yyyy년 MM월 dd일")
+                localDate.format(formatter)
+            }.getOrElse { "날짜를 선택해 주세요" }
+        }
+    }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -807,9 +817,81 @@ private fun DatePickerField(
             Column {
                 Text("date", fontSize = 10.sp, color = Color.Gray)
                 Text(
-                    text = dateString,
+                    text = displayText,               // ← 여기
                     fontWeight = FontWeight.Medium,
                     fontSize = 13.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ApproxYearMonthField(
+    year: String,
+    month: String,
+    onClick: () -> Unit
+) {
+    val now = LocalDate.now()
+
+    // 나이 계산
+    val ageText = remember(year, month) {
+        val y = year.toIntOrNull()
+        val m = month.toIntOrNull()
+
+        if (y == null || m == null || m !in 1..12) {
+            null
+        } else {
+            var age = now.year - y
+            if (now.monthValue < m) age--    // 생일 안 지난 경우 -1
+            if (age < 0) age = 0
+            "${age}살"
+        }
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(17.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.calendar),
+                contentDescription = null,
+                modifier = Modifier.padding(end = 8.dp)
+            )
+
+            Column {
+                Text("date", fontSize = 10.sp, color = Color.Gray)
+
+                if (year.isNotBlank() && month.isNotBlank()) {
+                    Text(
+                        text = "${year}년 ${month}월",
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp
+                    )
+                } else {
+                    Text(
+                        text = "생년월을 선택해 주세요",
+                        fontSize = 13.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            if (ageText != null) {
+                Text(
+                    text = ageText,
+                    fontSize = 12.sp,
+                    color = Color.Gray
                 )
             }
         }
@@ -869,6 +951,5 @@ fun BirthdayStepPreview() {
         onYear = {},
         onMonth = {},
         onDatePickerClicked = {},
-        selectedDate = System.currentTimeMillis()
     )
 }

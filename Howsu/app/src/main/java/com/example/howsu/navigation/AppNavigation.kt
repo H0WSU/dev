@@ -227,16 +227,13 @@ fun AppNavigation() {
 
         // 2. 등록 완료 화면
         composable("pet_register_complete") {
-            // ★ [중요 수정] 여기서 'PetRegisterViewModel()'로 새로 만들면 안 됩니다!
-            // 위에서 만든 'petRegisterViewModel'을 재사용해야 데이터가 유지됩니다.
-            val vm = petRegisterViewModel
-            val uiState by vm.uiState.collectAsState()
+            // 위에서 만든 petRegisterViewModel 재사용
+            val uiState by petRegisterViewModel.uiState.collectAsState()
 
             PetRegisterCompleteScreen(
                 uiState = uiState,
                 onAddMore = {
-                    vm.resetForNewPet()
-                    // 등록 화면으로 돌아가되, 완료 화면은 스택에서 제거
+                    petRegisterViewModel.resetForNewPet()
                     navController.navigate("register_pet") {
                         popUpTo("pet_register_complete") { inclusive = true }
                     }
@@ -250,4 +247,5 @@ fun AppNavigation() {
             )
         }
     }
+
 }
