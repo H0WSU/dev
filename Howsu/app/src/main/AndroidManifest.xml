@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
+    <uses-permission android:name="android.permission.CAMERA" />
+
     <queries>
         <package android:name="com.kakao.talk" />
         <package android:name="com.google.android.gms" />
@@ -53,6 +55,12 @@
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:screenOrientation="portrait"
             android:exported="true" />
+
+        <activity
+            android:name=".screen.family.PortraitCaptureActivity"
+            android:screenOrientation="portrait"
+            android:stateNotNeeded="true"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
 
         <receiver
             android:name=".screen.schedule.AlarmReceiver"
