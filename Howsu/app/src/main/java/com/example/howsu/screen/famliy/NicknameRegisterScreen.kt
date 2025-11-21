@@ -93,6 +93,10 @@ fun NicknameRegisterScreen(
             NicknameRegisterBottomBar(
                 enabled = isNextEnabled,
                 onNext = {
+                    // 여기서 DB에 닉네임 저장
+                    viewModel.saveNicknameToFirebase()
+
+                    // 다음 화면으로 이동
                     onNicknameComplete(nickname, profileImageUrl)
                 }
             )

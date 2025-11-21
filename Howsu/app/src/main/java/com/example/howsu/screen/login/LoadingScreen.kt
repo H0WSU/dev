@@ -35,7 +35,7 @@ fun LoadingScreen(navController: NavController) {
             db.collection("users").document(uid).get()
                 .addOnSuccessListener { document ->
                     // 문서가 존재하고, "nickname" 필드가 비어 있지 않다면 -> 가입 완료된 유저
-                    val nickname = document.getString("nickName") // DB 필드명 확인 필요 (nickName or nickname)
+                    val nickname = document.getString("name") // DB 필드명 확인 필요 (nickName or nickname)
 
                     if (document.exists() && !nickname.isNullOrBlank()) {
                         // 1. 이미 정보 등록을 마친 유저 -> 홈으로
