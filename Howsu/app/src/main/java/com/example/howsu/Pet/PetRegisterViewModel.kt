@@ -66,7 +66,6 @@ class PetRegisterViewModel : ViewModel() {
     fun nextStep() {
         _uiState.update { s ->
             val next = when (s.step) {
-                PetRegisterStep.NICKNAME      -> PetRegisterStep.PHOTO_NAME
                 PetRegisterStep.PHOTO_NAME    -> PetRegisterStep.GENDER_WEIGHT
                 PetRegisterStep.GENDER_WEIGHT -> PetRegisterStep.BIRTHDAY
                 PetRegisterStep.BIRTHDAY      -> PetRegisterStep.BIRTHDAY
@@ -79,8 +78,7 @@ class PetRegisterViewModel : ViewModel() {
     fun previousStep() {
        _uiState.update { s ->
             val prev = when (s.step) {
-                PetRegisterStep.NICKNAME      -> PetRegisterStep.NICKNAME
-                PetRegisterStep.PHOTO_NAME    -> PetRegisterStep.NICKNAME
+                PetRegisterStep.PHOTO_NAME    -> PetRegisterStep.PHOTO_NAME
                 PetRegisterStep.GENDER_WEIGHT -> PetRegisterStep.PHOTO_NAME
                 PetRegisterStep.BIRTHDAY      -> PetRegisterStep.GENDER_WEIGHT
             }
@@ -92,10 +90,6 @@ class PetRegisterViewModel : ViewModel() {
     fun isNextEnabled(): Boolean {
         val s = _uiState.value
         return when (s.step) {
-
-            // 닉네임 단계
-            PetRegisterStep.NICKNAME ->
-                s.nickName.isNotBlank()
 
             // 반려동물 이름 단계
             PetRegisterStep.PHOTO_NAME ->

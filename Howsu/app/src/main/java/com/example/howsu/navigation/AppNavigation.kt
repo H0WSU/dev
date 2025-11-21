@@ -177,14 +177,14 @@ fun AppNavigation() {
 
         // 반려동물 등록 완료 화면
         composable("pet_register_complete") {
-            val vm = PetRegisterViewModel() // 위와 같은 인스턴스를 공유해야 함
-            val uiState by vm.uiState.collectAsState()
+            // 위에서 만든 petRegisterViewModel 재사용
+            val uiState by petRegisterViewModel.uiState.collectAsState()
 
             PetRegisterCompleteScreen(
                 uiState = uiState,
                 onAddMore = {
-                    vm.resetForNewPet()
-                    navController.navigate("pet_register") {
+                    petRegisterViewModel.resetForNewPet()
+                    navController.navigate("register_pet") {
                         popUpTo("pet_register_complete") { inclusive = true }
                     }
                 },

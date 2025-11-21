@@ -3,7 +3,7 @@ package com.example.howsu.data.model
 
 //입력 중인 임시 단계 데이터
 data class PetRegisterUiState(
-    val step: PetRegisterStep = PetRegisterStep.NICKNAME,
+    val step: PetRegisterStep = PetRegisterStep.PHOTO_NAME,
 
     val nickName: String = "",
     val petName: String = "",
