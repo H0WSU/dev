@@ -7,7 +7,6 @@ import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.data.model.Pet
 import com.example.howsu.data.model.Task
 import com.example.howsu.data.model.TodoGroup
-import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.firestore.toObject
 import com.google.firebase.ktx.Firebase
@@ -26,29 +25,35 @@ class CreateTodoViewModel : ViewModel() {
 
     private val db = Firebase.firestore
     private var currentTodoDocumentId: String? = null
-    private var currentTaskId: String? = null // ★ (신규) 수정할 태스크의 ID
+    private var currentTaskId: String? = null
     private val _isEditMode = MutableStateFlow(false)
     val isEditMode: StateFlow<Boolean> = _isEditMode.asStateFlow()
 
-    // --- (기존 State - 변경 없음) ---
+    // State Flows
     private val _familyMembers = MutableStateFlow<List<FamilyMember>>(emptyList())
     val familyMembers: StateFlow<List<FamilyMember>> = _familyMembers.asStateFlow()
+
     private val _selectedMember = MutableStateFlow<FamilyMember?>(null)
     val selectedMember: StateFlow<FamilyMember?> = _selectedMember.asStateFlow()
+
     private val _taskTitle = MutableStateFlow("")
     val taskTitle: StateFlow<String> = _taskTitle.asStateFlow()
+
     private val _selectedDate = MutableStateFlow(System.currentTimeMillis())
     val selectedDate: StateFlow<Long> = _selectedDate.asStateFlow()
+
     private val _isDatePickerVisible = MutableStateFlow(false)
     val isDatePickerVisible: StateFlow<Boolean> = _isDatePickerVisible.asStateFlow()
+
     private val _allPets = MutableStateFlow<List<Pet>>(emptyList())
     val allPets: StateFlow<List<Pet>> = _allPets.asStateFlow()
+
     private val _selectedPets = MutableStateFlow<List<Pet>>(emptyList())
     val selectedPets: StateFlow<List<Pet>> = _selectedPets.asStateFlow()
+
     private val _isPetDropdownVisible = MutableStateFlow(false)
     val isPetDropdownVisible: StateFlow<Boolean> = _isPetDropdownVisible.asStateFlow()
 
-    // (기존) initialize
     fun initialize(documentId: String?) {
         viewModelScope.launch {
             loadInitialData()
@@ -57,13 +62,12 @@ class CreateTodoViewModel : ViewModel() {
                 _isEditMode.value = true
                 loadTodoForEdit(documentId)
             } else {
-                // (수정) 생성 모드일 때 변수 초기화
                 currentTodoDocumentId = null
                 currentTaskId = null
                 _isEditMode.value = false
-                _taskTitle.value = "" // (추가)
-                _selectedPets.value = emptyList() // (추가)
-                _selectedDate.value = System.currentTimeMillis() // (추가)
+                _taskTitle.value = ""
+                _selectedPets.value = emptyList()
+                _selectedDate.value = System.currentTimeMillis()
                 if (_familyMembers.value.isNotEmpty()) {
                     _selectedMember.value = _familyMembers.value.first()
                 }
@@ -71,15 +75,37 @@ class CreateTodoViewModel : ViewModel() {
         }
     }
 
-    // (기존) loadInitialData
     private suspend fun loadInitialData() {
+        // ★ [수정됨] FamilyMember 생성자에 familyId 추가!
+        // (FamilyMember 데이터 클래스가 변경되었기 때문에 여기도 맞춰줘야 함)
         val dummyFamily = listOf(
-            FamilyMember(userId = "user_id_1", relationship = "언니", profileImageUrl = null, nickName = "이구역의짱"),
-            FamilyMember(userId = "user_id_2", relationship = "엄마", profileImageUrl = null, nickName = "엄마2"),
-            FamilyMember(userId = "user_id_3", relationship = "형", profileImageUrl = null, nickName = "형2")
+            FamilyMember(
+                userId = "user_id_1",
+                familyId = "test_family", // 추가됨
+                relationship = "언니",
+                profileImageUrl = null,
+                nickName = "이구역의짱"
+            ),
+            FamilyMember(
+                userId = "user_id_2",
+                familyId = "test_family", // 추가됨
+                relationship = "엄마",
+                profileImageUrl = null,
+                nickName = "엄마2"
+            ),
+            FamilyMember(
+                userId = "user_id_3",
+                familyId = "test_family", // 추가됨
+                relationship = "형",
+                profileImageUrl = null,
+                nickName = "형2"
+            )
         )
         _familyMembers.value = dummyFamily
 
+        // ★ [확인 필요] Pet 데이터 모델도 패키지가 바뀌었는지 확인하세요.
+        // Pet 클래스 생성자에 맞춰서 아래 코드도 수정이 필요할 수 있습니다.
+        // 일단 기존 코드를 유지합니다.
         val dummyPets = listOf(
             Pet(petId = "pet_id_1", name = "자몽", profileImageUrl = null),
             Pet(petId = "pet_id_2", name = "레몬", profileImageUrl = null),
@@ -90,7 +116,6 @@ class CreateTodoViewModel : ViewModel() {
         _allPets.value = dummyPets
     }
 
-    // ★★★ (수정) loadTodoForEdit (태스크 ID 저장) ★★★
     private suspend fun loadTodoForEdit(documentId: String) {
         try {
             val doc = db.collection("todoGroups").document(documentId).get().await()
@@ -99,10 +124,9 @@ class CreateTodoViewModel : ViewModel() {
                 _selectedMember.value = _familyMembers.value.find { it.userId == group.assigneeId }
                 _selectedPets.value = _allPets.value.filter { group.petNames.contains(it.name) }
 
-                // (수정) 그룹의 '첫 번째' 태스크를 수정 대상으로 간주
                 val taskToEdit = group.tasks.firstOrNull()
                 if (taskToEdit != null) {
-                    currentTaskId = taskToEdit.id // ★ (신규) 태스크 ID 저장
+                    currentTaskId = taskToEdit.id
                     _taskTitle.value = taskToEdit.title ?: ""
                 } else {
                     currentTaskId = null
@@ -122,11 +146,11 @@ class CreateTodoViewModel : ViewModel() {
                 }
             }
         } catch (e: Exception) {
-            Log.e("CreateTodoVM", "수정할 할 일($documentId) 로드 실패", e)
+            Log.e("CreateTodoVM", "수정할 할 일 로드 실패", e)
         }
     }
 
-    // --- (기존 UI 이벤트 핸들러 - 변경 없음) ---
+    // --- UI Events ---
     fun onMemberSelected(member: FamilyMember) { _selectedMember.value = member }
     fun onTaskTitleChanged(newTitle: String) { _taskTitle.value = newTitle.take(20) }
     fun onDatePickerClicked() { _isDatePickerVisible.value = true }
@@ -154,54 +178,45 @@ class CreateTodoViewModel : ViewModel() {
         val title = _taskTitle.value
         val dateInMillis = _selectedDate.value
 
-        val currentUser = Firebase.auth.currentUser
-
-        // 유효성 검사 및 familyId 확보
-        val myFamilyId = currentUser?.uid ?: return
-
         if (assignee == null || title.isBlank()) {
             return
         }
+
+        // ★ [중요 수정] 내 UID가 아니라, 선택된 멤버(assignee)가 속한 가족 ID를 사용해야 함
+        // FamilyMember 객체 안에 familyId가 들어있으므로 그걸 사용
+        val myFamilyId = assignee.familyId
+
         val formattedDate = SimpleDateFormat("yyyy. MM. dd", Locale.KOREA).format(Date(dateInMillis))
 
         viewModelScope.launch {
             try {
-                // --- 수정 모드 ---
-                // (주의: 이 로직은 그룹의 '첫 번째' 태스크만 수정하는 한계가 있음)
                 if (_isEditMode.value && currentTodoDocumentId != null && currentTaskId != null) {
-
+                    // --- 수정 모드 ---
                     val docRef = db.collection("todoGroups").document(currentTodoDocumentId!!)
                     val document = docRef.get().await()
                     val group = document.toObject<TodoGroup>() ?: return@launch
 
-                    // 1. (수정) 기존 tasks 리스트에서 'currentTaskId'를 찾아 제목/날짜를 업데이트
                     val updatedTasks = group.tasks.map { task ->
                         if (task.id == currentTaskId) {
-                            task.copy(title = title, date = formattedDate) // ★ 수정
+                            task.copy(title = title, date = formattedDate)
                         } else {
-                            task // ★ 나머지는 그대로 둠
+                            task
                         }
                     }
-
-                    // 2. 펫 이름 목록
                     val mergedPetNames = _selectedPets.value.map { it.name }.distinct()
-
-                    // 3. (수정) 담당자
-                    val finalAssigneeId = assignee.userId
-                    val finalAssigneeName = assignee.relationship
 
                     docRef.update(
                         "tasks", updatedTasks,
                         "petNames", mergedPetNames,
                         "assigneeId", assignee.userId,
-                        "assigneeName", assignee.relationship,
-                        "familyId", myFamilyId // 혹시 모르니 familyId도 업데이트
+                        "assigneeName", assignee.relationship, // 또는 assignee.nickName (기획에 따라)
+                        "familyId", myFamilyId
                     ).await()
 
-                    Log.d("CreateTodoVM", "기존 할 일 그룹 수정 성공")
+                    Log.d("CreateTodoVM", "수정 성공")
 
                 } else {
-                    // --- 생성 모드 (새 그룹 생성) ---
+                    // --- 생성 모드 ---
                     val newTask = Task(
                         id = UUID.randomUUID().toString(),
                         title = title,
@@ -212,19 +227,19 @@ class CreateTodoViewModel : ViewModel() {
                     val newTodoGroup = TodoGroup(
                         familyId = myFamilyId,
                         assigneeId = assignee.userId,
-                        assigneeName = assignee.relationship,
+                        assigneeName = assignee.relationship, // 또는 assignee.nickName
                         assigneeProfileRes = null,
                         tasks = listOf(newTask),
                         petNames = _selectedPets.value.map { it.name }
                     )
 
                     db.collection("todoGroups").add(newTodoGroup).await()
-                    Log.d("CreateTodoVM", "새 할 일 그룹 생성 성공")
+                    Log.d("CreateTodoVM", "생성 성공")
                 }
                 onComplete()
 
             } catch (e: Exception) {
-                Log.e("CreateTodoVM", "할 일 저장/수정 실패", e)
+                Log.e("CreateTodoVM", "저장 실패", e)
             }
         }
     }

@@ -120,7 +120,8 @@ fun TodoScreen(
                         Icon(
                             painter = painterResource(id = R.drawable.date_under),
                             contentDescription = "캘린더",
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(24.dp),
+                            tint = Color(0xFFFFC848)
                         )
                     }
                 },
@@ -224,8 +225,8 @@ fun CalendarWeekRow(
             // 2. 선택된 날짜(isSelected)이면서 오늘이 아님 = 검은색 테두리 + 검은색 글씨
             // 3. 그 외 = 투명 + 검은색 글씨
 
-            val backgroundColor = if (isToday) Color.Black else Color.Transparent
-            val borderColor = if (isSelected && !isToday) Color.Black else Color.Transparent
+            val backgroundColor = if (isToday) Color(0xFFFFC848) else Color.Transparent
+            val borderColor = if (isSelected && !isToday) Color(0xFFFFC848) else Color.Transparent
             val textColor = if (isToday) Color.White else Color.Black
 
             Column(
@@ -304,7 +305,10 @@ fun TodoGroupCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFFFFC848) // 원하시는 노란색 적용
+        )
+        // colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(vertical = 10.dp)) {
             Row(

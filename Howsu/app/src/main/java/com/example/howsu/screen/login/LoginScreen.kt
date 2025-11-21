@@ -89,7 +89,7 @@ fun LoginScreen(
     LaunchedEffect(key1 = Unit) {
         if (Firebase.auth.currentUser != null) {
             Log.d("LoginScreen", "자동 로그인 확인.")
-            navController.navigate("todo") {
+            navController.navigate("loading") {
                 popUpTo("auth_graph") { inclusive = true }
             }
         }
@@ -100,7 +100,7 @@ fun LoginScreen(
         when (loginState) {
             is FirebaseLoginState.Success -> {
                 Log.d("LoginScreen", "Firebase 로그인 성공!")
-                navController.navigate("todo") { popUpTo("auth_graph") { inclusive = true } }
+                navController.navigate("loading") { popUpTo("auth_graph") { inclusive = true } }
             }
             is FirebaseLoginState.Error -> {
                 val message = (loginState as FirebaseLoginState.Error).message

@@ -76,8 +76,8 @@ fun SettingScreen(
             onConfirm = {
                 authViewModel.signOut()
                 showLogoutDialog = false
-                navController.navigate("login") {
-                    popUpTo(navController.graph.id) {
+                navController.navigate("auth_graph") {
+                    popUpTo(0) {
                         inclusive = true
                     }
                 }
@@ -94,8 +94,8 @@ fun SettingScreen(
             onConfirm = {
                 authViewModel.deleteUserAndLogout()
                 showWithdrawDialog = false
-                navController.navigate("login") {
-                    popUpTo(navController.graph.id) {
+                navController.navigate("auth_graph") {
+                    popUpTo(0) {
                         inclusive = true
                     }
                 }

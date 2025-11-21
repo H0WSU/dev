@@ -250,8 +250,8 @@ private fun CreateTodoBottomButton(
                 .fillMaxWidth()
                 .height(56.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Black,
-                contentColor = Color.White
+                containerColor = Color(0xFFFFC848),
+                contentColor = Color.Black
             ),
             shape = RoundedCornerShape(12.dp)
         ) {

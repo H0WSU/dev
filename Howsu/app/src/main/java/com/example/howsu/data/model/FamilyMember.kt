@@ -1,8 +1,9 @@
 package com.example.howsu.data.model
 
 data class FamilyMember(
-    val userId: String,        // 사용자 고유 ID (알림 보낼 때 필요)
-    val relationship: String,  // 관계
-    val profileImageUrl: String?, // 프로필 사진 URL (Coil 등으로 로드)
-    val nickName : String // 사용자 닉네임
+    val userId: String,        // User의 uid (누구인가?)
+    val familyId: String,      // Family의 familyId (어느 방인가?)
+    val nickName: String,      // 이 방에서 불릴 닉네임 (예: "엄마", "집사")
+    val relationship: String,  // 호칭/역할 (예: "보호자", "언니")
+    val profileImageUrl: String? = null
 )
