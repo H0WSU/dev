@@ -30,57 +30,17 @@ class FamilyRegisterViewModel : ViewModel() {
     var inputFamilyName by mutableStateOf("") // 생성할 가족 이름
     var inputFamilyId by mutableStateOf("")   // 참여할 가족 ID
 
-    // 결과 저장용 (생성된 가족 ID)
+    // 결과 저장용 (생성된 가족 ID) - ★ 여기가 ID 저장하는 곳!
     var createdFamilyId by mutableStateOf("")
 
     private val db = Firebase.firestore
     private val auth = Firebase.auth
 
-
-    // [로직 3] 가족 참여
-    fun joinFamily(): Boolean {
-        val user = auth.currentUser ?: return false
-        if (inputFamilyId.isBlank()) return false
-
-        viewModelScope.launch {
-            try {
-                val docRef = db.collection("families").document(inputFamilyId)
-                val snapshot = docRef.get().await()
-
-                if (snapshot.exists()) {
-                    // 1. 가족 멤버 리스트에 나 추가
-                    docRef.update("memberIds", FieldValue.arrayUnion(user.uid)).await()
-
-                    // 2. 멤버 정보 생성
-                    val newMember = FamilyMember(
-                        userId = user.uid,
-                        familyId = inputFamilyId,
-                        nickName = "구성원", // 닉네임 기본값 (필요시 수정)
-                        relationship = "참여자",
-                        profileImageUrl = null
-                    )
-                    docRef.collection("members").document(user.uid).set(newMember).await()
-
-                    // ★★★ [중요] 내 유저 정보에 '현재 가족 ID' 업데이트
-                    // 이게 있어야 투두 화면에서 데이터를 가져옵니다!
-                    db.collection("users").document(user.uid)
-                        .set(mapOf("currentFamilyId" to inputFamilyId), SetOptions.merge())
-                        .await()
-
-                    println("가족 참여 성공: $inputFamilyId")
-                }
-            } catch (e: Exception) {
-                Log.e("FamilyVM", "참여 실패", e)
-            }
-        }
-        return true
-    }
-
-    // [수정] createSharedFamily: profileUrl 파라미터 추가
     fun createSharedFamily(nickname: String, profileUrl: String?) {
         val user = auth.currentUser ?: return
+
         val newId = generateRandomId()
-        createdFamilyId = newId
+        createdFamilyId = newId // 변수에 저장!
 
         if (inputFamilyName.isBlank()) inputFamilyName = "우리 가족"
 
@@ -91,13 +51,14 @@ class FamilyRegisterViewModel : ViewModel() {
                 isSolo = false,
                 userUid = user.uid,
                 nickname = nickname,
-                profileUrl = profileUrl // ★ 전달
+                profileUrl = profileUrl
             )
-            println("공유 가족 생성 완료")
+            // 로그로 확인해보세요!
+            println("공유 가족 생성 완료: ID = $newId")
         }
     }
 
-    // [수정] createSoloFamily: profileUrl 파라미터 추가
+    // [로직 2] 1인 가족 생성
     fun createSoloFamily(nickname: String, profileUrl: String?) {
         val user = auth.currentUser ?: return
         val newId = generateRandomId()
@@ -114,25 +75,81 @@ class FamilyRegisterViewModel : ViewModel() {
                 isSolo = true,
                 userUid = user.uid,
                 nickname = nickname,
-                profileUrl = profileUrl, // ★ 전달
+                profileUrl = profileUrl,
                 initialRelationship = "나"
             )
-            println("1인 가족 생성 완료")
+            println("1인 가족 생성 완료: ID = $newId")
         }
     }
 
-    // [수정] 내부 저장 함수: profileUrl 파라미터 추가 및 저장
+    // [로직 3] 가족 참여
+    fun joinFamily(onSuccess: () -> Unit, onFailure: () -> Unit) {
+        val user = auth.currentUser
+        if (user == null) {
+            onFailure()
+            return
+        }
+        if (inputFamilyId.isBlank()) {
+            onFailure()
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                // 1. 가족 문서 확인
+                val docRef = db.collection("families").document(inputFamilyId)
+                val snapshot = docRef.get().await()
+
+                if (snapshot.exists()) {
+                    // 2. 가족 멤버 리스트에 나 추가
+                    docRef.update("memberIds", FieldValue.arrayUnion(user.uid)).await()
+
+                    // 3. 멤버 정보 생성 (기본 닉네임은 유저 이름으로 하면 더 좋음)
+                    // 유저의 닉네임을 가져오기 위해 users 컬렉션 조회
+                    val userSnapshot = db.collection("users").document(user.uid).get().await()
+                    val myNickname = userSnapshot.getString("name") ?: "구성원"
+                    val myProfileUrl = userSnapshot.getString("profileImageUrl")
+
+                    val newMember = FamilyMember(
+                        userId = user.uid,
+                        familyId = inputFamilyId,
+                        nickName = myNickname,
+                        relationship = "참여자", // 나중에 관계 설정에서 변경 가능
+                        profileImageUrl = myProfileUrl
+                    )
+                    docRef.collection("members").document(user.uid).set(newMember).await()
+
+                    // 4. 내 유저 정보에 '현재 가족 ID' 업데이트
+                    db.collection("users").document(user.uid)
+                        .set(mapOf("currentFamilyId" to inputFamilyId), SetOptions.merge())
+                        .await()
+
+                    println("가족 참여 성공: $inputFamilyId")
+
+                    // ★ [핵심] 모든 DB 작업이 끝나면 성공 신호를 보냄
+                    onSuccess()
+                } else {
+                    println("참여 실패: 존재하지 않는 가족 ID")
+                    onFailure()
+                }
+            } catch (e: Exception) {
+                Log.e("FamilyVM", "참여 실패", e)
+                onFailure()
+            }
+        }
+    }
+
+    // 내부 저장 함수
     private suspend fun saveFamilyToFirebase(
         familyId: String,
         familyName: String,
         isSolo: Boolean,
         userUid: String,
         nickname: String = "방장",
-        initialRelationship: String = "나",
-        profileUrl: String? = null // ★ 추가됨
+        initialRelationship: String = "나", // 기본값
+        profileUrl: String? = null
     ) {
         try {
-            // 1. 가족 문서 생성 (동일)
             val familyData = Family(
                 familyId = familyId,
                 familyName = familyName,
@@ -142,23 +159,19 @@ class FamilyRegisterViewModel : ViewModel() {
             )
             db.collection("families").document(familyId).set(familyData).await()
 
-            // 2. 멤버 문서 생성 (여기가 핵심!)
             val memberData = FamilyMember(
                 userId = userUid,
                 familyId = familyId,
                 nickName = nickname,
                 relationship = initialRelationship,
-
-                // ★★★ [핵심] 여기서 드디어 사진 주소를 저장합니다!
                 profileImageUrl = profileUrl
             )
 
             db.collection("families").document(familyId)
                 .collection("members").document(userUid).set(memberData).await()
 
-            // 3. 유저 정보 업데이트 (동일)
             db.collection("users").document(userUid)
-                .set(mapOf("currentFamilyId" to familyId), com.google.firebase.firestore.SetOptions.merge())
+                .set(mapOf("currentFamilyId" to familyId), SetOptions.merge())
                 .await()
 
         } catch (e: Exception) {

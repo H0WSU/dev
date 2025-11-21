@@ -81,19 +81,21 @@ class CreateTodoViewModel : ViewModel() {
         }
     }
 
-    // ★★★ [핵심] 진짜 내 가족 정보 가져오기
     private suspend fun loadRealData() {
         val user = auth.currentUser ?: return
 
         try {
-            // 1. 내 User 정보에서 currentFamilyId 확인
+            // 1. 내 정보 가져오기
             val userDoc = db.collection("users").document(user.uid).get().await()
             val myFamilyId = userDoc.getString("currentFamilyId")
+
+            // 내 진짜 프로필 사진 주소 가져오기
+            val myRealProfileUrl = userDoc.getString("profileImageUrl")
+            val myRealName = userDoc.getString("name")
 
             if (myFamilyId != null) {
                 realFamilyId = myFamilyId
 
-                // 2. 그 가족의 멤버들 가져오기
                 val membersSnapshot = db.collection("families")
                     .document(myFamilyId)
                     .collection("members")
@@ -101,7 +103,18 @@ class CreateTodoViewModel : ViewModel() {
                     .await()
 
                 val members = membersSnapshot.documents.mapNotNull { doc ->
-                    doc.toObject<FamilyMember>()
+                    val member = doc.toObject<FamilyMember>()
+
+                    // 멤버 목록 중 '나'를 찾아서 사진을 최신으로 덮어씌우기
+                    if (member != null && member.userId == user.uid) {
+                        member.copy(
+                            // DB에서 방금 가져온 사진 주소 사용
+                            profileImageUrl = myRealProfileUrl ?: member.profileImageUrl,
+                            nickName = myRealName ?: member.nickName
+                        )
+                    } else {
+                        member
+                    }
                 }
                 _familyMembers.value = members
 

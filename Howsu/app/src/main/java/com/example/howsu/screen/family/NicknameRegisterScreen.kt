@@ -1,4 +1,4 @@
-package com.example.howsu.screen.famliy
+package com.example.howsu.screen.family
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -93,11 +93,11 @@ fun NicknameRegisterScreen(
             NicknameRegisterBottomBar(
                 enabled = isNextEnabled,
                 onNext = {
-                    // 여기서 DB에 닉네임 저장
-                    viewModel.saveNicknameToFirebase()
-
-                    // 다음 화면으로 이동
-                    onNicknameComplete(nickname, profileImageUrl)
+                    // 저장 함수 호출하고, 저장이 다 끝나면(onSuccess) 이동
+                    viewModel.saveNicknameToFirebase {
+                        // 이 안의 코드는 업로드+DB저장이 끝난 뒤 실행됨
+                        onNicknameComplete(nickname, viewModel.profileImageUrl)
+                    }
                 }
             )
         },

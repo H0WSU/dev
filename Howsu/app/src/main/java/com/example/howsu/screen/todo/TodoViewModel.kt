@@ -53,7 +53,7 @@ class TodoViewModel : ViewModel() {
         fetchTodoGroups()
     }
 
-    private fun fetchTodoGroups() {
+    fun fetchTodoGroups() {
         val currentUser = Firebase.auth.currentUser
         if (currentUser == null) {
             _allTodoGroups.value = emptyList()

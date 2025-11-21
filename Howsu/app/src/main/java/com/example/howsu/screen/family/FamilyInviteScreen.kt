@@ -1,7 +1,7 @@
 package com.example.howsu.screen.family
 
-import android.widget.Toast
-import androidx.compose.foundation.Canvas
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,12 +30,16 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -47,21 +51,20 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
-
-// ★ 삭제됨: FamilyInviteViewModel (이제 필요 없음)
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun FamilyInviteScreen(
     navController: NavHostController,
     familyNameInput: String,
-    invitedFamilyId: String, // ★ 핵심: 이전 화면에서 생성해서 넘겨준 진짜 ID
+    invitedFamilyId: String, // "with@1234" 같은 진짜 ID
     userProfileUrl: String? = null
 ) {
-    // 1. 한글 받침 처리
     val displayName = getFamilyNameWithSuffix(familyNameInput)
-
-    // ★ 수정됨: ViewModel이나 random 생성 없이, 넘겨받은 invitedFamilyId를 바로 사용합니다.
-
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
 
@@ -70,12 +73,7 @@ fun FamilyInviteScreen(
             InviteTopBar(onBack = { navController.popBackStack() })
         },
         bottomBar = {
-            InviteBottomBar(
-                onComplete = {
-                    // 완료 시 반려동물 등록 화면 등으로 이동
-                    navController.navigate("register_pet") // 경로 이름 주의 ("pet_register_screen" -> "register_pet")
-                }
-            )
+            InviteBottomBar(onComplete = { navController.navigate("register_pet") })
         },
         containerColor = Color.White
     ) { padding ->
@@ -93,11 +91,8 @@ fun FamilyInviteScreen(
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.TopCenter
             ) {
-                // 1. 카드 배경
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 40.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -106,10 +101,9 @@ fun FamilyInviteScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 50.dp, bottom = 40.dp, start = 24.dp, end = 26.dp),
+                            .padding(top = 50.dp, bottom = 40.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // 가족 이름
                         Text(
                             text = displayName,
                             fontWeight = FontWeight.Bold,
@@ -119,12 +113,13 @@ fun FamilyInviteScreen(
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // QR 코드 이미지
-                        QrCodePlaceholder(modifier = Modifier.size(180.dp))
+                        // ★ [복구됨] 진짜 QR 코드 생성기!
+                        RealQrCodeImage(
+                            content = invitedFamilyId,
+                            modifier = Modifier.size(180.dp)
+                        )
                     }
                 }
-
-                // 2. 겹쳐지는 프로필 사진
                 ProfileImageCircle(
                     imageUrl = userProfileUrl,
                     modifier = Modifier.size(80.dp)
@@ -134,17 +129,9 @@ fun FamilyInviteScreen(
             Spacer(modifier = Modifier.height(30.dp))
 
             // --- "또는" 구분선 ---
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFEEEEEE))
-                Text(
-                    text = "또는",
-                    color = Color(0xFFBDBDBD),
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
+                Text("또는", color = Color(0xFFBDBDBD), fontSize = 13.sp, modifier = Modifier.padding(horizontal = 12.dp))
                 HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFEEEEEE))
             }
 
@@ -158,9 +145,8 @@ fun FamilyInviteScreen(
                     .border(1.dp, Color(0xFFF5F5F5), RoundedCornerShape(12.dp))
                     .clip(RoundedCornerShape(12.dp))
                     .clickable {
-                        // ★ 수정됨: invitedFamilyId를 복사
                         clipboardManager.setText(AnnotatedString(invitedFamilyId))
-                        Toast.makeText(context, "아이디가 복사되었습니다", Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, "아이디가 복사되었습니다", android.widget.Toast.LENGTH_SHORT).show()
                     }
                     .background(Color.White)
                     .padding(horizontal = 20.dp),
@@ -171,26 +157,66 @@ fun FamilyInviteScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "아이디 복사하기",
-                        color = Color(0xFF757575),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        // ★ 수정됨: 넘겨받은 ID 표시
-                        text = invitedFamilyId,
-                        color = Color.Black,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text("아이디 복사하기", color = Color(0xFF757575), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    Text(invitedFamilyId, color = Color.Black, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
     }
 }
 
-// --- 로직 함수 ---
+@Composable
+fun RealQrCodeImage(
+    content: String,
+    modifier: Modifier = Modifier
+) {
+    var qrBitmap by remember(content) { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(content) {
+        withContext(Dispatchers.IO) {
+            qrBitmap = generateQrBitmap(content)
+        }
+    }
+
+    Box(
+        modifier = modifier.background(Color.White),
+        contentAlignment = Alignment.Center
+    ) {
+        if (qrBitmap != null) {
+            Image(
+                bitmap = qrBitmap!!.asImageBitmap(),
+                contentDescription = "QR Code",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF5F5F5)))
+        }
+    }
+}
+
+fun generateQrBitmap(content: String): Bitmap? {
+    return try {
+        val hints = hashMapOf<EncodeHintType, Any>()
+        hints[EncodeHintType.MARGIN] = 1
+        val writer = QRCodeWriter()
+        val bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, 512, 512, hints)
+        val w = bitMatrix.width
+        val h = bitMatrix.height
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.RGB_565)
+        for (x in 0 until w) {
+            for (y in 0 until h) {
+                bmp.setPixel(x, y, if (bitMatrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+            }
+        }
+        bmp
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+}
+
+// --- 나머지 하위 컴포넌트들 (TopBar, BottomBar 등)은 기존과 동일 ---
 fun getFamilyNameWithSuffix(name: String): String {
     if (name.isBlank()) return "우리 가족"
     val lastChar = name.last()
@@ -199,7 +225,6 @@ fun getFamilyNameWithSuffix(name: String): String {
     return if (hasBatchim) "${name}이네 가족" else "${name}네 가족"
 }
 
-// --- UI 컴포넌트 (변경 없음) ---
 @Composable
 fun InviteTopBar(onBack: () -> Unit) {
     Box(modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp).height(40.dp)) {
@@ -228,32 +253,9 @@ fun ProfileImageCircle(imageUrl: String?, modifier: Modifier = Modifier) {
     }
 }
 
-@Composable
-fun QrCodePlaceholder(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val pixelSize = size.width / 25
-        drawRect(color = Color.Black, size = Size(pixelSize * 7, pixelSize * 7), topLeft = Offset(0f, 0f))
-        drawRect(color = Color.Black, size = Size(pixelSize * 7, pixelSize * 7), topLeft = Offset(size.width - pixelSize * 7, 0f))
-        drawRect(color = Color.Black, size = Size(pixelSize * 7, pixelSize * 7), topLeft = Offset(0f, size.height - pixelSize * 7))
-        for (i in 0..200) {
-            val x = (0..24).random() * pixelSize
-            val y = (0..24).random() * pixelSize
-            drawRect(color = Color.Black, topLeft = Offset(x, y), size = Size(pixelSize * 0.8f, pixelSize * 0.8f))
-        }
-    }
-}
-
-// ★ Preview 수정: invitedFamilyId 파라미터 추가
 @Preview(showBackground = true, heightDp = 800)
 @Composable
 fun FamilyInvitePreview() {
     val navController = rememberNavController()
-    FamilyInviteScreen(navController, familyNameInput = "자몽", invitedFamilyId = "sda@1234")
-}
-
-@Preview(showBackground = true, heightDp = 800)
-@Composable
-fun FamilyInvitePreviewNoBatchim() {
-    val navController = rememberNavController()
-    FamilyInviteScreen(navController, familyNameInput = "루비", invitedFamilyId = "test@5678")
+    FamilyInviteScreen(navController, familyNameInput = "자몽", invitedFamilyId = "with@1234")
 }

@@ -15,6 +15,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState // 추가됨
+import androidx.compose.runtime.getValue // 추가됨
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,16 +29,29 @@ import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.data.model.FeedFilter
 import com.example.howsu.feed.FeedHomeTopBar
 
-
 @Composable
 fun FeedHomeScreen(
     viewModel: FeedViewModel,
-    navController: NavHostController,
-    member : FamilyMember
-
+    navController: NavHostController
 ){
     val filteredPosts = viewModel.filteredPosts
     val selectedFilter = viewModel.selectedFilter
+
+    // 뷰모델이 DB에서 가져온 내 정보를 여기서 구독
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.fetchMyProfile()
+    }
+
+    val myInfo by viewModel.currentMember.collectAsState()
+
+    // 2. 데이터가 로딩 중일 때(null일 때) 보여줄 임시 데이터 생성
+    val displayMember = myInfo ?: FamilyMember(
+        userId = "",
+        familyId = "",
+        nickName = "",
+        relationship = "",
+        profileImageUrl = null
+    )
 
     Box(modifier = Modifier.fillMaxSize()) {
 
@@ -46,10 +61,11 @@ fun FeedHomeScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
             // 1) TopBar — 상태바 넘치지 않도록 패딩
-            FeedHomeTopBar(member,
+            FeedHomeTopBar(
+                member = displayMember, // 수정됨
                 modifier = Modifier
                     .fillMaxWidth()
-                    .statusBarsPadding()       // ★ 상단 잘림 방지 핵심
+                    .statusBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             )
 
