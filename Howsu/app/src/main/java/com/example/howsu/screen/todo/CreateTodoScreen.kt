@@ -424,6 +424,7 @@ private fun AssigneeItem(
     enabled: Boolean
 ) {
     val alpha = if (enabled) 1f else 0.4f
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.clickable(enabled = enabled, onClick = onClick)
@@ -439,13 +440,30 @@ private fun AssigneeItem(
                     shape = CircleShape
                 )
         ) {
-            Icon(
-                imageVector = Icons.Default.AccountCircle,
-                contentDescription = null,
-                modifier = Modifier.size(40.dp),
-                tint = Color.LightGray.copy(alpha = alpha)
-            )
+            // 프로필 사진이 있으면 보여주기
+            if (!member.profileImageUrl.isNullOrBlank()) {
+                // AsyncImage를 쓰려면 coil 라이브러리 임포트 필요
+                // import coil.compose.AsyncImage
+                coil.compose.AsyncImage(
+                    model = member.profileImageUrl,
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
+                        .graphicsLayer { this.alpha = alpha }
+                )
+            } else {
+                // 없으면 기존 아이콘
+                Icon(
+                    imageVector = Icons.Default.AccountCircle,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = Color.LightGray.copy(alpha = alpha)
+                )
+            }
         }
+
         Text(
             text = member.relationship,
             fontSize = 14.sp,

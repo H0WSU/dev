@@ -135,7 +135,7 @@ fun FamilyRegisterIntroScreen(
                 FamilyRegState.DO_IT -> {
                     if (selectedTab == FamilyTab.CREATE) {
                         // A. [가족 생성]
-                        viewModel.createSharedFamily()
+                        viewModel.createSharedFamily(userNickname, userProfileUrl)
                         val name = viewModel.inputFamilyName
                         val id = viewModel.createdFamilyId
                         navController.navigate("family_invite_screen/$name/$id")
@@ -147,7 +147,7 @@ fun FamilyRegisterIntroScreen(
 
                 FamilyRegState.SKIP -> {
                     // C. [안 할래요] -> 1인 가족 생성
-                    viewModel.createSoloFamily(userNickname)
+                    viewModel.createSoloFamily(userNickname, userProfileUrl)
                     navController.navigate("register_pet")
                 }
 
