@@ -1,9 +1,10 @@
 package com.example.howsu.screen.todo
 
-// --- (필요한 Import) ---
-
-import androidx.compose.foundation.BorderStroke
+// import androidx.compose.foundation.border // ★ 1. (삭제) border 임포트
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -48,12 +49,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.res.painterResource
@@ -62,6 +67,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.times
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
@@ -69,86 +75,137 @@ import com.example.howsu.R
 import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.data.model.Pet
 import com.example.howsu.ui.theme.HowsuTheme
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// --- 1. 메인 화면: Scaffold 뼈대 (ViewModel 주입) ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateTodoScreen(
     navController: NavHostController,
-    viewModel: CreateTodoViewModel = viewModel()
+    viewModel: CreateTodoViewModel = viewModel(),
+    documentId: String? = null
 ) {
-    // ViewModel의 State들을 수집(collect)
+    // --- (기존 State 구독) ---
     val familyMembers by viewModel.familyMembers.collectAsState()
     val selectedMember by viewModel.selectedMember.collectAsState()
     val taskTitle by viewModel.taskTitle.collectAsState()
-    val selectedDate by viewModel.selectedDate.collectAsState() // Long 타입
+    val selectedDate by viewModel.selectedDate.collectAsState()
     val isDatePickerVisible by viewModel.isDatePickerVisible.collectAsState()
     val allPets by viewModel.allPets.collectAsState()
     val selectedPets by viewModel.selectedPets.collectAsState()
     val isPetDropdownVisible by viewModel.isPetDropdownVisible.collectAsState()
+    val isEditMode by viewModel.isEditMode.collectAsState()
+
+    // --- (기존 쉐이크 애니메이션) ---
+    val scope = rememberCoroutineScope()
+    val shakeOffset = remember { Animatable(0f) }
+    fun triggerShake() {
+        scope.launch {
+            shakeOffset.animateTo(0f)
+            repeat(3) {
+                shakeOffset.animateTo(15f, tween(50))
+                shakeOffset.animateTo(-15f, tween(50))
+            }
+            shakeOffset.animateTo(0f, tween(50))
+        }
+    }
+
+    LaunchedEffect(key1 = documentId) {
+        viewModel.initialize(documentId)
+    }
+
+    // --- (기존 다이얼로그) ---
+    if (isDatePickerVisible) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate
+        )
+        DatePickerDialog(
+            onDismissRequest = viewModel::onDatePickerDismissed,
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.onDateSelected(datePickerState.selectedDateMillis)
+                }) { Text("확인") }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::onDatePickerDismissed) { Text("취소") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             CreateTodoTopBar(
+                title = if (isEditMode) "투두 수정하기" else "투두 생성하기",
                 onCloseClick = { navController.popBackStack() }
             )
         },
-        bottomBar = {
+        // (기존) bottomBar 제거
+    ) { innerPadding ->
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            CreateTodoContent(
+                modifier = Modifier.fillMaxSize(),
+                isEditMode = isEditMode,
+                shakeOffset = shakeOffset.value,
+                familyMembers = familyMembers,
+                selectedMember = selectedMember,
+                taskTitle = taskTitle,
+                selectedDate = selectedDate,
+                isDatePickerVisible = isDatePickerVisible,
+                allPets = allPets,
+                selectedPets = selectedPets,
+                isPetDropdownVisible = isPetDropdownVisible,
+                onMemberSelected = viewModel::onMemberSelected,
+                onTaskTitleChanged = viewModel::onTaskTitleChanged,
+                onDatePickerClicked = viewModel::onDatePickerClicked,
+                onDateSelected = viewModel::onDateSelected,
+                onDatePickerDismissed = viewModel::onDatePickerDismissed,
+                onPetDropdownClicked = viewModel::onPetDropdownClicked,
+                onPetDropdownDismissed = viewModel::onPetDropdownDismissed,
+                onPetSelected = viewModel::onPetSelected,
+                onPetTagRemoved = viewModel::onPetTagRemoved
+            )
+
             CreateTodoBottomButton(
+                modifier = Modifier.align(Alignment.BottomCenter),
+                // ★★★ (수정) "수정하기"로 변경
+                buttonText = if (isEditMode) "수정하기" else "투두 생성 완료",
                 onCreateClick = {
-                    viewModel.createTodo(
-                        onComplete = {
-                            navController.navigate("todo") { // 1. "todo" 스크린으로 이동
-                                popUpTo("create_todo") { // 2. 지금 화면("create_todo")은
-                                    inclusive = true       //    스택에서 포함해서 제거
-                                }
+                    if (taskTitle.isBlank()) {
+                        triggerShake()
+                    } else {
+                        viewModel.saveTodo(
+                            onComplete = {
+                                navController.popBackStack()
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             )
         }
-    ) { innerPadding ->
-        // Content에 모든 State와 이벤트 핸들러 전달
-        CreateTodoContent(
-            modifier = Modifier.padding(innerPadding),
-            familyMembers = familyMembers,
-            selectedMember = selectedMember,
-            taskTitle = taskTitle,
-            selectedDate = selectedDate, // Long 타입 전달
-            isDatePickerVisible = isDatePickerVisible,
-            allPets = allPets,
-            selectedPets = selectedPets,
-            isPetDropdownVisible = isPetDropdownVisible,
-            onMemberSelected = viewModel::onMemberSelected,
-            onTaskTitleChanged = viewModel::onTaskTitleChanged,
-            onDatePickerClicked = viewModel::onDatePickerClicked,
-            onDateSelected = viewModel::onDateSelected,
-            onDatePickerDismissed = viewModel::onDatePickerDismissed,
-            onPetDropdownClicked = viewModel::onPetDropdownClicked,
-            onPetDropdownDismissed = viewModel::onPetDropdownDismissed,
-            onPetSelected = viewModel::onPetSelected,
-            onPetTagRemoved = viewModel::onPetTagRemoved
-        )
     }
 }
 
-// --- 2. 상단 바 (변경 없음) ---
 @Composable
-private fun CreateTodoTopBar(onCloseClick: () -> Unit) {
+private fun CreateTodoTopBar(title: String, onCloseClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .statusBarsPadding() // 상태 표시줄 띄워 주기
+            .statusBarsPadding()
             .padding(horizontal = 16.dp, vertical = 12.dp)
             .height(40.dp)
     ) {
         Text(
-            text = "투두 생성하기",
+            text = title,
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,
             modifier = Modifier.align(Alignment.Center)
@@ -158,10 +215,7 @@ private fun CreateTodoTopBar(onCloseClick: () -> Unit) {
             modifier = Modifier
                 .size(39.dp)
                 .align(Alignment.CenterEnd)
-                .border(
-                    BorderStroke(0.1.dp, Color.LightGray),
-                    CircleShape
-                )
+            // ★ (삭제) .border(...)
         ) {
             Icon(
                 imageVector = Icons.Default.Close,
@@ -172,13 +226,23 @@ private fun CreateTodoTopBar(onCloseClick: () -> Unit) {
     }
 }
 
-// --- 3. 하단 버튼 (변경 없음) ---
+// (기존) 하단 버튼 - 변경 없음
 @Composable
-private fun CreateTodoBottomButton(onCreateClick: () -> Unit) {
+private fun CreateTodoBottomButton(
+    buttonText: String,
+    modifier: Modifier = Modifier,
+    onCreateClick: () -> Unit
+) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 60.dp)
+            .background(Color.Transparent)
+            .padding(
+                start = 24.dp,
+                end = 24.dp,
+                top = 16.dp,
+                bottom = 16.dp
+            )
     ) {
         Button(
             onClick = onCreateClick,
@@ -186,129 +250,17 @@ private fun CreateTodoBottomButton(onCreateClick: () -> Unit) {
                 .fillMaxWidth()
                 .height(56.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Black,
-                contentColor = Color.White
+                containerColor = Color(0xFFFFC848),
+                contentColor = Color.Black
             ),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("투두 생성 완료", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+            Text(buttonText, fontWeight = FontWeight.Medium, fontSize = 14.sp)
         }
     }
 }
 
-
-// --- 4. 본문 (스크롤 영역) (파라미터 타입 변경) ---
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
-@Composable
-private fun CreateTodoContent(
-    modifier: Modifier = Modifier,
-    familyMembers: List<FamilyMember>,
-    selectedMember: FamilyMember?,
-    taskTitle: String,
-    selectedDate: Long, // (변경) LocalDate -> Long
-    isDatePickerVisible: Boolean,
-    allPets: List<Pet>,
-    selectedPets: List<Pet>,
-    isPetDropdownVisible: Boolean,
-    onMemberSelected: (FamilyMember) -> Unit,
-    onTaskTitleChanged: (String) -> Unit,
-    onDatePickerClicked: () -> Unit,
-    onDateSelected: (Long?) -> Unit,
-    onDatePickerDismissed: () -> Unit,
-    onPetDropdownClicked: () -> Unit,
-    onPetDropdownDismissed: () -> Unit,
-    onPetSelected: (Pet) -> Unit,
-    onPetTagRemoved: (Pet) -> Unit
-) {
-    // 날짜 선택 다이얼로그
-    if (isDatePickerVisible) {
-        // ViewModel의 Long 값(selectedDate)을 초기값으로 설정
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = selectedDate
-        )
-        DatePickerDialog(
-            onDismissRequest = onDatePickerDismissed,
-            confirmButton = {
-                TextButton(onClick = {
-                    onDateSelected(datePickerState.selectedDateMillis)
-                }) {
-                    Text("확인")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = onDatePickerDismissed) {
-                    Text("취소")
-                }
-            }
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
-
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
-    ) {
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // 섹션 1: 누가 (변경 없음)
-        CreateTodoSection(
-            icon = rememberVectorPainter(image = Icons.Default.Person),
-            title = "누가"
-        ) {
-            AssigneeSelector(
-                members = familyMembers,
-                selectedMember = selectedMember,
-                onMemberSelected = onMemberSelected
-            )
-        }
-
-        // 섹션 2: 언제 (수정됨)
-        CreateTodoSection(
-            icon = painterResource(id = R.drawable.date_under),
-            title = "언제"
-        ) {
-            DatePickerField(
-                selectedDateMillis = selectedDate, // Long 값 전달
-                onClick = onDatePickerClicked
-            )
-        }
-
-        // 섹션 3: 해야 할 일 (변경 없음)
-        CreateTodoSection(
-            icon = rememberVectorPainter(image = Icons.Default.CheckBox),
-            title = "해야 할 일"
-        ) {
-            TaskTextField(
-                text = taskTitle,
-                onValueChange = onTaskTitleChanged
-            )
-        }
-
-        // 섹션 4: 반려동물 선택 (변경 없음)
-        CreateTodoSection(
-            icon = rememberVectorPainter(image = Icons.Default.Pets),
-            title = "반려동물 선택"
-        ) {
-            PetSelector(
-                allPets = allPets,
-                selectedPets = selectedPets,
-                isDropdownVisible = isPetDropdownVisible,
-                onDropdownClicked = onPetDropdownClicked,
-                onDropdownDismissed = onPetDropdownDismissed,
-                onPetSelected = onPetSelected,
-                onPetTagRemoved = onPetTagRemoved
-            )
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-    }
-}
-
-// --- 5. 섹션 템플릿 (변경 없음) ---
+// (기존) 섹션 래퍼 - 변경 없음
 @Composable
 private fun CreateTodoSection(
     icon: Painter,
@@ -335,19 +287,130 @@ private fun CreateTodoSection(
     }
 }
 
-// --- 6. '누가' 섹션 (변경 없음) ---
+
+// (기존) 본문 (스크롤 영역) - 변경 없음
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CreateTodoContent(
+    modifier: Modifier = Modifier,
+    isEditMode: Boolean,
+    shakeOffset: Float,
+    familyMembers: List<FamilyMember>,
+    selectedMember: FamilyMember?,
+    taskTitle: String,
+    selectedDate: Long,
+    isDatePickerVisible: Boolean,
+    allPets: List<Pet>,
+    selectedPets: List<Pet>,
+    isPetDropdownVisible: Boolean,
+    onMemberSelected: (FamilyMember) -> Unit,
+    onTaskTitleChanged: (String) -> Unit,
+    onDatePickerClicked: () -> Unit,
+    onDateSelected: (Long?) -> Unit,
+    onDatePickerDismissed: () -> Unit,
+    onPetDropdownClicked: () -> Unit,
+    onPetDropdownDismissed: () -> Unit,
+    onPetSelected: (Pet) -> Unit,
+    onPetTagRemoved: (Pet) -> Unit
+) {
+    // (기존) 날짜 선택 다이얼로그 (변경 없음)
+    if (isDatePickerVisible) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate
+        )
+        DatePickerDialog(
+            onDismissRequest = onDatePickerDismissed,
+            confirmButton = {
+                TextButton(onClick = {
+                    onDateSelected(datePickerState.selectedDateMillis)
+                }) { Text("확인") }
+            },
+            dismissButton = {
+                TextButton(onClick = onDatePickerDismissed) { Text("취소") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(
+                start = 24.dp,
+                end = 24.dp,
+                bottom = 104.dp
+            ),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        Spacer(modifier = Modifier.height(10.dp))
+
+        CreateTodoSection(
+            icon = rememberVectorPainter(image = Icons.Default.Person),
+            title = "누가"
+        ) {
+            AssigneeSelector(
+                members = familyMembers,
+                selectedMember = selectedMember,
+                onMemberSelected = onMemberSelected,
+                enabled = true
+            )
+        }
+
+        CreateTodoSection(
+            icon = painterResource(id = R.drawable.date_under),
+            title = "언제"
+        ) {
+            DatePickerField(
+                selectedDateMillis = selectedDate,
+                onClick = onDatePickerClicked
+            )
+        }
+
+        CreateTodoSection(
+            icon = rememberVectorPainter(image = Icons.Default.CheckBox),
+            title = "해야 할 일"
+        ) {
+            TaskTextField(
+                text = taskTitle,
+                onValueChange = onTaskTitleChanged,
+                shakeOffset = shakeOffset
+            )
+        }
+
+        CreateTodoSection(
+            icon = rememberVectorPainter(image = Icons.Default.Pets),
+            title = "반려동물 선택"
+        ) {
+            PetSelector(
+                allPets = allPets,
+                selectedPets = selectedPets,
+                isDropdownVisible = isPetDropdownVisible,
+                onDropdownClicked = onPetDropdownClicked,
+                onDropdownDismissed = onPetDropdownDismissed,
+                onPetSelected = onPetSelected,
+                onPetTagRemoved = onPetTagRemoved,
+                enabled = true
+            )
+        }
+    }
+}
+
+// (기존) '누가' 섹션 - 변경 없음
 @Composable
 private fun AssigneeSelector(
     members: List<FamilyMember>,
     selectedMember: FamilyMember?,
-    onMemberSelected: (FamilyMember) -> Unit
+    onMemberSelected: (FamilyMember) -> Unit,
+    enabled: Boolean
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         members.forEach { member ->
             AssigneeItem(
                 member = member,
                 isSelected = member.userId == selectedMember?.userId,
-                onClick = { onMemberSelected(member) }
+                onClick = { if (enabled) onMemberSelected(member) },
+                enabled = enabled
             )
         }
     }
@@ -357,11 +420,13 @@ private fun AssigneeSelector(
 private fun AssigneeItem(
     member: FamilyMember,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    enabled: Boolean
 ) {
+    val alpha = if (enabled) 1f else 0.4f
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable(onClick = onClick)
+        modifier = Modifier.clickable(enabled = enabled, onClick = onClick)
     ) {
         Box(
             contentAlignment = Alignment.Center,
@@ -370,16 +435,15 @@ private fun AssigneeItem(
                 .clip(CircleShape)
                 .border(
                     width = if (isSelected) 2.dp else 1.dp,
-                    color = if (isSelected) Color.Black else Color.LightGray,
+                    color = (if (isSelected) Color.Black else Color.LightGray).copy(alpha = alpha),
                     shape = CircleShape
                 )
         ) {
-            // TODO: Coil 라이브러리 (AsyncImage)
             Icon(
                 imageVector = Icons.Default.AccountCircle,
                 contentDescription = null,
                 modifier = Modifier.size(40.dp),
-                tint = Color.LightGray
+                tint = Color.LightGray.copy(alpha = alpha)
             )
         }
         Text(
@@ -387,19 +451,18 @@ private fun AssigneeItem(
             fontSize = 14.sp,
             modifier = Modifier.padding(top = 8.dp),
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            color = if (isSelected) Color.Black else Color.Gray
+            color = (if (isSelected) Color.Black else Color.Gray).copy(alpha = alpha)
         )
     }
 }
 
-// --- 7. '언제' 섹션 (Long -> String 변환 로직 추가) ---
+// (기존) '언제' 섹션 - 변경 없음
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DatePickerField(
-    selectedDateMillis: Long, // (변경) ViewModel의 Long State
+    selectedDateMillis: Long,
     onClick: () -> Unit
 ) {
-    // (추가) Long 값을 "yyyy년 MM월 dd일" 형식으로 변환
     val formatter = SimpleDateFormat("yyyy년 MM월 dd일", Locale.getDefault())
     val dateString = formatter.format(Date(selectedDateMillis))
 
@@ -407,7 +470,7 @@ private fun DatePickerField(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(17.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
-        onClick = onClick // 클릭 시 DatePicker 띄우기
+        onClick = onClick
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -417,7 +480,7 @@ private fun DatePickerField(
             Column {
                 Text("date", fontSize = 10.sp, color = Color.Gray)
                 Text(
-                    text = dateString, // (변경) 포맷된 날짜 문자열 표시
+                    text = dateString,
                     fontWeight = FontWeight.Medium,
                     fontSize = 13.sp
                 )
@@ -427,18 +490,23 @@ private fun DatePickerField(
 }
 
 
-// --- 8. '해야 할 일' 섹션 (변경 없음) ---
+// (기존) '해야 할 일' 섹션 - 변경 없음
 @Composable
 private fun TaskTextField(
     text: String,
-    onValueChange: (String) -> Unit
+    onValueChange: (String) -> Unit,
+    shakeOffset: Float
 ) {
     val maxChars = 20
     Column {
         OutlinedTextField(
             value = text,
             onValueChange = onValueChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .graphicsLayer {
+                    translationX = shakeOffset
+                },
             shape = RoundedCornerShape(17.dp),
             placeholder = { Text("해야 할 일을 입력해 주세요", fontWeight = FontWeight.Medium, fontSize = 13.sp) },
             maxLines = 3,
@@ -455,8 +523,8 @@ private fun TaskTextField(
     }
 }
 
-// --- 9. '반려동물 선택' 섹션 (변경 없음) ---
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+// ★★★ 3. (수정) '반려동물 선택' 섹션 (수정 모드 UI 수정) ★★★
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PetSelector(
     allPets: List<Pet>,
@@ -465,47 +533,72 @@ private fun PetSelector(
     onDropdownClicked: () -> Unit,
     onDropdownDismissed: () -> Unit,
     onPetSelected: (Pet) -> Unit,
-    onPetTagRemoved: (Pet) -> Unit
+    onPetTagRemoved: (Pet) -> Unit,
+    enabled: Boolean // (★ enabled는 이제 '드롭다운 활성화' 여부)
 ) {
+    // (수정) 수정 모드일 때는 alpha를 적용하지 않음
+    val alpha = if (enabled) 1f else 0.4f
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        // --- 1. 드롭다운 버튼 ---
         Box {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(17.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                onClick = onDropdownClicked // 클릭 시 드롭다운 열기
+                color = MaterialTheme.colorScheme.surfaceVariant, // (수정) 항상 불투명
+                onClick = { if (enabled) onDropdownClicked() } // (수정) 생성 모드일 때만 클릭 가능
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Image(
-                        imageVector = Icons.Default.AccountCircle, // TODO: 펫 이미지
-                        contentDescription = "펫 프로필",
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                    )
+                    if (selectedPets.isEmpty()) {
+                        Image(
+                            imageVector = Icons.Default.AccountCircle,
+                            contentDescription = "펫 프로필",
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .graphicsLayer { this.alpha = alpha }
+                        )
+                    } else {
+                        OverlappingPetIcons(
+                            petNames = selectedPets.map { it.name },
+                            color = Color.Black, // (수정) 항상 불투명
+                            modifier = Modifier.height(32.dp)
+                        )
+                    }
+
                     Spacer(modifier = Modifier.width(8.dp))
+
+                    // ★ (수정) 텍스트가 펫 이름 또는 플레이스홀더를 표시하도록
                     Text(
-                        text = "반려동물을 선택해 주세요",
+                        text = if (selectedPets.isEmpty()) {
+                            "반려동물을 선택해 주세요"
+                        } else {
+                            // (수정) 수정 모드일 때도 펫 이름이 보이도록
+                            selectedPets.joinToString { it.name }
+                        },
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
-                        color = if (selectedPets.isEmpty()) Color.Gray else MaterialTheme.colorScheme.onSurface
+                        // ★ (수정) 펫이 있으면 활성화된 색상, 비활성화(enabled=false) 시 반투명
+                        color = (if (selectedPets.isEmpty()) Color.Gray else MaterialTheme.colorScheme.onSurface)
+                            .copy(alpha = if (enabled) 1f else 0.4f)
                     )
+
                     Spacer(modifier = Modifier.weight(1f))
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = "열기",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+
+                    // ★ (수정) 수정 모드(enabled=false)일 때 화살표 숨김
+                    if (enabled) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = "열기",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
-
-            // --- 2. 드롭다운 메뉴 ---
             DropdownMenu(
-                expanded = isDropdownVisible,
+                expanded = isDropdownVisible && enabled,
                 onDismissRequest = onDropdownDismissed,
                 modifier = Modifier.fillMaxWidth(0.8f)
             ) {
@@ -518,30 +611,34 @@ private fun PetSelector(
             }
         }
 
-        // --- 3. 펫 태그 (FlowRow) ---
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            selectedPets.forEach { pet ->
-                PetTagChip(
-                    pet = pet,
-                    onRemoveClick = { onPetTagRemoved(pet) }
-                )
+        // ★ (수정) 수정 모드일 때도 태그가 보이도록 (단, 삭제는 안 됨)
+        if (selectedPets.isNotEmpty()) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                selectedPets.forEach { pet ->
+                    PetTagChip(
+                        pet = pet,
+                        onRemoveClick = { onPetTagRemoved(pet) },
+                        enabled = enabled // ★ '생성' 모드일 때만 삭제 가능
+                    )
+                }
             }
         }
     }
 }
 
-// --- (추가) 펫 태그 칩 (변경 없음) ---
+// (기존) 펫 태그 칩 - 변경 없음
 @Composable
 private fun PetTagChip(
     pet: Pet,
-    onRemoveClick: () -> Unit
+    onRemoveClick: () -> Unit,
+    enabled: Boolean
 ) {
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = Color.Gray // (임시 색상)
+        color = Color.Gray.copy(alpha = if (enabled) 1f else 0.4f)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -549,19 +646,93 @@ private fun PetTagChip(
         ) {
             Text(pet.name, fontSize = 12.sp)
             Spacer(modifier = Modifier.width(4.dp))
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "${pet.name} 삭제",
-                modifier = Modifier
-                    .size(16.dp)
-                    .clickable(onClick = onRemoveClick)
-            )
+
+            if (enabled) { // ★ 생성 모드일 때만 X 아이콘 표시
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "${pet.name} 삭제",
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable(onClick = onRemoveClick)
+                )
+            }
         }
     }
 }
 
+// (기존) 겹치는 펫 아이콘 - 3개 + N개
+@Composable
+private fun OverlappingPetIcons(
+    petNames: List<String>,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    if (petNames.isEmpty()) {
+        Spacer(modifier = modifier.width(32.dp).height(32.dp))
+        return
+    }
 
-// --- 10. 미리보기 (변경 없음) ---
+    val displayNames = petNames.take(3)
+    val remaining = (petNames.size - displayNames.size).coerceAtLeast(0)
+
+    val width = (32 + (displayNames.size - 1) * 20 + (if (remaining > 0) 24 else 0)).dp
+    val overlap = 20.dp
+
+    Box(
+        modifier = modifier
+            .width(width)
+            .height(32.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        displayNames.reversed().forEachIndexed { index, name ->
+            PetIconCircle(
+                petName = name,
+                color = color.copy(alpha = 1f - (index * 0.2f)),
+                modifier = Modifier
+                    .padding(start = ((displayNames.size - 1) - index) * overlap)
+                    .size(32.dp)
+            )
+        }
+
+        if (remaining > 0) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(Color.Gray.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "+$remaining",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = color
+                )
+            }
+        }
+    }
+}
+
+// (기존) 펫 아이콘 헬퍼 - private
+@Composable
+private fun PetIconCircle(petName: String, color: Color, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(Color.Gray.copy(alpha = 0.1f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Pets,
+            contentDescription = petName,
+            tint = color,
+            modifier = Modifier.size(20.dp)
+        )
+    }
+}
+
+// (기존) 미리보기 - 변경 없음
 @Preview(showBackground = true)
 @Composable
 fun CreateTodoScreenPreview() {
