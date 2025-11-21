@@ -173,7 +173,7 @@ fun ScheduleScreen(
             MyFloatingActionButton(
                 onTodoClick = { navController.navigate("create_todo") },
                 onScheduleClick = { navController.navigate("create_schedule") },
-                onFeedCreateClick = { navController.navigate("create_feed") }
+                onFeedCreateClick = { navController.navigate("feed_create") }
             )
         },
     ) { innerPadding ->
