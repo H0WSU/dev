@@ -22,11 +22,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.howsu.data.model.FamilyMember
 import coil.compose.AsyncImage
+import com.example.howsu.data.model.FamilyMember
 
 
 @Composable
@@ -39,10 +40,12 @@ fun FeedHomeTopBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         // 왼쪽 프로필 이미지
-        if (member.profileImageUrl != null) {
+        if (!member.profileImageUrl.isNullOrBlank()) {
+            // 1. 사진 URL이 있으면 이미지 표시
             AsyncImage(
                 model = member.profileImageUrl,
                 contentDescription = "프로필 이미지",
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(42.dp)
                     .clip(CircleShape)

@@ -13,10 +13,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState // 추가됨
+import androidx.compose.runtime.getValue // 추가됨
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,73 +29,100 @@ import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.data.model.FeedFilter
 import com.example.howsu.feed.FeedHomeTopBar
 
-
 @Composable
 fun FeedHomeScreen(
     viewModel: FeedViewModel,
-    navController: NavHostController,
-    member : FamilyMember
-
+    navController: NavHostController
 ){
     val filteredPosts = viewModel.filteredPosts
     val selectedFilter = viewModel.selectedFilter
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+    // 뷰모델이 DB에서 가져온 내 정보를 여기서 구독
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.fetchMyProfile()
+    }
 
-        // --- 상단 앱 바 ---
-        topBar = {
-            Column {
-                FeedHomeTopBar(
-                    member,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                )
+    val myInfo by viewModel.currentMember.collectAsState()
 
-                Spacer(modifier = Modifier.height(4.dp))
+    // 2. 데이터가 로딩 중일 때(null일 때) 보여줄 임시 데이터 생성
+    val displayMember = myInfo ?: FamilyMember(
+        userId = "",
+        familyId = "",
+        nickName = "",
+        relationship = "",
+        profileImageUrl = null
+    )
 
-                FilterTabRow(
-                    selectedFilter = selectedFilter,
-                    onFilterSelected = { filter ->
-                        viewModel.changeFilter(filter)
-                    }
-                )
+    Box(modifier = Modifier.fillMaxSize()) {
+
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+
+            Spacer(modifier = Modifier.height(10.dp))
+            // 1) TopBar — 상태바 넘치지 않도록 패딩
+            FeedHomeTopBar(
+                member = displayMember, // 수정됨
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // 2) TabRow — TopBar 바로 아래 적당한 간격
+            FilterTabRow(
+                selectedFilter = selectedFilter,
+                onFilterSelected = { filter ->
+                    viewModel.changeFilter(filter)
+                }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 3) 피드 목록 — 스크롤 가능
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(top = 4.dp),
+            ) {
+                items(filteredPosts, key = { it.id }) { post ->
+                    FeedItem(
+                        post = post,
+                        onClick = {
+
+                            navController.navigate("edit_feed/${post.id}")
+                        },
+                        onDeleteClick = {
+                            viewModel.deletePost(post.id)
+                        }
+                    )
+                }
             }
-        },
 
-        // --- 하단 네비게이션 ---
-        bottomBar = {
-            MyBottomNavigationBar(navController)
-        },
-
-        floatingActionButton = {
+        }
+        // 4) FAB — 오른쪽 아래 고정
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        ) {
             MyFloatingActionButton(
                 onTodoClick = { navController.navigate("create_todo") },
                 onScheduleClick = { navController.navigate("create_schedule") },
                 onFeedCreateClick = { navController.navigate("create_feed") }
             )
         }
-    ) { padding ->            // ★ 여기가 content
-        LazyColumn(
+        Box(
             modifier = Modifier
+                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(padding)    // ★ 시스템 패딩 적용 매우 중요
-                .padding(top = 8.dp)
         ) {
-            items(filteredPosts, key = { it.id }) { post ->
-                FeedItem(
-                    post = post,
-                    onClick = {
-                        navController.navigate("edit_feed/${post.id}")
-                    },
-                    onDeleteClick = {
-                        viewModel.deletePost(post.id)
-                    }
-                )
-            }
+            MyBottomNavigationBar(navController = navController)
         }
+
     }
 }
 

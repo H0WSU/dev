@@ -36,6 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -88,6 +89,8 @@ fun TodoScreen(
 
     LaunchedEffect(Unit) {
         viewModel.resetToToday()
+        // ★ 추가: 화면 들어올 때마다 데이터 다시 불러오기
+        viewModel.fetchTodoGroups()
     }
 
     if (showDatePicker) {
@@ -275,11 +278,36 @@ fun DailyHeader(selectedDate: LocalDate) {
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // 1. 날짜 텍스트
         Text(
-            text = selectedDate.format(formatter) + if (isToday) " (오늘)" else "",
+            text = selectedDate.format(formatter),
             fontSize = 18.sp,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
         )
+
+        // 2. "오늘" 뱃지 (오늘 날짜일 때만 표시)
+        if (isToday) {
+            Spacer(modifier = Modifier.width(8.dp)) // 간격
+
+            Surface(
+                color = Color(0xFFFFC848), // 포인트 컬러 (노랑)
+                shape = RoundedCornerShape(12.dp), // 둥근 모서리
+                modifier = Modifier.height(22.dp)
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                ) {
+                    Text(
+                        text = "오늘",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                }
+            }
+        }
     }
 }
 

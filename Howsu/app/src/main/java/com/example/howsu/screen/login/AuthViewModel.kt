@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.ktx.functions
 import com.google.firebase.ktx.Firebase
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
+private val db = Firebase.firestore
 // Firebase 로그인 상태를 UI에 알리기 위한 클래스
 sealed class FirebaseLoginState {
     object Idle : FirebaseLoginState()
@@ -135,10 +137,13 @@ class AuthViewModel : ViewModel() {
                             _loginState.value = FirebaseLoginState.Success
                             _currentUserId.value = auth.currentUser?.uid // ID 업데이트
                         } catch (e: Exception) {
-                            _loginState.value = FirebaseLoginState.Error(e.message ?: "커스텀 토큰 로그인 실패")
+                            _loginState.value =
+                                FirebaseLoginState.Error(e.message ?: "커스텀 토큰 로그인 실패")
                         }
                     } else {
-                        _loginState.value = FirebaseLoginState.Error(task.exception?.message ?: "Cloud Function 호출 실패")
+                        _loginState.value = FirebaseLoginState.Error(
+                            task.exception?.message ?: "Cloud Function 호출 실패"
+                        )
                     }
                 }
             }
@@ -189,27 +194,43 @@ class AuthViewModel : ViewModel() {
     /**
      * [회원 탈퇴] 현재 로그인된 Firebase 계정을 삭제합니다.
      */
-    fun deleteUserAndLogout() {
+    fun deleteUserAndLogout(onSuccess: () -> Unit) {
         val user = auth.currentUser
         if (user == null) {
             _loginState.value = FirebaseLoginState.Error("로그인된 사용자가 없습니다.")
             return
         }
 
+        val uidToDelete = user.uid
+
         _loginState.value = FirebaseLoginState.Loading
         viewModelScope.launch {
             try {
+                // 1. DB 데이터 삭제
+                db.collection("users").document(uidToDelete).delete().await()
+
+                // 2. 계정 삭제
                 user.delete().await()
+
+                // 3. 로그아웃 처리 및 상태 초기화
+                auth.signOut() // (중요) 계정 삭제 후 로그아웃 처리까지 확실하게
                 _loginState.value = FirebaseLoginState.Idle
-                _currentUserId.value = null // ID를 null로 설정
-                Log.d("AuthViewModel", "회원 탈퇴 및 계정 삭제 성공.")
+                _currentUserId.value = null
+
+                Log.d("AuthViewModel", "회원 탈퇴 완료. 이동 신호 보냄.")
+
+                // ★★★★★ [핵심] 여기가 없어서 안 움직인 겁니다!
+                // 작업 다 끝났으니 이제 화면 이동하라고 명령 내리는 부분
+                onSuccess()
 
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "회원 탈퇴 실패", e)
+                // 실패했을 때도 이동시킬지, 에러 메시지를 띄울지 결정해야 함
+                // 보통은 에러 메시지 띄우고 이동 안 함
                 if (e.message?.contains("REQUIRES_RECENT_LOGIN") == true) {
-                    _loginState.value = FirebaseLoginState.Error("보안을 위해 재로그인이 필요합니다.")
+                    _loginState.value = FirebaseLoginState.Error("재로그인이 필요합니다.")
                 } else {
-                    _loginState.value = FirebaseLoginState.Error(e.message ?: "회원 탈퇴 실패")
+                    _loginState.value = FirebaseLoginState.Error("탈퇴 실패: ${e.message}")
                 }
             }
         }

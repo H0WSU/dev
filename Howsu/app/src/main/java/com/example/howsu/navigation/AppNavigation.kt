@@ -16,9 +16,9 @@ import androidx.navigation.navArgument
 import com.example.howsu.Pet.PetRegisterViewModel
 import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.screen.family.FamilyInviteScreen
+import com.example.howsu.screen.family.FamilyJoinCompleteScreen
 import com.example.howsu.screen.family.FamilyRegisterIntroScreen
-import com.example.howsu.screen.famliy.FamilyJoinCompleteScreen
-import com.example.howsu.screen.famliy.NicknameRegisterScreen
+import com.example.howsu.screen.family.NicknameRegisterScreen
 import com.example.howsu.screen.feed.FeedHomeScreen
 import com.example.howsu.screen.feed.FeedViewModel
 import com.example.howsu.screen.feed.FeedWriteScreen
@@ -122,22 +122,33 @@ fun AppNavigation() {
             )
         }
 
-        // 3. 가족 초대 (QR 코드 화면)
         composable(
-            // ★ 이름과 ID를 모두 받도록 수정 완료됨
-            route = "family_invite_screen/{familyName}/{familyId}",
+            route = "family_invite_screen/{familyName}/{familyId}?profileUrl={profileUrl}",
+
             arguments = listOf(
                 navArgument("familyName") { type = NavType.StringType },
-                navArgument("familyId") { type = NavType.StringType }
+                navArgument("familyId") { type = NavType.StringType },
+
+                // 프로필 URL 인자 설정 (nullable 허용)
+                navArgument("profileUrl") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
             )
         ) { backStackEntry ->
             val familyName = backStackEntry.arguments?.getString("familyName") ?: ""
             val familyId = backStackEntry.arguments?.getString("familyId") ?: ""
 
+            // 받은 URL 꺼내기 (null 문자열 처리)
+            val profileUrlStr = backStackEntry.arguments?.getString("profileUrl")
+            val finalProfileUrl = if (profileUrlStr == "null") null else profileUrlStr
+
             FamilyInviteScreen(
                 navController = navController,
                 familyNameInput = familyName,
-                invitedFamilyId = familyId // 전달받은 ID 주입
+                invitedFamilyId = familyId,
+                userProfileUrl = finalProfileUrl // ★ 전달!
             )
         }
 
@@ -203,7 +214,10 @@ fun AppNavigation() {
 
         // --- (피드) ---
         composable(route = "feed") {
-            FeedHomeScreen(navController = navController, viewModel = feedViewModel, member = member)
+            FeedHomeScreen(
+                navController = navController,
+                viewModel = feedViewModel
+            )
         }
         composable(route = "create_feed") {
             FeedWriteScreen(viewModel = feedViewModel, onFinishWrite = { navController.popBackStack() })

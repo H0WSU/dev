@@ -7,6 +7,7 @@ import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.data.model.Pet
 import com.example.howsu.data.model.Task
 import com.example.howsu.data.model.TodoGroup
+import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.firestore.toObject
 import com.google.firebase.ktx.Firebase
@@ -24,12 +25,14 @@ import java.util.UUID
 class CreateTodoViewModel : ViewModel() {
 
     private val db = Firebase.firestore
+    private val auth = Firebase.auth
+
     private var currentTodoDocumentId: String? = null
     private var currentTaskId: String? = null
     private val _isEditMode = MutableStateFlow(false)
     val isEditMode: StateFlow<Boolean> = _isEditMode.asStateFlow()
 
-    // State Flows
+    // --- 상태 변수들 ---
     private val _familyMembers = MutableStateFlow<List<FamilyMember>>(emptyList())
     val familyMembers: StateFlow<List<FamilyMember>> = _familyMembers.asStateFlow()
 
@@ -54,123 +57,160 @@ class CreateTodoViewModel : ViewModel() {
     private val _isPetDropdownVisible = MutableStateFlow(false)
     val isPetDropdownVisible: StateFlow<Boolean> = _isPetDropdownVisible.asStateFlow()
 
+    // ★ 진짜 가족 ID 저장용
+    private var realFamilyId: String? = null
+
     fun initialize(documentId: String?) {
         viewModelScope.launch {
-            loadInitialData()
+            // 1. 진짜 데이터 로드 (가족 멤버, 내 정보)
+            loadRealData()
+
             if (documentId != null) {
                 currentTodoDocumentId = documentId
                 _isEditMode.value = true
                 loadTodoForEdit(documentId)
             } else {
+                // 생성 모드 초기화
                 currentTodoDocumentId = null
                 currentTaskId = null
                 _isEditMode.value = false
                 _taskTitle.value = ""
                 _selectedPets.value = emptyList()
                 _selectedDate.value = System.currentTimeMillis()
-                if (_familyMembers.value.isNotEmpty()) {
-                    _selectedMember.value = _familyMembers.value.first()
-                }
             }
         }
     }
 
-    private suspend fun loadInitialData() {
-        // ★ [수정됨] FamilyMember 생성자에 familyId 추가!
-        // (FamilyMember 데이터 클래스가 변경되었기 때문에 여기도 맞춰줘야 함)
-        val dummyFamily = listOf(
-            FamilyMember(
-                userId = "user_id_1",
-                familyId = "test_family", // 추가됨
-                relationship = "언니",
-                profileImageUrl = null,
-                nickName = "이구역의짱"
-            ),
-            FamilyMember(
-                userId = "user_id_2",
-                familyId = "test_family", // 추가됨
-                relationship = "엄마",
-                profileImageUrl = null,
-                nickName = "엄마2"
-            ),
-            FamilyMember(
-                userId = "user_id_3",
-                familyId = "test_family", // 추가됨
-                relationship = "형",
-                profileImageUrl = null,
-                nickName = "형2"
-            )
-        )
-        _familyMembers.value = dummyFamily
+    private suspend fun loadRealData() {
+        val user = auth.currentUser ?: return
 
-        // ★ [확인 필요] Pet 데이터 모델도 패키지가 바뀌었는지 확인하세요.
-        // Pet 클래스 생성자에 맞춰서 아래 코드도 수정이 필요할 수 있습니다.
-        // 일단 기존 코드를 유지합니다.
-        val dummyPets = listOf(
-            Pet(petId = "pet_id_1", name = "자몽", profileImageUrl = null),
-            Pet(petId = "pet_id_2", name = "레몬", profileImageUrl = null),
-            Pet(petId = "pet_id_3", name = "망고", profileImageUrl = null),
-            Pet(petId = "pet_id_4", name = "수박", profileImageUrl = null),
-            Pet(petId = "pet_id_5", name = "키위", profileImageUrl = null)
-        )
-        _allPets.value = dummyPets
+        try {
+            // 1. 내 정보 가져오기
+            val userDoc = db.collection("users").document(user.uid).get().await()
+            val myFamilyId = userDoc.getString("currentFamilyId")
+
+            // 내 진짜 프로필 사진 주소 가져오기
+            val myRealProfileUrl = userDoc.getString("profileImageUrl")
+            val myRealName = userDoc.getString("name")
+
+            if (myFamilyId != null) {
+                realFamilyId = myFamilyId
+
+                val membersSnapshot = db.collection("families")
+                    .document(myFamilyId)
+                    .collection("members")
+                    .get()
+                    .await()
+
+                val members = membersSnapshot.documents.mapNotNull { doc ->
+                    val member = doc.toObject<FamilyMember>()
+
+                    // 멤버 목록 중 '나'를 찾아서 사진을 최신으로 덮어씌우기
+                    if (member != null && member.userId == user.uid) {
+                        member.copy(
+                            // DB에서 방금 가져온 사진 주소 사용
+                            profileImageUrl = myRealProfileUrl ?: member.profileImageUrl,
+                            nickName = myRealName ?: member.nickName
+                        )
+                    } else {
+                        member
+                    }
+                }
+                _familyMembers.value = members
+
+                // ★★★ 3. [자동 선택] 멤버 리스트에서 '나'를 찾아 기본 선택
+                // 이게 돼야 "누가" 칸이 채워지고 저장이 됩니다!
+                if (members.isNotEmpty()) {
+                    val me = members.find { it.userId == user.uid }
+                    _selectedMember.value = me ?: members.first()
+                }
+
+                // 4. (임시) 펫 데이터는 아직 DB에 없다면 더미 사용 (나중에 수정 필요)
+                if (_allPets.value.isEmpty()) {
+                    _allPets.value = listOf(
+                        Pet(petId = "p1", name = "자몽", profileImageUrl = null),
+                        Pet(petId = "p2", name = "루비", profileImageUrl = null)
+                    )
+                }
+            } else {
+                Log.e("CreateTodoVM", "가족 ID가 없습니다. 가족 등록을 먼저 해주세요.")
+            }
+        } catch (e: Exception) {
+            Log.e("CreateTodoVM", "데이터 로드 실패: ${e.message}")
+        }
     }
 
+    // 수정 모드 로드
     private suspend fun loadTodoForEdit(documentId: String) {
         try {
             val doc = db.collection("todoGroups").document(documentId).get().await()
             val group = doc.toObject<TodoGroup>()
             if (group != null) {
+                // 저장된 담당자 ID로 멤버 찾기
                 _selectedMember.value = _familyMembers.value.find { it.userId == group.assigneeId }
+
+                // 펫 선택 복원
                 _selectedPets.value = _allPets.value.filter { group.petNames.contains(it.name) }
 
                 val taskToEdit = group.tasks.firstOrNull()
                 if (taskToEdit != null) {
                     currentTaskId = taskToEdit.id
                     _taskTitle.value = taskToEdit.title ?: ""
-                } else {
-                    currentTaskId = null
-                    _taskTitle.value = ""
-                }
 
-                val firstTaskDate = taskToEdit?.date
-                if (firstTaskDate != null) {
+                    // 날짜 복원
                     try {
                         val formatter = SimpleDateFormat("yyyy. MM. dd", Locale.KOREA)
-                        _selectedDate.value = formatter.parse(firstTaskDate)?.time ?: System.currentTimeMillis()
+                        _selectedDate.value =
+                            formatter.parse(taskToEdit.date)?.time ?: System.currentTimeMillis()
                     } catch (e: Exception) {
                         _selectedDate.value = System.currentTimeMillis()
                     }
-                } else {
-                    _selectedDate.value = System.currentTimeMillis()
                 }
             }
         } catch (e: Exception) {
-            Log.e("CreateTodoVM", "수정할 할 일 로드 실패", e)
+            Log.e("CreateTodoVM", "수정 데이터 로드 실패", e)
         }
     }
 
-    // --- UI Events ---
-    fun onMemberSelected(member: FamilyMember) { _selectedMember.value = member }
-    fun onTaskTitleChanged(newTitle: String) { _taskTitle.value = newTitle.take(20) }
-    fun onDatePickerClicked() { _isDatePickerVisible.value = true }
+    // --- UI 이벤트 ---
+    fun onMemberSelected(member: FamilyMember) {
+        _selectedMember.value = member
+    }
+
+    fun onTaskTitleChanged(newTitle: String) {
+        _taskTitle.value = newTitle.take(20)
+    }
+
+    fun onDatePickerClicked() {
+        _isDatePickerVisible.value = true
+    }
+
     fun onDateSelected(epochMillis: Long?) {
         epochMillis?.let { _selectedDate.value = it }
         _isDatePickerVisible.value = false
     }
-    fun onDatePickerDismissed() { _isDatePickerVisible.value = false }
-    fun onPetDropdownClicked() { _isPetDropdownVisible.value = true }
-    fun onPetDropdownDismissed() { _isPetDropdownVisible.value = false }
+
+    fun onDatePickerDismissed() {
+        _isDatePickerVisible.value = false
+    }
+
+    fun onPetDropdownClicked() {
+        _isPetDropdownVisible.value = true
+    }
+
+    fun onPetDropdownDismissed() {
+        _isPetDropdownVisible.value = false
+    }
+
     fun onPetSelected(pet: Pet) {
         if (!_selectedPets.value.any { it.petId == pet.petId }) {
             _selectedPets.update { currentList -> currentList + pet }
         }
         _isPetDropdownVisible.value = false
     }
+
     fun onPetTagRemoved(pet: Pet) {
-        _selectedPets.update { currentList ->
-            currentList.filterNot { it.petId == pet.petId }
-        }
+        _selectedPets.update { currentList -> currentList.filterNot { it.petId == pet.petId } }
     }
 
     fun saveTodo(onComplete: () -> Unit) {
@@ -178,45 +218,43 @@ class CreateTodoViewModel : ViewModel() {
         val title = _taskTitle.value
         val dateInMillis = _selectedDate.value
 
-        if (assignee == null || title.isBlank()) {
+        val finalFamilyId = realFamilyId ?: assignee?.familyId
+
+        if (assignee == null || title.isBlank() || finalFamilyId == null) {
+            Log.e("CreateTodoVM", "저장 실패: 정보 누락")
             return
         }
 
-        // ★ [중요 수정] 내 UID가 아니라, 선택된 멤버(assignee)가 속한 가족 ID를 사용해야 함
-        // FamilyMember 객체 안에 familyId가 들어있으므로 그걸 사용
-        val myFamilyId = assignee.familyId
-
-        val formattedDate = SimpleDateFormat("yyyy. MM. dd", Locale.KOREA).format(Date(dateInMillis))
+        val formattedDate =
+            SimpleDateFormat("yyyy. MM. dd", Locale.KOREA).format(Date(dateInMillis))
 
         viewModelScope.launch {
             try {
                 if (_isEditMode.value && currentTodoDocumentId != null && currentTaskId != null) {
-                    // --- 수정 모드 ---
+                    // [수정]
                     val docRef = db.collection("todoGroups").document(currentTodoDocumentId!!)
-                    val document = docRef.get().await()
-                    val group = document.toObject<TodoGroup>() ?: return@launch
+                    val groupSnapshot = docRef.get().await()
+                    val group = groupSnapshot.toObject<TodoGroup>() ?: return@launch
 
                     val updatedTasks = group.tasks.map { task ->
-                        if (task.id == currentTaskId) {
-                            task.copy(title = title, date = formattedDate)
-                        } else {
-                            task
-                        }
+                        if (task.id == currentTaskId) task.copy(title = title, date = formattedDate)
+                        else task
                     }
-                    val mergedPetNames = _selectedPets.value.map { it.name }.distinct()
 
                     docRef.update(
                         "tasks", updatedTasks,
-                        "petNames", mergedPetNames,
+                        "petNames", _selectedPets.value.map { it.name },
                         "assigneeId", assignee.userId,
-                        "assigneeName", assignee.relationship, // 또는 assignee.nickName (기획에 따라)
-                        "familyId", myFamilyId
+                        "assigneeName", assignee.relationship,
+
+                        // ★★★ [추가] 프로필 사진 주소 저장!
+                        "assigneeProfileRes", assignee.profileImageUrl,
+
+                        "familyId", finalFamilyId
                     ).await()
 
-                    Log.d("CreateTodoVM", "수정 성공")
-
                 } else {
-                    // --- 생성 모드 ---
+                    // [생성]
                     val newTask = Task(
                         id = UUID.randomUUID().toString(),
                         title = title,
@@ -225,21 +263,23 @@ class CreateTodoViewModel : ViewModel() {
                     )
 
                     val newTodoGroup = TodoGroup(
-                        familyId = myFamilyId,
+                        familyId = finalFamilyId,
                         assigneeId = assignee.userId,
-                        assigneeName = assignee.relationship, // 또는 assignee.nickName
-                        assigneeProfileRes = null,
+                        assigneeName = assignee.relationship,
+
+                        // ★★★ [추가] 프로필 사진 주소 저장!
+                        assigneeProfileRes = assignee.profileImageUrl,
+
                         tasks = listOf(newTask),
                         petNames = _selectedPets.value.map { it.name }
                     )
 
                     db.collection("todoGroups").add(newTodoGroup).await()
-                    Log.d("CreateTodoVM", "생성 성공")
                 }
                 onComplete()
 
             } catch (e: Exception) {
-                Log.e("CreateTodoVM", "저장 실패", e)
+                Log.e("CreateTodoVM", "Firestore 저장 오류", e)
             }
         }
     }

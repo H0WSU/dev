@@ -1,4 +1,4 @@
-package com.example.howsu.screen.famliy
+package com.example.howsu.screen.family
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import com.example.howsu.screen.family.DisplayDoubleRingProfile
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
