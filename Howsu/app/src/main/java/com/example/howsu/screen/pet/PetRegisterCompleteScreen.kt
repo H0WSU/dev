@@ -24,13 +24,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.howsu.data.model.BirthdayInputType
 import com.example.howsu.data.model.PetRegisterUiState
-
+import com.example.howsu.screen.pet.component.DoubleRingProfileImage
 
 @Composable
 fun PetRegisterCompleteScreen(
     uiState: PetRegisterUiState,
     onAddMore: () -> Unit,
-    onFinish: () -> Unit
+    onFinish: () -> Unit,
+    onPickImage: () -> Unit
+
 ) {
     Scaffold { padding ->
         Column(
@@ -40,7 +42,6 @@ fun PetRegisterCompleteScreen(
                 .padding(horizontal = 24.dp, vertical = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 상단 완료 문구
             Text(
                 text = "반려동물 등록이 완료되었어요!",
                 style = MaterialTheme.typography.titleMedium,
@@ -49,10 +50,9 @@ fun PetRegisterCompleteScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 프로필 + 이름
-            PetProfileCircle(
+            DoubleRingProfileImage(
                 imageUrl = uiState.profilePetImageUrl,
-                size = 140.dp
+                onClick = onPickImage
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -64,7 +64,6 @@ fun PetRegisterCompleteScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 상세 정보 박스
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -73,6 +72,10 @@ fun PetRegisterCompleteScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 InfoRow(label = "닉네임", value = uiState.nickName)
+                InfoRow(
+                    label = "관계",
+                    value = if (uiState.relation.isNotBlank()) uiState.relation else "미입력"
+                )
                 InfoRow(label = "성별", value = when (uiState.gender) {
                     "MALE" -> "남아"
                     "FEMALE" -> "여아"
@@ -108,7 +111,6 @@ fun PetRegisterCompleteScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // 버튼 2개
             Button(
                 onClick = onAddMore,
                 modifier = Modifier

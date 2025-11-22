@@ -13,6 +13,7 @@ data class Pet(
     val profileImageUrl: String? = null, // 프로필 사진 URL (Coil 등으로 로드)
     val weight: String? = null,
     val isNeutered: Boolean? = null, //중성화 여부
+    val relation: String = "",
 
     // 생일 관련
     val birthdayInputType: BirthdayInputType = BirthdayInputType.EXACT,

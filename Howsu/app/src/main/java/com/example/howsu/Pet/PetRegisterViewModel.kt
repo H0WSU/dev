@@ -2,7 +2,6 @@ package com.example.howsu.Pet
 
 import androidx.lifecycle.ViewModel
 import com.example.howsu.data.model.BirthdayInputType
-import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.data.model.Pet
 import com.example.howsu.data.model.PetRegisterStep
 import com.example.howsu.data.model.PetRegisterUiState
@@ -15,7 +14,7 @@ class PetRegisterViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(PetRegisterUiState())
     val uiState: StateFlow<PetRegisterUiState> = _uiState
 
-    // 닉네임
+    // 닉네임 (지금은 안 쓰더라도 남겨둬도 됨)
     fun updateNickName(value: String) =
         _uiState.update { it.copy(nickName = value) }
 
@@ -23,7 +22,6 @@ class PetRegisterViewModel : ViewModel() {
     fun updatePetName(value: String) =
         _uiState.update { it.copy(petName = value) }
 
-    // (혹시 옛날 코드에서 updateName을 쓰고 있으면 대비용)
     fun updateName(value: String) = updatePetName(value)
 
     // 성별
@@ -34,7 +32,11 @@ class PetRegisterViewModel : ViewModel() {
     fun updateWeight(value: String) =
         _uiState.update { it.copy(weight = value) }
 
-    //유저 프로필 이미지
+    // 가족 관계 (언니 / 형 / 엄마 …)
+    fun updateRelation(value: String) =
+        _uiState.update { it.copy(relation = value) }
+
+    // 유저 프로필 이미지
     fun updateUserProfileImage(url: String?) =
         _uiState.update { it.copy(profileUserImageUrl = url) }
 
@@ -66,10 +68,10 @@ class PetRegisterViewModel : ViewModel() {
     fun nextStep() {
         _uiState.update { s ->
             val next = when (s.step) {
-                PetRegisterStep.NICKNAME      -> PetRegisterStep.PHOTO_NAME
                 PetRegisterStep.PHOTO_NAME    -> PetRegisterStep.GENDER_WEIGHT
                 PetRegisterStep.GENDER_WEIGHT -> PetRegisterStep.BIRTHDAY
-                PetRegisterStep.BIRTHDAY      -> PetRegisterStep.BIRTHDAY
+                PetRegisterStep.BIRTHDAY      -> PetRegisterStep.RELATIONSHIP
+                PetRegisterStep.RELATIONSHIP  -> PetRegisterStep.RELATIONSHIP
             }
             s.copy(step = next)
         }
@@ -77,12 +79,12 @@ class PetRegisterViewModel : ViewModel() {
 
     // 이전 단계로 이동
     fun previousStep() {
-       _uiState.update { s ->
+        _uiState.update { s ->
             val prev = when (s.step) {
-                PetRegisterStep.NICKNAME      -> PetRegisterStep.NICKNAME
-                PetRegisterStep.PHOTO_NAME    -> PetRegisterStep.NICKNAME
+                PetRegisterStep.PHOTO_NAME    -> PetRegisterStep.PHOTO_NAME
                 PetRegisterStep.GENDER_WEIGHT -> PetRegisterStep.PHOTO_NAME
                 PetRegisterStep.BIRTHDAY      -> PetRegisterStep.GENDER_WEIGHT
+                PetRegisterStep.RELATIONSHIP  -> PetRegisterStep.BIRTHDAY
             }
             s.copy(step = prev)
         }
@@ -92,11 +94,6 @@ class PetRegisterViewModel : ViewModel() {
     fun isNextEnabled(): Boolean {
         val s = _uiState.value
         return when (s.step) {
-
-            // 닉네임 단계
-            PetRegisterStep.NICKNAME ->
-                s.nickName.isNotBlank()
-
             // 반려동물 이름 단계
             PetRegisterStep.PHOTO_NAME ->
                 s.petName.isNotBlank()
@@ -115,6 +112,10 @@ class PetRegisterViewModel : ViewModel() {
                         s.birthdayYearApprox.isNotBlank() &&
                                 s.birthdayMonthApprox.isNotBlank()
                 }
+
+            // 가족 관계 등록 단계
+            PetRegisterStep.RELATIONSHIP ->
+                s.relation.isNotBlank()
         }
     }
 
@@ -126,11 +127,14 @@ class PetRegisterViewModel : ViewModel() {
             name = s.petName,
             gender = s.gender,
             profileImageUrl = s.profilePetImageUrl,
-            weight = s.weight,
+            weight = s.weight.ifBlank { null },
+            isNeutered = s.isNeutered,
+            relation = s.relation,
+
             birthdayInputType = s.birthdayInputType,
             birthdayExact = s.birthdayExact.ifBlank { null },
             birthdayYearApprox = s.birthdayYearApprox.ifBlank { null },
-            birthdayMonthApprox = s.birthdayMonthApprox.ifBlank { null },
+            birthdayMonthApprox = s.birthdayMonthApprox.ifBlank { null }
         )
 
         onFinished(pet)
@@ -138,8 +142,6 @@ class PetRegisterViewModel : ViewModel() {
 
     fun resetForNewPet() {
         _uiState.update { s ->
-            // 닉네임/내 프로필 사진은 그대로 두고,
-            // 반려동물 정보만 초기화
             s.copy(
                 step = PetRegisterStep.PHOTO_NAME,
                 petName = "",
@@ -149,10 +151,9 @@ class PetRegisterViewModel : ViewModel() {
                 birthdayInputType = BirthdayInputType.EXACT,
                 birthdayExact = "",
                 birthdayYearApprox = "",
-                birthdayMonthApprox = ""
+                birthdayMonthApprox = "",
+                relation = ""
             )
         }
     }
 }
-
-
