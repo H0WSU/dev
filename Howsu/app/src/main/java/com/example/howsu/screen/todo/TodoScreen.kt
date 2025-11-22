@@ -230,7 +230,7 @@ fun CalendarWeekRow(
 
             val backgroundColor = if (isToday) Color(0xFFFFC848) else Color.Transparent
             val borderColor = if (isSelected && !isToday) Color(0xFFFFC848) else Color.Transparent
-            val textColor = if (isToday) Color.White else Color.Black
+            val textColor = if (isToday) Color.White else Color(0xFF505050)
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -243,7 +243,7 @@ fun CalendarWeekRow(
                 Text(
                     text = date.format(dayOfWeekFormatter),
                     fontSize = 12.sp,
-                    color = Color.Gray
+                    color = Color(0xFF505050)
                 )
                 Spacer(modifier = Modifier.height(4.dp))
 
@@ -283,7 +283,7 @@ fun DailyHeader(selectedDate: LocalDate) {
             text = selectedDate.format(formatter),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
+            color = Color(0xFF505050)
         )
 
         // 2. "오늘" 뱃지 (오늘 날짜일 때만 표시)
@@ -303,7 +303,7 @@ fun DailyHeader(selectedDate: LocalDate) {
                         text = "오늘",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.Black
+                        color = Color.White
                     )
                 }
             }
@@ -330,23 +330,29 @@ fun TodoGroupCard(
 ) {
     var isMenuExpanded by remember { mutableStateOf(false) }
 
+    // ★ 공통 색상 정의 (진한 회색)
+    val contentColor = Color(0xFF505050)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFFFC848) // 원하시는 노란색 적용
+            containerColor = Color(0xFFFFD676) // 노란색 카드
         )
-        // colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(vertical = 10.dp)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 23.dp, end = 4.dp),
+                    .padding(start = 16.dp, end = 4.dp), // 여백
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // [삭제됨] 프로필 사진 Box 제거 완료
+
                 val assigneeName = group.assigneeName ?: ""
                 val particle = if (hasBatchim(assigneeName)) "이" else "가"
+
+                // 이름 텍스트
                 Text(
                     text = buildAnnotatedString {
                         withStyle(style = SpanStyle(fontWeight = FontWeight.SemiBold, fontSize = 18.sp)) {
@@ -356,19 +362,26 @@ fun TodoGroupCard(
                             append(particle)
                         }
                     },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = contentColor
                 )
+
                 Spacer(Modifier.weight(1f))
 
+                // ★ 펫 아이콘은 유지 (나중에 펫 사진 보여줄 곳)
                 OverlappingPetIcons(
                     petNames = group.petNames,
-                    color = Color.Black,
+                    color = contentColor,
                     modifier = Modifier.height(34.dp)
                 )
 
+                // 더보기 메뉴
                 Box {
                     IconButton(onClick = { isMenuExpanded = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "더보기", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "더보기",
+                            tint = contentColor
+                        )
                     }
                     DropdownMenu(
                         expanded = isMenuExpanded,
@@ -392,8 +405,9 @@ fun TodoGroupCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(1.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
+            // 할 일 목록
             Column(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -403,7 +417,8 @@ fun TodoGroupCard(
                         task = task,
                         onCheckedChange = { isChecked ->
                             viewModel.onTaskCheckedChange(group.documentId, task.id, isChecked)
-                        }
+                        },
+                        contentColor = contentColor
                     )
                 }
             }
@@ -414,7 +429,8 @@ fun TodoGroupCard(
 @Composable
 fun TaskItemRow(
     task: Task,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: (Boolean) -> Unit,
+    contentColor: Color = Color(0xFF505050) // 기본값 설정
 ) {
     Row(
         modifier = Modifier
@@ -428,7 +444,8 @@ fun TaskItemRow(
             onCheckedChange = onCheckedChange,
             colors = CheckboxDefaults.colors(
                 checkedColor = MaterialTheme.colorScheme.primary,
-                uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                // ★ [수정됨] 체크 안 됐을 때 테두리 색상 변경
+                uncheckedColor = contentColor
             )
         )
 
@@ -437,7 +454,8 @@ fun TaskItemRow(
             modifier = Modifier
                 .weight(1f)
                 .padding(start = 3.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // ★ [수정됨] 할 일 텍스트 색상 변경
+            color = contentColor,
             fontWeight = FontWeight.Medium,
             fontSize = 15.sp,
             maxLines = 1,
@@ -448,12 +466,12 @@ fun TaskItemRow(
             text = task.date ?: "",
             fontWeight = FontWeight.Medium,
             fontSize = 11.sp,
+            // 날짜는 조금 연하게 유지하거나, 원하시면 contentColor로 바꾸셔도 됩니다.
             color = Color.Gray,
             modifier = Modifier.padding(start = 8.dp)
         )
     }
 }
-
 
 // --- (기존 펫 아이콘 관련 코드 유지) ---
 @Composable
