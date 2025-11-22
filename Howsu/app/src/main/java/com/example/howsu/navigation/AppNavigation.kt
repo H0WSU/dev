@@ -6,22 +6,23 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
+import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.screen.feed.FeedHomeScreen
 import com.example.howsu.screen.feed.FeedViewModel
 import com.example.howsu.screen.feed.FeedWriteScreen
-import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.screen.home.HomeScreen
+import com.example.howsu.screen.home.Pet
 import com.example.howsu.screen.home.PetDetailScreen
 import com.example.howsu.screen.login.AuthViewModel
 import com.example.howsu.screen.login.JoinScreen
 import com.example.howsu.screen.login.LoadingScreen
 import com.example.howsu.screen.login.LoginScreen
+import com.example.howsu.screen.mypage.NotificationScreen
 import com.example.howsu.screen.schedule.CreateScheduleScreen
 import com.example.howsu.screen.schedule.ScheduleDetailScreen
 import com.example.howsu.screen.schedule.ScheduleScreen
 import com.example.howsu.screen.todo.CreateTodoScreen
 import com.example.howsu.screen.todo.TodoScreen
-import com.example.howsu.screen.home.Pet
 
 // (TODO: 다른 화면들도 Import)
 
@@ -161,6 +162,21 @@ fun AppNavigation() {
                 )
             }
         }
-    }
+        //마이페이지 (MypageScreen) 경로
+        /*composable("mypage") {
+            // 마이페이지는 사용자 정보(이메일, 이름)를 매개변수로 받습니다.
+            MypageScreen(
+                navController = navController,
+                userEmail = userEmail,
+                userName = userName
+            )
+        }*/
 
+        //공지사항 (NotificationScreen) 경로
+        composable("notice") {
+            NotificationScreen(
+                navController = navController
+            )
+        }
+    }
 }
