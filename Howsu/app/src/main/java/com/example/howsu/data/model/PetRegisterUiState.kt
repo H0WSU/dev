@@ -8,6 +8,7 @@ data class PetRegisterUiState(
     val nickName: String = "",
     val petName: String = "",
     val gender: String? = null,
+    val relation: String = "",   //가족 관계
 
     val profileUserImageUrl: String? = null,   // 유저 프로필
     val profilePetImageUrl: String? = null,    // 펫 프로필

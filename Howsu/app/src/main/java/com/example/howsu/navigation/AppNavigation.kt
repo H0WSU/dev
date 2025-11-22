@@ -1,6 +1,8 @@
 package com.example.howsu.navigation
 
 import android.annotation.SuppressLint
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -60,7 +62,7 @@ fun AppNavigation() {
     // 5. NavHost가 화면을 관리
     NavHost(
         navController = navController,
-        startDestination = "loading"
+        startDestination = "register_pet"
     ) {
         composable(route = "loading") {
             LoadingScreen(navController = navController)
@@ -230,6 +232,15 @@ fun AppNavigation() {
             // 위에서 만든 petRegisterViewModel 재사용
             val uiState by petRegisterViewModel.uiState.collectAsState()
 
+            val imagePickerLauncher =
+                rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.GetContent()
+                ) { uri ->
+                    if (uri != null) {
+                        petRegisterViewModel.updatePetProfileImage(uri.toString())
+                    }
+                }
+
             PetRegisterCompleteScreen(
                 uiState = uiState,
                 onAddMore = {
@@ -239,10 +250,14 @@ fun AppNavigation() {
                     }
                 },
                 onFinish = {
-                    // 홈으로 이동하며 백스택 정리
                     navController.navigate("home") {
-                        popUpTo("home") { inclusive = true }
+                        // ★ 펫 등록 플로우 시작 지점까지 전부 제거
+                        popUpTo("register_pet") { inclusive = true }
+                        launchSingleTop = true
                     }
+                },
+                onPickImage = {
+                    imagePickerLauncher.launch("image/*")
                 }
             )
         }
