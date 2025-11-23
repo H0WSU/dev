@@ -72,6 +72,7 @@ dependencies {
     implementation("com.google.zxing:core:3.5.2")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("com.google.firebase:firebase-messaging-ktx")
 
     // 2. Firebase BOM (여러 라이브러리 버전 관리)
     implementation(platform("com.google.firebase:firebase-bom:33.0.0"))

@@ -19,6 +19,7 @@ import com.example.howsu.screen.family.FamilyInviteScreen
 import com.example.howsu.screen.family.FamilyJoinCompleteScreen
 import com.example.howsu.screen.family.FamilyRegisterIntroScreen
 import com.example.howsu.screen.family.NicknameRegisterScreen
+import com.example.howsu.screen.family.SetRelationshipScreen
 import com.example.howsu.screen.feed.FeedHomeScreen
 import com.example.howsu.screen.feed.FeedViewModel
 import com.example.howsu.screen.feed.FeedWriteScreen
@@ -62,7 +63,7 @@ fun AppNavigation() {
     // 5. NavHost가 화면을 관리
     NavHost(
         navController = navController,
-        startDestination = "register_pet"
+        startDestination = "loading"
     ) {
         composable(route = "loading") {
             LoadingScreen(navController = navController)
@@ -228,6 +229,15 @@ fun AppNavigation() {
             if (post != null) {
                 FeedWriteScreen(viewModel = feedViewModel, onFinishWrite = { navController.popBackStack() }, editPost = post)
             }
+        }
+
+        // 관계 설정 화면 추가
+        composable("set_relationship") {
+            SetRelationshipScreen(navController = navController)
+        }
+
+        composable(route = "home") {
+            HomeScreen(navController = navController)
         }
 
         // --- (반려동물 등록) ---

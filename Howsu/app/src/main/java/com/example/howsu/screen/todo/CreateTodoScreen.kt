@@ -74,6 +74,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.howsu.R
 import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.data.model.Pet
+import com.example.howsu.screen.schedule.OverlappingPetIcons
 import com.example.howsu.ui.theme.HowsuTheme
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -89,7 +90,7 @@ fun CreateTodoScreen(
 ) {
     // --- (기존 State 구독) ---
     val familyMembers by viewModel.familyMembers.collectAsState()
-    val selectedMember by viewModel.selectedMember.collectAsState()
+    val selectedMembers by viewModel.selectedMembers.collectAsState()
     val taskTitle by viewModel.taskTitle.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
     val isDatePickerVisible by viewModel.isDatePickerVisible.collectAsState()
@@ -157,7 +158,7 @@ fun CreateTodoScreen(
                 isEditMode = isEditMode,
                 shakeOffset = shakeOffset.value,
                 familyMembers = familyMembers,
-                selectedMember = selectedMember,
+                selectedMembers = selectedMembers,
                 taskTitle = taskTitle,
                 selectedDate = selectedDate,
                 isDatePickerVisible = isDatePickerVisible,
@@ -296,7 +297,7 @@ private fun CreateTodoContent(
     isEditMode: Boolean,
     shakeOffset: Float,
     familyMembers: List<FamilyMember>,
-    selectedMember: FamilyMember?,
+    selectedMembers: List<FamilyMember>,
     taskTitle: String,
     selectedDate: Long,
     isDatePickerVisible: Boolean,
@@ -351,7 +352,7 @@ private fun CreateTodoContent(
         ) {
             AssigneeSelector(
                 members = familyMembers,
-                selectedMember = selectedMember,
+                selectedMembers = selectedMembers,
                 onMemberSelected = onMemberSelected,
                 enabled = true
             )
@@ -396,19 +397,21 @@ private fun CreateTodoContent(
     }
 }
 
-// (기존) '누가' 섹션 - 변경 없음
 @Composable
 private fun AssigneeSelector(
     members: List<FamilyMember>,
-    selectedMember: FamilyMember?,
+    selectedMembers: List<FamilyMember>, // 타입 변경
     onMemberSelected: (FamilyMember) -> Unit,
     enabled: Boolean
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         members.forEach { member ->
+            // 리스트에 포함되어 있는지 확인
+            val isSelected = selectedMembers.any { it.userId == member.userId }
+
             AssigneeItem(
                 member = member,
-                isSelected = member.userId == selectedMember?.userId,
+                isSelected = isSelected,
                 onClick = { if (enabled) onMemberSelected(member) },
                 enabled = enabled
             )
@@ -541,7 +544,6 @@ private fun TaskTextField(
     }
 }
 
-// ★★★ 3. (수정) '반려동물 선택' 섹션 (수정 모드 UI 수정) ★★★
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PetSelector(
@@ -552,9 +554,8 @@ private fun PetSelector(
     onDropdownDismissed: () -> Unit,
     onPetSelected: (Pet) -> Unit,
     onPetTagRemoved: (Pet) -> Unit,
-    enabled: Boolean // (★ enabled는 이제 '드롭다운 활성화' 여부)
+    enabled: Boolean
 ) {
-    // (수정) 수정 모드일 때는 alpha를 적용하지 않음
     val alpha = if (enabled) 1f else 0.4f
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -562,8 +563,8 @@ private fun PetSelector(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(17.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant, // (수정) 항상 불투명
-                onClick = { if (enabled) onDropdownClicked() } // (수정) 생성 모드일 때만 클릭 가능
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                onClick = { if (enabled) onDropdownClicked() }
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -579,33 +580,31 @@ private fun PetSelector(
                                 .graphicsLayer { this.alpha = alpha }
                         )
                     } else {
+                        // ★★★ [수정] 펫 이름뿐만 아니라 사진 URL 리스트도 전달!
                         OverlappingPetIcons(
                             petNames = selectedPets.map { it.name },
-                            color = Color.Black, // (수정) 항상 불투명
+                            petUrls = selectedPets.map { it.profileImageUrl }, // ★ 추가됨
+                            color = Color.Black,
                             modifier = Modifier.height(32.dp)
                         )
                     }
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    // ★ (수정) 텍스트가 펫 이름 또는 플레이스홀더를 표시하도록
                     Text(
                         text = if (selectedPets.isEmpty()) {
                             "반려동물을 선택해 주세요"
                         } else {
-                            // (수정) 수정 모드일 때도 펫 이름이 보이도록
                             selectedPets.joinToString { it.name }
                         },
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
-                        // ★ (수정) 펫이 있으면 활성화된 색상, 비활성화(enabled=false) 시 반투명
                         color = (if (selectedPets.isEmpty()) Color.Gray else MaterialTheme.colorScheme.onSurface)
                             .copy(alpha = if (enabled) 1f else 0.4f)
                     )
 
                     Spacer(modifier = Modifier.weight(1f))
 
-                    // ★ (수정) 수정 모드(enabled=false)일 때 화살표 숨김
                     if (enabled) {
                         Icon(
                             imageVector = Icons.Default.KeyboardArrowDown,
@@ -622,14 +621,33 @@ private fun PetSelector(
             ) {
                 allPets.forEach { pet ->
                     DropdownMenuItem(
-                        text = { Text(pet.name) },
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (!pet.profileImageUrl.isNullOrBlank()) {
+                                    coil.compose.AsyncImage(
+                                        model = pet.profileImageUrl,
+                                        contentDescription = null,
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                        modifier = Modifier.size(24.dp).clip(CircleShape)
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Pets,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(24.dp),
+                                        tint = Color.Gray
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(pet.name)
+                            }
+                        },
                         onClick = { onPetSelected(pet) }
                     )
                 }
             }
         }
 
-        // ★ (수정) 수정 모드일 때도 태그가 보이도록 (단, 삭제는 안 됨)
         if (selectedPets.isNotEmpty()) {
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -639,7 +657,7 @@ private fun PetSelector(
                     PetTagChip(
                         pet = pet,
                         onRemoveClick = { onPetTagRemoved(pet) },
-                        enabled = enabled // ★ '생성' 모드일 때만 삭제 가능
+                        enabled = enabled
                     )
                 }
             }
@@ -647,7 +665,101 @@ private fun PetSelector(
     }
 }
 
-// (기존) 펫 태그 칩 - 변경 없음
+// 2. OverlappingPetIcons 수정 (URL 리스트를 받아서 처리)
+@Composable
+private fun OverlappingPetIcons(
+    petNames: List<String>,
+    petUrls: List<String?> = emptyList(), // ★ 추가됨
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    if (petNames.isEmpty()) {
+        Spacer(modifier = modifier.width(32.dp).height(32.dp))
+        return
+    }
+
+    val displayNames = petNames.take(3)
+    val remaining = (petNames.size - displayNames.size).coerceAtLeast(0)
+
+    val width = (32 + (displayNames.size - 1) * 20 + (if (remaining > 0) 24 else 0)).dp
+    val overlap = 20.dp
+
+    Box(
+        modifier = modifier
+            .width(width)
+            .height(32.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        displayNames.reversed().forEachIndexed { index, name ->
+            // 역순 인덱스 계산 (리스트의 앞에서부터 매칭하기 위해)
+            val originalIndex = displayNames.size - 1 - index
+            val url = petUrls.getOrNull(originalIndex)
+
+            PetIconCircle(
+                petName = name,
+                imageUrl = url, // ★ 전달
+                color = color.copy(alpha = 1f - (index * 0.2f)),
+                modifier = Modifier
+                    .padding(start = ((displayNames.size - 1) - index) * overlap)
+                    .size(32.dp)
+            )
+        }
+
+        if (remaining > 0) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(Color.Gray.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "+$remaining",
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = color
+                )
+            }
+        }
+    }
+}
+
+// 3. PetIconCircle 수정 (사진이 있으면 사진, 없으면 아이콘)
+@Composable
+private fun PetIconCircle(
+    petName: String,
+    imageUrl: String?, // ★ 추가됨
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(Color.Gray.copy(alpha = 0.1f)),
+        contentAlignment = Alignment.Center
+    ) {
+        if (!imageUrl.isNullOrBlank()) {
+            // ★ 사진 표시
+            coil.compose.AsyncImage(
+                model = imageUrl,
+                contentDescription = petName,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            // ★ 아이콘 표시
+            Icon(
+                imageVector = Icons.Default.Pets,
+                contentDescription = petName,
+                tint = color,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+// 펫 태그 칩
 @Composable
 private fun PetTagChip(
     pet: Pet,
@@ -678,77 +790,8 @@ private fun PetTagChip(
     }
 }
 
-// (기존) 겹치는 펫 아이콘 - 3개 + N개
-@Composable
-private fun OverlappingPetIcons(
-    petNames: List<String>,
-    color: Color,
-    modifier: Modifier = Modifier
-) {
-    if (petNames.isEmpty()) {
-        Spacer(modifier = modifier.width(32.dp).height(32.dp))
-        return
-    }
 
-    val displayNames = petNames.take(3)
-    val remaining = (petNames.size - displayNames.size).coerceAtLeast(0)
 
-    val width = (32 + (displayNames.size - 1) * 20 + (if (remaining > 0) 24 else 0)).dp
-    val overlap = 20.dp
-
-    Box(
-        modifier = modifier
-            .width(width)
-            .height(32.dp),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        displayNames.reversed().forEachIndexed { index, name ->
-            PetIconCircle(
-                petName = name,
-                color = color.copy(alpha = 1f - (index * 0.2f)),
-                modifier = Modifier
-                    .padding(start = ((displayNames.size - 1) - index) * overlap)
-                    .size(32.dp)
-            )
-        }
-
-        if (remaining > 0) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .size(24.dp)
-                    .clip(CircleShape)
-                    .background(Color.Gray.copy(alpha = 0.3f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "+$remaining",
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = color
-                )
-            }
-        }
-    }
-}
-
-// (기존) 펫 아이콘 헬퍼 - private
-@Composable
-private fun PetIconCircle(petName: String, color: Color, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .clip(CircleShape)
-            .background(Color.Gray.copy(alpha = 0.1f)),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = Icons.Default.Pets,
-            contentDescription = petName,
-            tint = color,
-            modifier = Modifier.size(20.dp)
-        )
-    }
-}
 
 // (기존) 미리보기 - 변경 없음
 @Preview(showBackground = true)
