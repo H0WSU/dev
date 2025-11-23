@@ -50,7 +50,7 @@ data class Notice(
 val sampleNotices = listOf(  // sample data
     Notice(
         id = 1,
-        title = "[필독] HowSu 서비스 점검 및 업데이트 안내 (11/25)",
+        title = "[필독] 서비스 점검 및 업데이트 안내 (11/25)",
         date = "2025.11.20",
         content = """
             안녕하세요, HowSu 팀입니다.
@@ -94,6 +94,8 @@ fun NotificationScreen(
             TopAppBar(
                 title = {
                     Text(
+                        modifier = Modifier
+                            .padding(7.dp),
                         text = "공지사항",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold

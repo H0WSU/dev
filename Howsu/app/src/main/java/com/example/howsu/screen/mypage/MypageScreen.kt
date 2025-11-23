@@ -2,7 +2,6 @@ package com.example.howsu.screen.mypage
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,12 +24,15 @@ import androidx.compose.material.icons.filled.QuestionAnswer
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Task
 import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,11 +49,33 @@ import com.example.howsu.common.MyFloatingActionButton
 // ----------------------------------------------------
 // mypage 전체 화면
 // ----------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MypageScreen(
     navController: NavHostController,
 ){
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        modifier = Modifier
+                            .padding(7.dp),
+                        text = "마이페이지",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                actions = {
+                    IconButton(onClick = { /*설정 화면 이동*/ }) {
+                        Icon(Icons.Filled.Settings, contentDescription = "내 정보 수정")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
+            )
+        },
         bottomBar = {MyBottomNavigationBar(navController = navController)},
         floatingActionButton = {
             MyFloatingActionButton(
@@ -72,23 +96,6 @@ fun MypageScreen(
                 .fillMaxSize()
                 .padding(paddingValues),
         ) {
-            // mypage 내용 구성
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text ="마이페이지",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                IconButton(onClick = { /*설정 화면 이동*/ }) {
-                    Icon(Icons.Filled.Settings, contentDescription = "내 정보 수정")
-                }
-            }
             Profile(
                 username = "이구역의짱",
                 email = "abc123@gmail.com",
