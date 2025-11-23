@@ -30,6 +30,9 @@ import com.example.howsu.screen.login.AuthViewModel
 import com.example.howsu.screen.login.JoinScreen
 import com.example.howsu.screen.login.LoadingScreen
 import com.example.howsu.screen.login.LoginScreen
+import com.example.howsu.screen.mypage.FAQScreen
+import com.example.howsu.screen.mypage.MypageScreen
+import com.example.howsu.screen.mypage.NotificationScreen
 import com.example.howsu.screen.pet.PetRegisterCompleteScreen
 import com.example.howsu.screen.pet.PetRegisterScreen
 import com.example.howsu.screen.schedule.CreateScheduleScreen
@@ -44,19 +47,18 @@ import java.nio.charset.StandardCharsets
 @SuppressLint("ViewModelConstructorInComposable")
 @Composable
 fun AppNavigation() {
-    // 4. 내비게이션 컨트롤러 생성
     val navController = rememberNavController()
 
     // 임시 데이터
     val member = FamilyMember(
         userId = "user123",
-        familyId = "test_family", // FamilyMember 모델 변경에 따라 추가
+        familyId = "test_family",
         relationship = "언니",
         profileImageUrl = null,
         nickName = "이구역의짱"
     )
 
-    // ★ 상위 레벨에서 ViewModel 생성 (화면 간 데이터 공유를 위해)
+    // ★ 상위 레벨에서 ViewModel 생성
     val feedViewModel: FeedViewModel = viewModel()
     val petRegisterViewModel : PetRegisterViewModel = viewModel()
 
@@ -84,12 +86,11 @@ fun AppNavigation() {
             SettingScreen(navController = navController)
         }
 
-        // 1. 닉네임 등록
+        // --- (닉네임/가족 등록 플로우) ---
         composable(route = "register_nickname") {
             NicknameRegisterScreen(
                 navController = navController,
                 onNicknameComplete = { nickname, profileUrl ->
-                    // URL 인코딩 처리
                     val route = if (profileUrl != null) {
                         val encodedUrl = URLEncoder.encode(profileUrl, StandardCharsets.UTF_8.toString())
                         "family_register_intro/$nickname?profileUrl=$encodedUrl"
@@ -100,8 +101,6 @@ fun AppNavigation() {
                 }
             )
         }
-
-        // 2. 가족 등록 인트로 (가족 생성/참여 분기점)
         composable(
             route = "family_register_intro/{nickname}?profileUrl={profileUrl}",
             arguments = listOf(
@@ -115,22 +114,16 @@ fun AppNavigation() {
         ) { backStackEntry ->
             val nickname = backStackEntry.arguments?.getString("nickname") ?: "사용자"
             val finalProfileUrl = backStackEntry.arguments?.getString("profileUrl")
-
-            FamilyRegisterIntroScreen(
-                navController = navController,
-                userNickname = nickname,
-                userProfileUrl = finalProfileUrl
-            )
+            FamilyRegisterIntroScreen(navController = navController, userNickname = nickname, userProfileUrl = finalProfileUrl)
         }
 
+        // ★ family_invite_screen 경로 (HEAD와 313... 합치기)
         composable(
-            route = "family_invite_screen/{familyName}/{familyId}?profileUrl={profileUrl}",
-
+            route = "family_invite_screen/{familyName}/{familyId}?profileUrl={profileUrl}", // 313... 영역의 profileUrl 인자 추가 포함
             arguments = listOf(
                 navArgument("familyName") { type = NavType.StringType },
                 navArgument("familyId") { type = NavType.StringType },
-
-                // 프로필 URL 인자 설정 (nullable 허용)
+                // 프로필 URL 인자 설정
                 navArgument("profileUrl") {
                     type = NavType.StringType
                     nullable = true
@@ -149,12 +142,11 @@ fun AppNavigation() {
                 navController = navController,
                 familyNameInput = familyName,
                 invitedFamilyId = familyId,
-                userProfileUrl = finalProfileUrl // ★ 전달!
+                userProfileUrl = finalProfileUrl // ★ userProfileUrl 전달 (313... 영역의 코드)
             )
         }
 
         composable(
-            // 가족 이름과 사용자 프로필 URL을 인자로 받음
             route = "family_join_complete/{familyName}?profileUrl={profileUrl}",
             arguments = listOf(
                 navArgument("familyName") { type = NavType.StringType },
@@ -167,14 +159,16 @@ fun AppNavigation() {
         ) { backStackEntry ->
             val familyName = backStackEntry.arguments?.getString("familyName") ?: "우리"
             val profileUrl = backStackEntry.arguments?.getString("profileUrl")
-
-            FamilyJoinCompleteScreen(
-                navController = navController,
-                familyName = familyName,
-                encodedProfileUrl = profileUrl
-            )
+            FamilyJoinCompleteScreen(navController = navController, familyName = familyName, encodedProfileUrl = profileUrl)
         }
 
+        // 313... 영역에서 추가된 관계 설정 화면
+        composable("set_relationship") {
+            SetRelationshipScreen(navController = navController)
+        }
+
+
+        // --- (마이페이지) ---
         composable(route = "home") {
             HomeScreen(navController = navController)
         }
@@ -231,31 +225,27 @@ fun AppNavigation() {
             }
         }
 
-        // 관계 설정 화면 추가
-        composable("set_relationship") {
-            SetRelationshipScreen(navController = navController)
+        // --- (마이페이지) ---
+        composable("mypage") {
+            MypageScreen(navController = navController)
+        }
+        composable("notice") {   // 공지사항
+            NotificationScreen(navController = navController)
+        }
+        composable("faq") {    // 자주 묻는 질문
+            FAQScreen(navController = navController)
         }
 
-        composable(route = "home") {
-            HomeScreen(navController = navController)
-        }
 
-        // --- (반려동물 등록) ---
-
+        // --- (반려동물 등록 플로우) ---
         // 1. 정보 입력 화면
         composable(route = "register_pet") {
-            // 상단에서 생성한 petRegisterViewModel 인스턴스 사용
-            PetRegisterScreen(
-                viewModel = petRegisterViewModel,
-                navController = navController
-            )
+            PetRegisterScreen(viewModel = petRegisterViewModel, navController = navController)
         }
 
         // 2. 등록 완료 화면
         composable("pet_register_complete") {
-            // 위에서 만든 petRegisterViewModel 재사용
             val uiState by petRegisterViewModel.uiState.collectAsState()
-
             val imagePickerLauncher =
                 rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.GetContent()
@@ -275,7 +265,6 @@ fun AppNavigation() {
                 },
                 onFinish = {
                     navController.navigate("home") {
-                        // ★ 펫 등록 플로우 시작 지점까지 전부 제거
                         popUpTo("register_pet") { inclusive = true }
                         launchSingleTop = true
                     }
@@ -286,5 +275,4 @@ fun AppNavigation() {
             )
         }
     }
-
 }
