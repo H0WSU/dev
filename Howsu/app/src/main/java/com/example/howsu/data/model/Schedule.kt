@@ -10,6 +10,7 @@ data class Schedule(
     val id: String = "",
     val title: String = "",
     val memo: String = "",
+    val familyId: String = "",
     val startDate: Timestamp = Timestamp.now(),
     val endDate: Timestamp = Timestamp.now(),
     val petNames: List<String> = emptyList(),

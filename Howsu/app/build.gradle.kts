@@ -55,6 +55,7 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.foundation.layout)
+    implementation(libs.material3)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -67,6 +68,8 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.navigation.ui)
 
+    implementation("com.google.zxing:core:3.5.2")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("androidx.compose.material:material-icons-extended")
 
     // 2. Firebase BOM (여러 라이브러리 버전 관리)

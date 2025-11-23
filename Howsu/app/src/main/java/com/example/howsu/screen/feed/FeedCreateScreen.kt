@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -245,8 +246,12 @@ fun FeedWriteScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                enabled = canUpload
+                    .height(56.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Black,
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Text(if (editPost == null) "업로드하기" else "수정 완료")
             }
