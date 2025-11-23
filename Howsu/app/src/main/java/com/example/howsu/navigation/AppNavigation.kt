@@ -16,10 +16,10 @@ import androidx.navigation.navArgument
 import com.example.howsu.Pet.PetRegisterViewModel
 import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.screen.family.FamilyInviteScreen
-import com.example.howsu.screen.family.FamilyRegisterIntroScreen
 import com.example.howsu.screen.family.FamilyJoinCompleteScreen
-import com.example.howsu.screen.family.SetRelationshipScreen
+import com.example.howsu.screen.family.FamilyRegisterIntroScreen
 import com.example.howsu.screen.family.NicknameRegisterScreen
+import com.example.howsu.screen.family.SetRelationshipScreen
 import com.example.howsu.screen.feed.FeedHomeScreen
 import com.example.howsu.screen.feed.FeedViewModel
 import com.example.howsu.screen.feed.FeedWriteScreen
@@ -30,7 +30,7 @@ import com.example.howsu.screen.login.AuthViewModel
 import com.example.howsu.screen.login.JoinScreen
 import com.example.howsu.screen.login.LoadingScreen
 import com.example.howsu.screen.login.LoginScreen
-import com.example.howsu.screen.mypage.FAQScreen // HEAD 영역에서 추가
+import com.example.howsu.screen.mypage.FAQScreen
 import com.example.howsu.screen.mypage.MypageScreen
 import com.example.howsu.screen.mypage.NotificationScreen
 import com.example.howsu.screen.pet.PetRegisterCompleteScreen
@@ -65,7 +65,7 @@ fun AppNavigation() {
     // 5. NavHost가 화면을 관리
     NavHost(
         navController = navController,
-        startDestination = "home"
+        startDestination = "loading"
     ) {
         composable(route = "loading") {
             LoadingScreen(navController = navController)
