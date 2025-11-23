@@ -29,6 +29,7 @@ import com.example.howsu.screen.login.AuthViewModel
 import com.example.howsu.screen.login.JoinScreen
 import com.example.howsu.screen.login.LoadingScreen
 import com.example.howsu.screen.login.LoginScreen
+import com.example.howsu.screen.mypage.FAQScreen
 import com.example.howsu.screen.mypage.MypageScreen // HEAD 영역의 import
 import com.example.howsu.screen.mypage.NotificationScreen // HEAD 영역의 import
 import com.example.howsu.screen.pet.PetRegisterCompleteScreen // 합쳐진 import
@@ -63,7 +64,7 @@ fun AppNavigation() {
     // 5. NavHost가 화면을 관리
     NavHost(
         navController = navController,
-        startDestination = "register_pet" // 시작 경로 유지
+        startDestination = "loading" // 시작 경로 유지
     ) {
         composable(route = "loading") {
             LoadingScreen(navController = navController)
@@ -203,6 +204,11 @@ fun AppNavigation() {
         // 공지사항 (NotificationScreen) 경로
         composable("notice") {
             NotificationScreen(navController = navController)
+        }
+
+        // 공지사항 (NotificationScreen) 경로
+        composable("faq") {
+            FAQScreen(navController = navController)
         }
 
         // --- (반려동물 등록 플로우) ---
