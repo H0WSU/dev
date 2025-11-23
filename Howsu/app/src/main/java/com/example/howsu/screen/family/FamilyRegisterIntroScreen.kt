@@ -27,7 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.QrCodeScanner // QR 아이콘
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -62,7 +62,7 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 // -------------------------------------------------------------------
-// 메인 화면
+// 메인 화면 (로직 및 내비게이션 처리)
 // -------------------------------------------------------------------
 @Composable
 fun FamilyRegisterIntroScreen(
@@ -75,16 +75,46 @@ fun FamilyRegisterIntroScreen(
     val selectedTab = viewModel.selectedTab
     val context = LocalContext.current
 
-    // ★ QR 스캔 결과 처리 런처
-    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
-        if (result.contents != null) {
-            // 스캔된 내용(가족ID)을 입력창에 자동으로 넣음
-            viewModel.inputFamilyId = result.contents
-            Toast.makeText(context, "스캔 완료: ${result.contents}", Toast.LENGTH_SHORT).show()
+    // 공통, 참여 성공 시 이동 로직
+    val navigateToComplete = { joinedName: String -> // ★ String 받기
+        val encodedUrl = if (userProfileUrl != null) {
+            URLEncoder.encode(userProfileUrl, StandardCharsets.UTF_8.toString())
+        } else {
+            "null"
         }
+        // 받은 이름(joinedName)을 경로에 넣기
+        navController.navigate("family_join_complete/$joinedName?profileUrl=$encodedUrl")
     }
 
-    // 버튼 활성화 로직
+    // [수동 참여]
+    val handleManualJoin = {
+        viewModel.joinFamily(
+            onSuccess = { realName -> // ★ 뷰모델이 준 이름 받기
+                navigateToComplete(realName)
+            },
+            onFailure = {
+                Toast.makeText(context, "아이디를 확인해 주세요!", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    // [QR 스캔 참여]
+    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        if (result.contents != null) {
+            val scannedId = result.contents
+            viewModel.inputFamilyId = scannedId
+            Toast.makeText(context, "QR 인식됨", Toast.LENGTH_SHORT).show()
+
+            viewModel.joinFamily(
+                onSuccess = { realName -> // ★ 여기도 이름 받기
+                    navigateToComplete(realName)
+                },
+                onFailure = {
+                    Toast.makeText(context, "유효하지 않은 QR코드입니다.", Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
+    }
     val isNextEnabled = when (regState) {
         FamilyRegState.NONE -> false
         FamilyRegState.SKIP -> true
@@ -94,19 +124,6 @@ fun FamilyRegisterIntroScreen(
                 FamilyTab.CREATE -> viewModel.inputFamilyName.isNotBlank()
                 FamilyTab.JOIN -> viewModel.inputFamilyId.isNotBlank()
             }
-        }
-    }
-
-    // 공통 참여 로직
-    val handleJoin = {
-        if (viewModel.joinFamily()) {
-            val joinedFamilyName = "루비네" // 실제로는 DB에서 가져온 이름
-            val encodedUrl = if (userProfileUrl != null) {
-                URLEncoder.encode(userProfileUrl, StandardCharsets.UTF_8.toString())
-            } else {
-                "null"
-            }
-            navController.navigate("family_join_complete/$joinedFamilyName?profileUrl=$encodedUrl")
         }
     }
 
@@ -131,40 +148,50 @@ fun FamilyRegisterIntroScreen(
         onNameChange = { viewModel.inputFamilyName = it },
         onIdChange = { viewModel.inputFamilyId = it },
 
-        onJoinAction = { handleJoin() },
+        // 검색 버튼(입력창 옆) 클릭 시
+        onJoinAction = { handleManualJoin() },
 
-        // ★ QR 아이콘 클릭 시 카메라 실행
+        // ★ [QR 아이콘] 클릭 시 카메라 실행
         onQrScanClick = {
             val options = ScanOptions()
-            options.setPrompt("QR 코드를 사각형 안에 비춰 주세요")
+            options.setPrompt("")
             options.setBeepEnabled(false)
-
-            // 아까 맨 밑에 만든 클래스를 쓰겠다고 지정
-            options.setCaptureActivity(PortraitCaptureActivity::class.java)
-
-            // 방향 잠금 (이제 세로로 고정됨)
             options.setOrientationLocked(true)
-
+            options.setCaptureActivity(PortraitCaptureActivity::class.java) // 세로 모드 적용
             scanLauncher.launch(options)
         },
 
+        // 하단 [계속하기] 버튼 클릭 로직
         onNext = {
             when (regState) {
-                FamilyRegState.PRE_DO_IT -> viewModel.regState = FamilyRegState.DO_IT
+                FamilyRegState.PRE_DO_IT -> {
+                    viewModel.regState = FamilyRegState.DO_IT
+                }
+
                 FamilyRegState.DO_IT -> {
                     if (selectedTab == FamilyTab.CREATE) {
-                        viewModel.createSharedFamily()
+                        // A. [가족 생성]
+                        viewModel.createSharedFamily(userNickname, userProfileUrl)
                         val name = viewModel.inputFamilyName
                         val id = viewModel.createdFamilyId
-                        navController.navigate("family_invite_screen/$name/$id")
+                        val encodedUrl = if (userProfileUrl != null) {
+                            URLEncoder.encode(userProfileUrl, StandardCharsets.UTF_8.toString())
+                        } else {
+                            "null"
+                        }
+                        navController.navigate("family_invite_screen/$name/$id?profileUrl=$encodedUrl")
                     } else {
-                        handleJoin()
+                        // B. [가족 참여]
+                        handleManualJoin()
                     }
                 }
+
                 FamilyRegState.SKIP -> {
-                    viewModel.createSoloFamily(userNickname)
+                    // C. [안 할래요]
+                    viewModel.createSoloFamily(userNickname, userProfileUrl)
                     navController.navigate("register_pet")
                 }
+
                 else -> {}
             }
         }
@@ -190,13 +217,13 @@ fun FamilyRegisterContent(
     onIdChange: (String) -> Unit,
     onNext: () -> Unit,
     onJoinAction: () -> Unit,
-    onQrScanClick: () -> Unit
+    onQrScanClick: () -> Unit // ★ QR 클릭 콜백
 ) {
     Scaffold(
         topBar = {
             FamilyRegisterTopBar(
                 onBack = onBack,
-                // 참여하기 탭일 때만 QR 아이콘 표시
+                // ★ [핵심] 참여하기(JOIN) 탭이고, 입력 화면(DO_IT)일 때만 QR 아이콘 표시
                 showQrIcon = (regState == FamilyRegState.DO_IT && selectedTab == FamilyTab.JOIN),
                 onQrClick = onQrScanClick
             )
@@ -246,22 +273,62 @@ fun FamilyRegisterContent(
     }
 }
 
+// -------------------------------------------------------------------
+// TopBar
+// -------------------------------------------------------------------
 @Composable
-fun FamilyRegisterTopBar(onBack: () -> Unit, showQrIcon: Boolean, onQrClick: () -> Unit) {
-    Box(modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp).height(40.dp)) {
-        IconButton(onClick = onBack, modifier = Modifier.size(39.dp).align(Alignment.CenterStart)) {
-            Icon(Icons.Default.ArrowBack, "뒤로 가기", modifier = Modifier.size(24.dp))
+fun FamilyRegisterTopBar(
+    onBack: () -> Unit,
+    showQrIcon: Boolean, // 아이콘 표시 여부
+    onQrClick: () -> Unit // 클릭 이벤트
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .height(40.dp)
+    ) {
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier
+                .size(39.dp)
+                .align(Alignment.CenterStart)
+        ) {
+            Icon(
+                imageVector = Icons.Default.ArrowBack,
+                contentDescription = "뒤로 가기",
+                modifier = Modifier.size(24.dp)
+            )
         }
-        Text("가족 등록하기", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.align(Alignment.Center))
 
-        // QR 아이콘 표시 여부 확인
+        Text(
+            text = "가족 등록하기",
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+            modifier = Modifier.align(Alignment.Center)
+        )
+
+        // ★ QR 아이콘 (조건부 표시)
         if (showQrIcon) {
-            IconButton(onClick = onQrClick, modifier = Modifier.size(39.dp).align(Alignment.CenterEnd)) {
-                Icon(Icons.Default.QrCodeScanner, "QR 스캔", modifier = Modifier.size(24.dp), tint = Color.Black)
+            IconButton(
+                onClick = onQrClick,
+                modifier = Modifier
+                    .size(39.dp)
+                    .align(Alignment.CenterEnd)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.QrCodeScanner,
+                    contentDescription = "QR 스캔",
+                    modifier = Modifier.size(24.dp),
+                    tint = Color.Black
+                )
             }
         }
     }
 }
+
+// --- (이하 컴포넌트는 기존과 동일) ---
 
 @Composable
 fun InitialSelectionButtons(currentState: FamilyRegState, onSelect: (FamilyRegState) -> Unit) {
@@ -276,13 +343,27 @@ fun SelectableActionBox(text: String, isSelected: Boolean, onClick: () -> Unit) 
     val borderColor = if (isSelected) Color.Black else Color(0xFFEAEAEA)
     val textColor = if (isSelected) Color.Black else Color(0xFFBDBDBD)
     Box(
-        modifier = Modifier.width(150.dp).height(52.dp).border(if (isSelected) 1.5.dp else 1.dp, borderColor, RoundedCornerShape(30.dp)).clip(RoundedCornerShape(30.dp)).clickable { onClick() }.background(Color.White),
+        modifier = Modifier
+            .width(150.dp)
+            .height(52.dp)
+            .border(if (isSelected) 1.5.dp else 1.dp, borderColor, RoundedCornerShape(30.dp))
+            .clip(RoundedCornerShape(30.dp))
+            .clickable { onClick() }
+            .background(Color.White),
         contentAlignment = Alignment.Center
     ) { Text(text, fontWeight = FontWeight.Bold, color = textColor, fontSize = 16.sp) }
 }
 
 @Composable
-fun FamilyFormContent(selectedTab: FamilyTab, onTabChange: (FamilyTab) -> Unit, familyName: String, onNameChange: (String) -> Unit, familyId: String, onIdChange: (String) -> Unit, onJoinClick: () -> Unit) {
+fun FamilyFormContent(
+    selectedTab: FamilyTab,
+    onTabChange: (FamilyTab) -> Unit,
+    familyName: String,
+    onNameChange: (String) -> Unit,
+    familyId: String,
+    onIdChange: (String) -> Unit,
+    onJoinClick: () -> Unit
+) {
     Column {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TabButton("생성하기", selectedTab == FamilyTab.CREATE, Modifier.weight(1f)) { onTabChange(FamilyTab.CREATE) }
@@ -290,42 +371,108 @@ fun FamilyFormContent(selectedTab: FamilyTab, onTabChange: (FamilyTab) -> Unit, 
         }
         Spacer(modifier = Modifier.height(32.dp))
         if (selectedTab == FamilyTab.CREATE) {
-            Text("가족 별칭을 입력해 주세요", fontSize = 16.sp, color = Color(0xFF757575), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
-            OutlinedTextField(value = familyName, onValueChange = onNameChange, modifier = Modifier.fillMaxWidth(), placeholder = { Text("예) 루비", color = Color(0xFFBDBDBD)) }, singleLine = true, shape = RoundedCornerShape(12.dp), colors = familyInputColors(), trailingIcon = { Text("가족", fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(end = 16.dp)) })
+            Text(
+                text = "가족 별칭을 입력해 주세요",
+                fontSize = 16.sp,
+                color = Color(0xFF757575),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            )
+            OutlinedTextField(
+                value = familyName,
+                onValueChange = onNameChange,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("예) 루비", color = Color(0xFFBDBDBD)) },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = familyInputColors(),
+                trailingIcon = { Text("가족", fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(end = 16.dp)) }
+            )
         } else {
-            Text("가족 아이디를 입력해 주세요", fontSize = 16.sp, color = Color(0xFF757575), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
-            OutlinedTextField(value = familyId, onValueChange = onIdChange, modifier = Modifier.fillMaxWidth(), placeholder = { Text("아이디로 참여하기", color = Color(0xFFBDBDBD)) }, singleLine = true, shape = RoundedCornerShape(12.dp), colors = familyInputColors(), trailingIcon = { IconButton(onClick = { if (familyId.isNotBlank()) onJoinClick() }) { Icon(Icons.Default.Search, "검색", tint = Color.Black, modifier = Modifier.padding(end = 8.dp)) } })
+            Text(
+                text = "가족 아이디를 입력해 주세요",
+                fontSize = 16.sp,
+                color = Color(0xFF757575),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            )
+            OutlinedTextField(
+                value = familyId,
+                onValueChange = onIdChange,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("아이디로 참여하기", color = Color(0xFFBDBDBD)) },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = familyInputColors(),
+                trailingIcon = {
+                    IconButton(onClick = { if (familyId.isNotBlank()) onJoinClick() }) {
+                        Icon(Icons.Default.Search, "검색", tint = Color.Black, modifier = Modifier.padding(end = 8.dp))
+                    }
+                }
+            )
         }
     }
 }
 
 @Composable
 fun TabButton(text: String, isSelected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    Button(onClick = onClick, modifier = modifier.height(52.dp), shape = RoundedCornerShape(26.dp), colors = ButtonDefaults.buttonColors(containerColor = if (isSelected) Color.White else Color(0xFFFAFAFA), contentColor = if (isSelected) Color.Black else Color(0xFFBDBDBD)), border = androidx.compose.foundation.BorderStroke(1.5.dp, if (isSelected) Color.Black else Color(0xFFEEEEEE)), elevation = null) { Text(text, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(52.dp),
+        shape = RoundedCornerShape(26.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (isSelected) Color.White else Color(0xFFFAFAFA),
+            contentColor = if (isSelected) Color.Black else Color(0xFFBDBDBD)
+        ),
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, if (isSelected) Color.Black else Color(0xFFEEEEEE)),
+        elevation = null
+    ) { Text(text, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
 }
 
 @Composable
-fun familyInputColors() = OutlinedTextFieldDefaults.colors(focusedContainerColor = Color.White, unfocusedContainerColor = Color.White, focusedBorderColor = Color.Black, unfocusedBorderColor = Color(0xFFE0E0E0), cursorColor = Color.Black)
+fun familyInputColors() = OutlinedTextFieldDefaults.colors(
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color.White,
+    focusedBorderColor = Color.Black,
+    unfocusedBorderColor = Color(0xFFE0E0E0),
+    cursorColor = Color.Black
+)
 
 @Composable
 fun FamilyRegisterBottomBar(enabled: Boolean, onNext: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().background(Color.Transparent).padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 60.dp)) {
-        Button(onClick = onNext, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = if (enabled) Color.Black else Color(0xFFD6D6D6), contentColor = Color.White, disabledContainerColor = Color(0xFFD6D6D6), disabledContentColor = Color.White), shape = RoundedCornerShape(12.dp), enabled = enabled) { Text("계속하기", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+        Button(
+            onClick = onNext,
+            modifier = Modifier.fillMaxWidth().height(64.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (enabled) Color.Black else Color(0xFFD6D6D6),
+                contentColor = Color.White,
+                disabledContainerColor = Color(0xFFD6D6D6),
+                disabledContentColor = Color.White
+            ),
+            shape = RoundedCornerShape(12.dp),
+            enabled = enabled
+        ) { Text("계속하기", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
     }
 }
 
 @Composable
 fun DisplayDoubleRingProfile(imageUrl: String?) {
     val infiniteTransition = rememberInfiniteTransition(label = "profilePulse")
-    val pulseScale by infiniteTransition.animateFloat(initialValue = 1f, targetValue = 1.05f, animationSpec = infiniteRepeatable(tween(1000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "scale")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(tween(1000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "scale"
+    )
     Box(modifier = Modifier.size(200.dp), contentAlignment = Alignment.Center) {
         Box(modifier = Modifier.size(200.dp).scale(pulseScale).border(1.dp, Color(0xFFF5F5F5), CircleShape))
         Box(modifier = Modifier.size(160.dp).scale(pulseScale).border(1.dp, Color(0xFFF5F5F5), CircleShape))
-        Box(modifier = Modifier.size(120.dp).clip(CircleShape).background(Color(0xFFEBEBEB)), contentAlignment = Alignment.Center) { if (!imageUrl.isNullOrBlank()) { AsyncImage(model = imageUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) } }
+        Box(modifier = Modifier.size(120.dp).clip(CircleShape).background(Color(0xFFEBEBEB)), contentAlignment = Alignment.Center) {
+            if (!imageUrl.isNullOrBlank()) { AsyncImage(model = imageUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
+        }
     }
 }
-
-class PortraitCaptureActivity : CaptureActivity()
 
 @Preview(showBackground = true, heightDp = 800)
 @Composable
@@ -333,3 +480,5 @@ fun PreviewFamilyRegister() {
     val navController = rememberNavController()
     FamilyRegisterIntroScreen(navController = navController)
 }
+
+class PortraitCaptureActivity : CaptureActivity()

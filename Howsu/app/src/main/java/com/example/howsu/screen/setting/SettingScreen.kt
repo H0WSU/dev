@@ -68,18 +68,20 @@ fun SettingScreen(
         }
     }
 
+    // SettingScreen.kt 내부
+
     if (showLogoutDialog) {
         ConfirmationDialog(
             title = "로그아웃",
             text = "로그아웃 하시겠어요?",
             confirmText = "로그아웃",
             onConfirm = {
-                authViewModel.signOut()
-                showLogoutDialog = false
-                navController.navigate("auth_graph") {
-                    popUpTo(0) {
-                        inclusive = true
-                    }
+                showLogoutDialog = false // 다이얼로그 닫기
+
+                authViewModel.signOut() // 로그아웃 실행
+
+                navController.navigate("login") {
+                    popUpTo(0) { inclusive = true } // 모든 백스택 제거
                 }
             },
             onDismiss = { showLogoutDialog = false }
@@ -92,11 +94,13 @@ fun SettingScreen(
             text = "정말 탈퇴하시겠어요?",
             confirmText = "회원 탈퇴",
             onConfirm = {
-                authViewModel.deleteUserAndLogout()
+                // 다이얼로그 먼저 닫기
                 showWithdrawDialog = false
-                navController.navigate("auth_graph") {
-                    popUpTo(0) {
-                        inclusive = true
+
+                authViewModel.deleteUserAndLogout {
+                    // 이 안의 코드는 '계정 삭제가 완료된 후'에 실행됩니다.
+                    navController.navigate("login") {
+                        popUpTo(0) { inclusive = true }
                     }
                 }
             },

@@ -13,12 +13,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.howsu.Pet.PetRegisterViewModel // 합쳐진 import
+import com.example.howsu.Pet.PetRegisterViewModel
 import com.example.howsu.data.model.FamilyMember
-import com.example.howsu.screen.family.FamilyInviteScreen // 합쳐진 import
-import com.example.howsu.screen.family.FamilyRegisterIntroScreen // 합쳐진 import
-import com.example.howsu.screen.famliy.FamilyJoinCompleteScreen // 합쳐진 import
-import com.example.howsu.screen.famliy.NicknameRegisterScreen // 합쳐진 import
+import com.example.howsu.screen.family.FamilyInviteScreen
+import com.example.howsu.screen.family.FamilyRegisterIntroScreen
+import com.example.howsu.screen.family.FamilyJoinCompleteScreen
+import com.example.howsu.screen.family.SetRelationshipScreen
+import com.example.howsu.screen.family.NicknameRegisterScreen
 import com.example.howsu.screen.feed.FeedHomeScreen
 import com.example.howsu.screen.feed.FeedViewModel
 import com.example.howsu.screen.feed.FeedWriteScreen
@@ -29,19 +30,19 @@ import com.example.howsu.screen.login.AuthViewModel
 import com.example.howsu.screen.login.JoinScreen
 import com.example.howsu.screen.login.LoadingScreen
 import com.example.howsu.screen.login.LoginScreen
-import com.example.howsu.screen.mypage.FAQScreen
-import com.example.howsu.screen.mypage.MypageScreen // HEAD 영역의 import
-import com.example.howsu.screen.mypage.NotificationScreen // HEAD 영역의 import
-import com.example.howsu.screen.pet.PetRegisterCompleteScreen // 합쳐진 import
-import com.example.howsu.screen.pet.PetRegisterScreen // 합쳐진 import
+import com.example.howsu.screen.mypage.FAQScreen // HEAD 영역에서 추가
+import com.example.howsu.screen.mypage.MypageScreen
+import com.example.howsu.screen.mypage.NotificationScreen
+import com.example.howsu.screen.pet.PetRegisterCompleteScreen
+import com.example.howsu.screen.pet.PetRegisterScreen
 import com.example.howsu.screen.schedule.CreateScheduleScreen
 import com.example.howsu.screen.schedule.ScheduleDetailScreen
 import com.example.howsu.screen.schedule.ScheduleScreen
 import com.example.howsu.screen.setting.SettingScreen
 import com.example.howsu.screen.todo.CreateTodoScreen
 import com.example.howsu.screen.todo.TodoScreen
-import java.net.URLEncoder // 합쳐진 import
-import java.nio.charset.StandardCharsets // 합쳐진 import
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 @SuppressLint("ViewModelConstructorInComposable")
 @Composable
@@ -64,7 +65,7 @@ fun AppNavigation() {
     // 5. NavHost가 화면을 관리
     NavHost(
         navController = navController,
-        startDestination = "loading" // 시작 경로 유지
+        startDestination = "home"
     ) {
         composable(route = "loading") {
             LoadingScreen(navController = navController)
@@ -115,17 +116,36 @@ fun AppNavigation() {
             val finalProfileUrl = backStackEntry.arguments?.getString("profileUrl")
             FamilyRegisterIntroScreen(navController = navController, userNickname = nickname, userProfileUrl = finalProfileUrl)
         }
+
+        // ★ family_invite_screen 경로 (HEAD와 313... 합치기)
         composable(
-            route = "family_invite_screen/{familyName}/{familyId}",
+            route = "family_invite_screen/{familyName}/{familyId}?profileUrl={profileUrl}", // 313... 영역의 profileUrl 인자 추가 포함
             arguments = listOf(
                 navArgument("familyName") { type = NavType.StringType },
-                navArgument("familyId") { type = NavType.StringType }
+                navArgument("familyId") { type = NavType.StringType },
+                // 프로필 URL 인자 설정
+                navArgument("profileUrl") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
             )
         ) { backStackEntry ->
             val familyName = backStackEntry.arguments?.getString("familyName") ?: ""
             val familyId = backStackEntry.arguments?.getString("familyId") ?: ""
-            FamilyInviteScreen(navController = navController, familyNameInput = familyName, invitedFamilyId = familyId)
+
+            // 받은 URL 꺼내기 (null 문자열 처리)
+            val profileUrlStr = backStackEntry.arguments?.getString("profileUrl")
+            val finalProfileUrl = if (profileUrlStr == "null") null else profileUrlStr
+
+            FamilyInviteScreen(
+                navController = navController,
+                familyNameInput = familyName,
+                invitedFamilyId = familyId,
+                userProfileUrl = finalProfileUrl // ★ userProfileUrl 전달 (313... 영역의 코드)
+            )
         }
+
         composable(
             route = "family_join_complete/{familyName}?profileUrl={profileUrl}",
             arguments = listOf(
@@ -142,6 +162,13 @@ fun AppNavigation() {
             FamilyJoinCompleteScreen(navController = navController, familyName = familyName, encodedProfileUrl = profileUrl)
         }
 
+        // 313... 영역에서 추가된 관계 설정 화면
+        composable("set_relationship") {
+            SetRelationshipScreen(navController = navController)
+        }
+
+
+        // --- (마이페이지) ---
         composable(route = "home") {
             HomeScreen(navController = navController)
         }
@@ -182,7 +209,10 @@ fun AppNavigation() {
 
         // --- (피드) ---
         composable(route = "feed") {
-            FeedHomeScreen(navController = navController, viewModel = feedViewModel, member = member)
+            FeedHomeScreen(
+                navController = navController,
+                viewModel = feedViewModel
+            )
         }
         composable(route = "create_feed") {
             FeedWriteScreen(viewModel = feedViewModel, onFinishWrite = { navController.popBackStack() })
@@ -196,24 +226,18 @@ fun AppNavigation() {
         }
 
         // --- (마이페이지) ---
-        // HEAD 영역에서 가져온 마이페이지 경로
         composable("mypage") {
             MypageScreen(navController = navController)
         }
-
-        // 공지사항 (NotificationScreen) 경로
-        composable("notice") {
+        composable("notice") {   // 공지사항
             NotificationScreen(navController = navController)
         }
-
-        // 공지사항 (NotificationScreen) 경로
-        composable("faq") {
+        composable("faq") {    // 자주 묻는 질문
             FAQScreen(navController = navController)
         }
 
-        // --- (반려동물 등록 플로우) ---
-        // a8bfc36b1b5c620bb088f4fdb705be523f9690d7 영역에서 가져온 경로들
 
+        // --- (반려동물 등록 플로우) ---
         // 1. 정보 입력 화면
         composable(route = "register_pet") {
             PetRegisterScreen(viewModel = petRegisterViewModel, navController = navController)
@@ -250,5 +274,5 @@ fun AppNavigation() {
                 }
             )
         }
-    } // NavHost 끝
-} // AppNavigation 끝
+    }
+}

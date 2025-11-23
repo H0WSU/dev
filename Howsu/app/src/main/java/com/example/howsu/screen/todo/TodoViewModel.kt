@@ -53,20 +53,36 @@ class TodoViewModel : ViewModel() {
         fetchTodoGroups()
     }
 
-    private fun fetchTodoGroups() {
+    fun fetchTodoGroups() {
         val currentUser = Firebase.auth.currentUser
         if (currentUser == null) {
             _allTodoGroups.value = emptyList()
             return
         }
 
-        // ★ [핵심 로직]
-        // 가족 기능 구현 전: 내 UID를 familyId로 사용
-        // 가족 기능 구현 후: API로 받아온 shared_family_id를 사용하면 됨
-        val currentFamilyId = currentUser.uid
+        // 1단계: 내 유저 정보에서 '가족 ID'를 먼저 가져옴
+        db.collection("users").document(currentUser.uid).get()
+            .addOnSuccessListener { document ->
+                // User 모델의 필드명에 맞춰서 가져옵니다 (예: currentFamilyId)
+                val myFamilyId = document.getString("currentFamilyId")
 
+                if (myFamilyId != null) {
+                    // 2단계: 알아낸 가족 ID로 투두 그룹을 구독
+                    startListeningToTodos(myFamilyId)
+                } else {
+                    Log.e("TodoViewModel", "가족 ID를 찾을 수 없습니다.")
+                    _allTodoGroups.value = emptyList()
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.e("TodoViewModel", "유저 정보 로드 실패", e)
+            }
+    }
+
+    // 실제 투두 리스너 (가족 ID가 있을 때만 실행)
+    private fun startListeningToTodos(familyId: String) {
         db.collection("todoGroups")
-            .whereEqualTo("familyId", currentFamilyId) // ★ 이 조건이 있어야 내 것만 보임!
+            .whereEqualTo("familyId", familyId) // ★ 이제 정확한 가족 ID로 찾습니다!
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     Log.w("TodoViewModel", "Listen failed.", error)

@@ -67,10 +67,12 @@ dependencies {
     // Navigation
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.navigation.ui)
+    implementation("io.coil-kt:coil-compose:2.4.0")
 
     implementation("com.google.zxing:core:3.5.2")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("com.google.firebase:firebase-messaging-ktx")
 
     // 2. Firebase BOM (여러 라이브러리 버전 관리)
     implementation(platform("com.google.firebase:firebase-bom:33.0.0"))
@@ -81,6 +83,9 @@ dependencies {
     // 4. Google One Tap 로그인 SDK (필수)
     implementation("com.google.android.gms:play-services-auth:21.1.1")
     implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-storage-ktx")
+    implementation("com.google.zxing:core:3.5.3")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
     implementation("androidx.activity:activity-compose:1.9.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
