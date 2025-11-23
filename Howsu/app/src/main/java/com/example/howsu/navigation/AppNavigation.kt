@@ -17,6 +17,7 @@ import com.example.howsu.screen.login.AuthViewModel
 import com.example.howsu.screen.login.JoinScreen
 import com.example.howsu.screen.login.LoadingScreen
 import com.example.howsu.screen.login.LoginScreen
+import com.example.howsu.screen.mypage.MypageScreen
 import com.example.howsu.screen.mypage.NotificationScreen
 import com.example.howsu.screen.schedule.CreateScheduleScreen
 import com.example.howsu.screen.schedule.ScheduleDetailScreen
@@ -163,14 +164,14 @@ fun AppNavigation() {
             }
         }
         //마이페이지 (MypageScreen) 경로
-        /*composable("mypage") {
-            // 마이페이지는 사용자 정보(이메일, 이름)를 매개변수로 받습니다.
+        composable("mypage") {
+            // 마이페이지는 사용자 정보(이메일, 이름)를 매개변수로 받음 -> 일단 주석처리
             MypageScreen(
                 navController = navController,
-                userEmail = userEmail,
-                userName = userName
+                //userEmail = userEmail,
+                //userName = userName
             )
-        }*/
+        }
 
         //공지사항 (NotificationScreen) 경로
         composable("notice") {

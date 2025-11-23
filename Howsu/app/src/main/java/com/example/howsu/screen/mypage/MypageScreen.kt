@@ -42,8 +42,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import com.example.howsu.common.MyBottomNavigationBar
-import com.example.howsu.common.MyFloatingActionButton
 
 
 // ----------------------------------------------------
@@ -59,8 +57,6 @@ fun MypageScreen(
             TopAppBar(
                 title = {
                     Text(
-                        modifier = Modifier
-                            .padding(7.dp),
                         text = "마이페이지",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
@@ -76,7 +72,7 @@ fun MypageScreen(
                 )
             )
         },
-        bottomBar = {MyBottomNavigationBar(navController = navController)},
+        /*bottomBar = {MyBottomNavigationBar(navController = navController)},
         floatingActionButton = {
             MyFloatingActionButton(
                 onTodoClick = {
@@ -89,7 +85,7 @@ fun MypageScreen(
                     navController.navigate("create_feed")
                 }
             )
-        }
+        }*/
     ) { paddingValues ->
         Column(
             modifier = Modifier

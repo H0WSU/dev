@@ -94,8 +94,6 @@ fun NotificationScreen(
             TopAppBar(
                 title = {
                     Text(
-                        modifier = Modifier
-                            .padding(7.dp),
                         text = "공지사항",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
