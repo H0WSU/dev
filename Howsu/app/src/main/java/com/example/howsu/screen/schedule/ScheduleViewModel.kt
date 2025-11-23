@@ -19,19 +19,20 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.util.Date
 
-// ★★★ (신규) 3가지 삭제 유형을 정의하는 Enum 클래스
+// 삭제 유형 Enum
 enum class DeletionType {
-    SINGLE, // 이 일정만
-    FUTURE, // 이 일정 + 미래
-    ALL     // 모든 관련 일정
+    SINGLE, FUTURE, ALL
 }
 
 class ScheduleViewModel : ViewModel() {
 
     private val db = Firebase.firestore
+    private val auth = Firebase.auth // Auth 추가
     private val zoneId = ZoneId.systemDefault()
 
-    // --- (기존 상태 - 변경 없음) ---
+    private var myFamilyId: String? = null
+
+    // --- 상태 변수들 ---
     private val _selectedDate = MutableStateFlow(LocalDate.now())
     val selectedDate = _selectedDate.asStateFlow()
     private val _currentMonth = MutableStateFlow(YearMonth.now())
@@ -44,17 +45,47 @@ class ScheduleViewModel : ViewModel() {
     val selectedSchedule = _selectedSchedule.asStateFlow()
 
     init {
-        fetchSchedulesForDate(_selectedDate.value)
-        loadMonthSchedules(_currentMonth.value)
+        // 앱 켜지면 가족 ID부터 찾고 -> 스케줄 로딩 시작
+        initializeFamilyId()
     }
 
-    // --- (기존 함수 - 변경 없음) ---
+    // 내 가족 ID 가져오기
+    private fun initializeFamilyId() {
+        val user = auth.currentUser
+        if (user == null) {
+            _schedules.value = emptyList()
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                // users 컬렉션에서 currentFamilyId 조회
+                val doc = db.collection("users").document(user.uid).get().await()
+                val familyId = doc.getString("currentFamilyId")
+
+                if (familyId != null) {
+                    myFamilyId = familyId
+                    Log.d("ScheduleVM", "가족 ID 확인됨: $familyId")
+
+                    // ID를 찾았으니 이제 진짜 데이터를 불러옴!
+                    refreshAllSchedules()
+                } else {
+                    Log.e("ScheduleVM", "가족 ID가 없습니다.")
+                }
+            } catch (e: Exception) {
+                Log.e("ScheduleVM", "유저 정보 로드 실패", e)
+            }
+        }
+    }
+
+    // 날짜 선택
     fun onDateSelected(day: Int) {
         val newDate = _currentMonth.value.atDay(day)
         _selectedDate.value = newDate
         fetchSchedulesForDate(newDate)
     }
 
+    // 월 변경
     fun onMonthChange(isNext: Boolean) {
         val newMonth = if (isNext) _currentMonth.value.plusMonths(1) else _currentMonth.value.minusMonths(1)
         _currentMonth.value = newMonth
@@ -62,6 +93,7 @@ class ScheduleViewModel : ViewModel() {
         onDateSelected(1)
     }
 
+    // 년/월 직접 선택
     fun onMonthYearChange(year: Int, month: Int) {
         val newYearMonth = YearMonth.of(year, month)
         _currentMonth.value = newYearMonth
@@ -72,13 +104,9 @@ class ScheduleViewModel : ViewModel() {
         onDateSelected(newDay)
     }
 
+    // ★ 일간 일정 불러오기 (수정됨: myFamilyId 사용)
     private fun fetchSchedulesForDate(date: LocalDate) {
-        val currentUser = Firebase.auth.currentUser
-        if (currentUser == null) {
-            _schedules.value = emptyList()
-            return
-        }
-        val currentFamilyId = currentUser.uid // ★ 내 아이디 가져오기
+        val familyId = myFamilyId ?: return // 가족 ID 없으면 중단
 
         viewModelScope.launch {
             try {
@@ -88,7 +116,7 @@ class ScheduleViewModel : ViewModel() {
                 val endTimestamp = Timestamp(Date.from(endOfDay.toInstant()))
 
                 val querySnapshot = db.collection("schedules")
-                    .whereEqualTo("familyId", currentFamilyId) // ★ [필수] 내 가족(나)의 일정만
+                    .whereEqualTo("familyId", familyId) // ★ 진짜 가족 ID로 검색
                     .whereGreaterThanOrEqualTo("startDate", startTimestamp)
                     .whereLessThan("startDate", endTimestamp)
                     .orderBy("startDate")
@@ -96,16 +124,15 @@ class ScheduleViewModel : ViewModel() {
                     .await()
                 _schedules.value = querySnapshot.toObjects<Schedule>()
             } catch (e: Exception) {
-                Log.e("ScheduleVM", "선택일 일정 로드 실패", e)
+                Log.e("ScheduleVM", "일간 일정 로드 실패", e)
                 _schedules.value = emptyList()
             }
         }
     }
 
+    // 월간 일정 불러오기 (수정됨: myFamilyId 사용)
     private fun loadMonthSchedules(yearMonth: YearMonth) {
-        val currentUser = Firebase.auth.currentUser
-        if (currentUser == null) return
-        val currentFamilyId = currentUser.uid
+        val familyId = myFamilyId ?: return // 가족 ID 없으면 중단
 
         viewModelScope.launch {
             try {
@@ -115,7 +142,7 @@ class ScheduleViewModel : ViewModel() {
                 val endTimestamp = Timestamp(Date.from(startOfNextMonth.toInstant()))
 
                 val querySnapshot = db.collection("schedules")
-                    .whereEqualTo("familyId", currentFamilyId) // ★ [필수]
+                    .whereEqualTo("familyId", familyId) // ★ 진짜 가족 ID로 검색
                     .whereGreaterThanOrEqualTo("startDate", startTimestamp)
                     .whereLessThan("startDate", endTimestamp)
                     .get()
@@ -130,7 +157,7 @@ class ScheduleViewModel : ViewModel() {
                             .dayOfMonth
                     }
                 _monthSchedules.value = groupedSchedules
-                Log.d("ScheduleVM", "월간 일정(${yearMonth}) 로드 성공")
+                Log.d("ScheduleVM", "월간 일정 로드 성공: ${schedulesList.size}개")
             } catch (e: Exception) {
                 Log.e("ScheduleVM", "월간 일정 로드 실패", e)
                 _monthSchedules.value = emptyMap()
@@ -144,30 +171,25 @@ class ScheduleViewModel : ViewModel() {
     }
 
     fun loadScheduleDetails(scheduleId: String?) {
-        if (scheduleId == null || scheduleId == "temp_id") {
-            Log.e("ScheduleViewModel", "유효하지 않은 scheduleId: $scheduleId")
+        if (scheduleId == null) {
             _selectedSchedule.value = null
             return
         }
-        _selectedSchedule.value = null
         viewModelScope.launch {
             try {
                 val document = db.collection("schedules").document(scheduleId).get().await()
-                _selectedSchedule.value = document.toObject<Schedule>()
+                _selectedSchedule.value = document.toObject<Schedule>()?.copy(id = document.id) // ID 복사
             } catch (e: Exception) {
-                Log.e("ScheduleViewModel", "일정($scheduleId) 불러오기 실패", e)
+                Log.e("ScheduleViewModel", "일정 상세 로드 실패", e)
                 _selectedSchedule.value = null
             }
         }
     }
 
-    // ★★★ (대폭 수정) 일정 삭제 함수 ★★★
+    // 일정 삭제 (수정됨: myFamilyId 사용)
     fun deleteSchedule(deletionType: DeletionType, onComplete: () -> Unit) {
         val schedule = _selectedSchedule.value ?: return
-
-        // ★ 안전장치: 현재 로그인한 사람 확인
-        val currentUser = Firebase.auth.currentUser ?: return
-        val currentFamilyId = currentUser.uid
+        val familyId = myFamilyId ?: return
 
         viewModelScope.launch {
             try {
@@ -180,7 +202,7 @@ class ScheduleViewModel : ViewModel() {
                             db.collection("schedules").document(schedule.id).delete().await()
                         } else {
                             var query = db.collection("schedules")
-                                .whereEqualTo("familyId", currentFamilyId) // ★ [중요] 내 일정 중에서만 검색
+                                .whereEqualTo("familyId", familyId) // ★ 내 가족 일정 중에서만 삭제
                                 .whereEqualTo("title", schedule.title)
                                 .whereEqualTo("recurrenceRule", schedule.recurrenceRule)
 
@@ -194,25 +216,24 @@ class ScheduleViewModel : ViewModel() {
                                 batch.delete(doc.reference)
                             }
                             batch.commit().await()
-                            Log.d("ScheduleViewModel", "${querySnapshot.size()}개 반복 일정(${deletionType}) 삭제 성공")
                         }
                     }
                 }
-
-                // (공통 로직) 목록 및 캘린더 새로고침
-                fetchSchedulesForDate(_selectedDate.value)
-                loadMonthSchedules(_currentMonth.value)
+                // 삭제 후 새로고침
+                refreshAllSchedules()
                 onComplete()
-
             } catch (e: Exception) {
-                Log.e("ScheduleViewModel", "일정 삭제 실패", e)
+                Log.e("ScheduleViewModel", "삭제 실패", e)
             }
         }
     }
 
     fun refreshAllSchedules() {
-        Log.d("ScheduleVM", "모든 일정 새로고침 (목록 + 월간 캘린더)")
-        fetchSchedulesForDate(_selectedDate.value)
-        loadMonthSchedules(_currentMonth.value)
+        if (myFamilyId == null) {
+            initializeFamilyId() // ID가 없으면 다시 로드 시도
+        } else {
+            fetchSchedulesForDate(_selectedDate.value)
+            loadMonthSchedules(_currentMonth.value)
+        }
     }
 }

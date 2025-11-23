@@ -14,6 +14,7 @@ data class Schedule(
     val startDate: Timestamp = Timestamp.now(),
     val endDate: Timestamp = Timestamp.now(),
     val petNames: List<String> = emptyList(),
+    val petProfileUrls: List<String?> = emptyList(),
 
     val color: String = "#000000", // (기본값 검은색)
     val recurrenceRule: String = "반복 안 함",

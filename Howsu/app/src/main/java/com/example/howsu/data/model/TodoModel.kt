@@ -1,6 +1,5 @@
 package com.example.howsu.data.model
 
-import androidx.annotation.DrawableRes
 import com.google.firebase.firestore.DocumentId
 
 data class Task(
@@ -14,10 +13,15 @@ data class Task(
 data class TodoGroup(
     @DocumentId
     val documentId: String = "",
-    val assigneeId: String? = null,
-    val assigneeName: String? = null,
-    val familyId: String = "", // ★ 추가: 가족 공유를 위한 핵심 키
-    @DrawableRes val assigneeProfileRes: Int? = null,
+
+    val familyId: String = "",
+
+    // 여러 명(List)으로 변경
+    val assigneeIds: List<String> = emptyList(),         // ID 리스트
+    val assigneeNames: List<String> = emptyList(),       // 이름 리스트
+    val assigneeProfileUrls: List<String?> = emptyList(), // 사진 주소 리스트
+
     val tasks: List<Task> = emptyList(),
-    val petNames: List<String> = emptyList()
+    val petNames: List<String> = emptyList(),
+    val petProfileUrls: List<String?> = emptyList()
 )

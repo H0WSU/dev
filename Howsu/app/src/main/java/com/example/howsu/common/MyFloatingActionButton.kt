@@ -5,14 +5,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,7 +19,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -56,11 +56,11 @@ fun MyFloatingActionButton(
                         onTodoClick()
                         isMenuExpanded = false
                     },
-                    containerColor = Color(0xFF6E6E6E).copy(alpha = 0.9f),
+                    containerColor = Color(0xFFFFDF37).copy(alpha = 0.9f),
                     shape = CircleShape,
                     modifier = Modifier.size(56.dp)
                 ) {
-                    Text("TODO", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("TODO", color = Color(color = 0xFF121212), fontWeight = FontWeight.Bold)
                 }
 
                 FloatingActionButton(
@@ -68,11 +68,11 @@ fun MyFloatingActionButton(
                         onScheduleClick()
                         isMenuExpanded = false
                     },
-                    containerColor = Color(0xFF6E6E6E).copy(alpha = 0.9f),
+                    containerColor = Color(0xFFFFDF37).copy(alpha = 0.9f),
                     shape = CircleShape,
                     modifier = Modifier.size(56.dp)
                 ) {
-                    Text("일정", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("일정", color = Color(color = 0xFF121212), fontWeight = FontWeight.Bold)
                 }
 
                 // '피드 추가' 버튼
@@ -81,25 +81,48 @@ fun MyFloatingActionButton(
                         onFeedCreateClick() // 파라미터로 받은 onScheduleClick 실행
                         isMenuExpanded = false // 메뉴 닫기
                     },
-                    containerColor = Color(0xFF6E6E6E),
+                    containerColor = Color(0xFFFFDF37),
                     shape = CircleShape,
                     modifier = Modifier.size(56.dp)
                 ) {
-                    Text(text = "피드", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "피드",
+                        color = Color(color = 0xFF121212),
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
 
         FloatingActionButton(
             onClick = { isMenuExpanded = !isMenuExpanded },
-            containerColor = Color.Black,
-            shape = CircleShape
+            containerColor = Color(0xFFFFDF37), // 노란색 배경
+            shape = CircleShape,
         ) {
-            Icon(
-                imageVector = Icons.Default.Add,
-                tint = Color.White,
-                contentDescription = "메뉴 열기"
-            )
+            // ★ 2. + 아이콘 직접 그리기 (Canvas)
+            Canvas(modifier = Modifier.size(24.dp)) {
+                // 선 두께랑 색상 설정
+                val strokeWidth = 1.5.dp.toPx() // 1.5dp 두께
+                val iconColor = Color(0xFF121212) // 검정색
+
+                // 가로 선 그리기
+                drawLine(
+                    color = iconColor,
+                    start = Offset(size.width * 0.2f, size.height / 2), // 왼쪽
+                    end = Offset(size.width * 0.8f, size.height / 2),   // 오른쪽
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Square
+                )
+
+                // 세로 선 그리기
+                drawLine(
+                    color = iconColor,
+                    start = Offset(size.width / 2, size.height * 0.2f), // 위쪽
+                    end = Offset(size.width / 2, size.height * 0.8f),   // 아래쪽
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Square
+                )
+            }
         }
     }
 }

@@ -1,5 +1,6 @@
-package com.example.howsu.screen.famliy
+package com.example.howsu.screen.family
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,11 +25,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import com.example.howsu.screen.family.DisplayDoubleRingProfile
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
-// --- [신규] 가족 참여 완료 화면 ---
+fun getFormattedFamilyName(name: String): String {
+    if (name.isBlank()) return "우리 가족"
+    val lastChar = name.last()
+    // 한글이 아니면 그냥 "네 가족" 붙임
+    if (lastChar < '가' || lastChar > '힣') return "${name}네 가족"
+
+    // 받침 유무 확인 ((문자코드 - 0xAC00) % 28 > 0 이면 받침 있음)
+    val hasBatchim = (lastChar.code - 0xAC00) % 28 > 0
+    return if (hasBatchim) "${name}이네 가족" else "${name}네 가족"
+}
+
+
 @Composable
 fun FamilyJoinCompleteScreen(
     navController: NavHostController,
@@ -44,6 +55,10 @@ fun FamilyJoinCompleteScreen(
         }
     }
 
+    BackHandler(enabled = true) {
+        // 텅 비워두면 뒤로 가기가 막힘
+    }
+
     Scaffold(
         bottomBar = {
             // "시작하기" 버튼
@@ -55,12 +70,11 @@ fun FamilyJoinCompleteScreen(
             ) {
                 Button(
                     onClick = {
-                        // 홈 화면으로 이동하며 백스택 정리
-                        navController.navigate("home") {
-                            popUpTo("home") { inclusive = true }
+                        // ★ [수정] 관계 설정 화면으로 이동 (여기선 popUpTo만 살짝)
+                        navController.navigate("set_relationship") {
+                            // 완료 화면을 스택에서 지워버림 (다시 못 돌아오게)
+                            popUpTo("family_join_complete") { inclusive = true }
                         }
-                        // 또는 펫 등록이 필요하면 "register_pet"으로 이동
-                        // navController.navigate("register_pet") { popUpTo("register_pet") { inclusive = true } }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -71,7 +85,7 @@ fun FamilyJoinCompleteScreen(
                         contentColor = Color.White
                     )
                 ) {
-                    Text("시작하기", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("계속하기", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
             }
         },
@@ -87,8 +101,8 @@ fun FamilyJoinCompleteScreen(
         ) {
             // 가족 이름 표시
             Text(
-                text = "$familyName 가족",
-                fontSize = 20.sp,
+                text = getFormattedFamilyName(familyName),
+                fontSize = 24.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color.Black
             )
@@ -103,7 +117,7 @@ fun FamilyJoinCompleteScreen(
             // 참여 완료 메시지
             Text(
                 text = "참여 완료!",
-                fontSize = 24.sp,
+                fontSize = 27.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black
             )
