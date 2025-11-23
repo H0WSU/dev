@@ -65,7 +65,7 @@ fun MypageScreen(
                     )
                 },
                 actions = {
-                    IconButton(onClick = { /*설정 화면 이동*/ }) {
+                    IconButton(onClick = { navController.navigate("profile")}) {
                         Icon(Icons.Filled.Settings, contentDescription = "내 정보 수정")
                     }
                 },
