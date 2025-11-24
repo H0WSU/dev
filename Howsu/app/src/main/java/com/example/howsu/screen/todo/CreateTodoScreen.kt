@@ -81,7 +81,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// ★ 요청하신 색상 상수 정의
 val ContentBlack = Color(0xFF121212)
 val YellowBox = Color(0xFFFFDF37)
 

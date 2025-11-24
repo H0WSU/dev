@@ -30,16 +30,15 @@ import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar // ★★★ 1. (수정) Import 변경
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults // ★★★ 2. (수정) Import 추가 (필요)
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -79,13 +78,16 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
+// ★ 색상 상수 정의
+val YellowCustom = Color(0xFFFFDF37)
+val TextBlack = Color(0xFF121212)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleScreen(
     navController: NavHostController,
     viewModel: ScheduleViewModel = viewModel()
 ) {
-    // --- (기존 상태들 - 변경 없음) ---
     val schedules by viewModel.schedules.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
     val currentMonth by viewModel.currentMonth.collectAsState()
@@ -148,39 +150,34 @@ fun ScheduleScreen(
         }
     }
 
-    // --- 화면 구조 ---
     Scaffold(
         containerColor = Color.White,
         topBar = {
-            // ★★★ 3. (수정) CenterAlignedTopAppBar로 교체
             CenterAlignedTopAppBar(
                 title = {
-                    // ★★★ 4. (수정) 텍스트와 클릭 영역만 남김
                     CalendarHeader(
                         yearMonth = "${currentMonth.year}년 ${currentMonth.monthValue}월",
                         onMonthArrowClick = { showMonthPicker = true }
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
-
-                // ★★★ 5. (신규) 이전 버튼을 navigationIcon으로 이동
                 navigationIcon = {
                     IconButton(onClick = { viewModel.onMonthChange(false) }) {
                         Icon(
                             imageVector = Icons.Default.ArrowBackIosNew,
                             contentDescription = "이전 달",
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(18.dp),
+                            tint = TextBlack
                         )
                     }
                 },
-
-                // ★★★ 6. (신규) 다음 버튼을 actions로 이동
                 actions = {
                     IconButton(onClick = { viewModel.onMonthChange(true) }) {
                         Icon(
                             imageVector = Icons.Default.ArrowForwardIos,
                             contentDescription = "다음 달",
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(18.dp),
+                            tint = TextBlack
                         )
                     }
                 }
@@ -207,7 +204,6 @@ fun ScheduleScreen(
             )
         }
 
-        // --- (이하 모든 코드 변경 없음) ---
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -307,7 +303,7 @@ fun ScheduleScreen(
 // Composable 함수들
 // ======================================================================
 
-// --- (기존) SimpleCalendarMonthView (변경 없음) ---
+// ★★★ [수정] SimpleCalendarMonthView (투두 스타일 적용: 노란색/테두리)
 @Composable
 fun SimpleCalendarMonthView(
     selectedDate: Int,
@@ -320,6 +316,7 @@ fun SimpleCalendarMonthView(
     val firstDayOfMonth = currentMonth.atDay(1)
     val firstDayOfWeek = firstDayOfMonth.dayOfWeek.value % 7
     val daysInMonth = currentMonth.lengthOfMonth()
+    val today = LocalDate.now()
 
     val dates = buildList {
         repeat(firstDayOfWeek) { add(null) }
@@ -356,13 +353,16 @@ fun SimpleCalendarMonthView(
                     ) {
                         if (day != null) {
                             val schedulesForDay = monthSchedules[day] ?: emptyList()
+
+                            // ★★★ 날짜 로직 수정
+                            val currentDate = currentMonth.atDay(day)
+                            val isToday = currentDate == today
                             val isSelected = day == selectedDate
 
-                            val (containerColor, contentColor) = if (isSelected) {
-                                Color.Black to Color.White
-                            } else {
-                                Color.Transparent to Color.Black
-                            }
+                            // 스타일 결정 (투두 스타일)
+                            val containerColor = if (isToday) YellowCustom else Color.Transparent
+                            val borderColor = if (isSelected && !isToday) YellowCustom else Color.Transparent
+                            val contentColor = TextBlack // 글자는 항상 검정
 
                             Column(
                                 modifier = Modifier
@@ -375,7 +375,12 @@ fun SimpleCalendarMonthView(
                                     modifier = Modifier
                                         .size(28.dp)
                                         .clip(CircleShape)
-                                        .background(containerColor),
+                                        .background(containerColor)
+                                        .border(
+                                            width = 1.dp,
+                                            color = borderColor,
+                                            shape = CircleShape
+                                        ),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
@@ -421,7 +426,7 @@ fun SimpleCalendarMonthView(
 }
 
 
-// --- (기존) DetailedCalendarMonthView (변경 없음) ---
+// ★★★ [수정] DetailedCalendarMonthView (펼친 뷰도 스타일 통일)
 @Composable
 fun DetailedCalendarMonthView(
     selectedDate: Int,
@@ -434,6 +439,7 @@ fun DetailedCalendarMonthView(
     val firstDayOfMonth = currentMonth.atDay(1)
     val firstDayOfWeek = firstDayOfMonth.dayOfWeek.value % 7
     val daysInMonth = currentMonth.lengthOfMonth()
+    val today = LocalDate.now()
 
     val dates = buildList {
         repeat(firstDayOfWeek) { add(null) }
@@ -476,8 +482,10 @@ fun DetailedCalendarMonthView(
                 ) {
                     week.forEach { day ->
                         val isSelected = day == selectedDate
+
+                        // ★★★ 선택된 날짜 테두리 색상: 초록색 -> 노란색 변경
                         val borderModifier = if (isSelected) {
-                            Modifier.border(2.dp, Color(0xFF34A853), RoundedCornerShape(8.dp))
+                            Modifier.border(2.dp, YellowCustom, RoundedCornerShape(8.dp))
                         } else Modifier
 
                         Box(
@@ -491,18 +499,35 @@ fun DetailedCalendarMonthView(
                         ) {
                             if (day != null) {
                                 val schedulesForDay = monthSchedules[day] ?: emptyList()
+                                val currentDate = currentMonth.atDay(day)
+                                val isToday = currentDate == today
+
+                                // ★★★ 오늘 날짜면 숫자 뒤에 노란 원 표시
+                                val numBgColor = if (isToday) YellowCustom else Color.Transparent
+
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(vertical = 4.dp, horizontal = 2.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    Text(
-                                        text = day.toString(),
-                                        fontSize = 14.sp,
-                                        color = if (isSelected) Color(0xFF34A853) else Color.Black,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
+                                    // 숫자 표시 부분
+                                    Box(
+                                        modifier = Modifier
+                                            .size(24.dp) // 숫자 배경 크기
+                                            .clip(CircleShape)
+                                            .background(numBgColor),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = day.toString(),
+                                            fontSize = 14.sp,
+                                            // 오늘이면 검정, 아니면 검정 (일관성)
+                                            color = TextBlack,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+
                                     Spacer(modifier = Modifier.height(3.dp))
                                     Column(
                                         verticalArrangement = Arrangement.spacedBy(1.dp)
@@ -530,7 +555,6 @@ fun DetailedCalendarMonthView(
     }
 }
 
-// --- (기존) ScheduleTagItem (변경 없음, 9sp / 1.dp) ---
 @Composable
 private fun ScheduleTagItem(schedule: Schedule) {
     val scheduleColor = try {
@@ -554,7 +578,6 @@ private fun ScheduleTagItem(schedule: Schedule) {
     }
 }
 
-// --- (기존) ScheduleBarItem (변경 없음, 12.dp / 9.sp) ---
 @Composable
 private fun ScheduleBarItem(schedule: Schedule) {
     val scheduleColor = try {
@@ -585,7 +608,6 @@ private fun ScheduleBarItem(schedule: Schedule) {
 }
 
 
-// ★★★ 7. (수정) 캘린더 헤더 (텍스트 전용)
 @Composable
 fun CalendarHeader(
     yearMonth: String,
@@ -595,20 +617,19 @@ fun CalendarHeader(
     Row(
         modifier = modifier
             .clickable { onMonthArrowClick() }
-            .padding(horizontal = 16.dp), // 클릭 영역 확보
+            .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = yearMonth,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.Black,
+            color = TextBlack,
             textAlign = TextAlign.Center
         )
     }
 }
 
-// --- (기존) DayHeader (변경 없음) ---
 @Composable
 fun DayHeader(selectedDate: LocalDate) {
     val dayOfMonth = selectedDate.dayOfMonth
@@ -621,7 +642,7 @@ fun DayHeader(selectedDate: LocalDate) {
             .padding(horizontal = 20.dp, vertical = 24.dp),
         verticalAlignment = Alignment.Bottom
     ) {
-        Text(text = "$dayOfMonth", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        Text(text = "$dayOfMonth", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = TextBlack)
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = "${dayOfWeek}요일",
@@ -633,7 +654,6 @@ fun DayHeader(selectedDate: LocalDate) {
     }
 }
 
-// --- (기존) DayScheduleItem (변경 없음) ---
 @Composable
 fun DayScheduleItem(
     schedule: Schedule,
@@ -641,14 +661,11 @@ fun DayScheduleItem(
     onClick: () -> Unit
 ) {
     val zoneId = ZoneId.systemDefault()
-
-    val startTimeString = schedule.startDate.toDate().toInstant()
-        .atZone(zoneId)
-        .format(DateTimeFormatter.ofPattern("H:mm"))
-
     val formatterAmPm = DateTimeFormatter.ofPattern("a h:mm", Locale.KOREAN)
     val start = schedule.startDate.toDate().toInstant().atZone(zoneId).format(formatterAmPm)
     val end = schedule.endDate.toDate().toInstant().atZone(zoneId).format(formatterAmPm)
+    val startTimeString = schedule.startDate.toDate().toInstant().atZone(zoneId).format(DateTimeFormatter.ofPattern("H:mm"))
+
     val timeRangeString = "$start - $end"
 
     val scheduleColor = try {
@@ -683,7 +700,7 @@ fun DayScheduleItem(
                 text = schedule.title,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.Black
+                color = TextBlack
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
@@ -701,7 +718,6 @@ fun DayScheduleItem(
     }
 }
 
-// --- (기존) AllDayScheduleItem (변경 없음) ---
 @Composable
 fun AllDayScheduleItem(
     schedule: Schedule,
@@ -738,7 +754,7 @@ fun AllDayScheduleItem(
                     text = schedule.title,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.Black.copy(alpha = 0.8f)
+                    color = TextBlack.copy(alpha = 0.8f)
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -757,24 +773,24 @@ fun AllDayScheduleItem(
 }
 
 
-// --- (기존) OverlappingPetIcons (변경 없음) ---
 @Composable
 fun OverlappingPetIcons(
     petNames: List<String>,
-    petUrls: List<String?>, // ★ URL 리스트 받기
+    petUrls: List<String?>,
     color: Color,
     modifier: Modifier = Modifier
 ) {
     if (petNames.isEmpty()) {
-        // Spacer(modifier = modifier.width(40.dp)) // (선택사항: 공간 유지 여부)
         return
     }
 
     val displayCount = petNames.take(3).size
     val remaining = (petNames.size - displayCount).coerceAtLeast(0)
-    val iconSize = 32.dp // 투두와 동일하게 맞춤
+    val iconSize = 32.dp
     val overlap = 12.dp
-    val totalWidth = (iconSize + (displayCount - 1) * 20.dp + (if (remaining > 0) 24.dp else 0.dp))
+
+    // 안전한 dp 계산
+    val totalWidth = (iconSize + (displayCount - 1) * (iconSize - overlap) + (if (remaining > 0) 24.dp else 0.dp))
 
     Box(
         modifier = modifier
@@ -785,14 +801,14 @@ fun OverlappingPetIcons(
         for (index in 0 until displayCount) {
             val reverseIndex = (displayCount - 1) - index
             val name = petNames.getOrNull(reverseIndex) ?: ""
-            val url = petUrls.getOrNull(reverseIndex) // ★ URL 가져오기
+            val url = petUrls.getOrNull(reverseIndex)
 
             PetIconCircle(
                 petName = name,
-                imageUrl = url, // ★ 전달
+                imageUrl = url,
                 color = color.copy(alpha = 1f - (reverseIndex * 0.2f)),
                 modifier = Modifier
-                    .padding(start = index * (iconSize - overlap))
+                    .padding(start = index * (iconSize - overlap)) // 안전 계산
                     .size(iconSize)
                     .zIndex(index.toFloat())
             )
@@ -816,7 +832,7 @@ fun OverlappingPetIcons(
 @Composable
 private fun PetIconCircle(
     petName: String,
-    imageUrl: String?, // ★ 이미지 URL
+    imageUrl: String?,
     color: Color,
     modifier: Modifier = Modifier
 ) {
@@ -828,7 +844,6 @@ private fun PetIconCircle(
         contentAlignment = Alignment.Center
     ) {
         if (!imageUrl.isNullOrBlank()) {
-            // 사진 있으면 사진 표시
             coil.compose.AsyncImage(
                 model = imageUrl,
                 contentDescription = petName,
@@ -836,7 +851,6 @@ private fun PetIconCircle(
                 modifier = Modifier.fillMaxSize()
             )
         } else {
-            // 없으면 아이콘
             Icon(
                 imageVector = Icons.Default.Pets,
                 contentDescription = petName,
@@ -887,7 +901,7 @@ fun MonthYearPickerDialog(
                             TextButton(onClick = { selectedMonth = month }) {
                                 Text(
                                     text = "${month}월",
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray,
+                                    color = if (isSelected) YellowCustom else Color.Gray,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                 )
                             }
@@ -901,7 +915,6 @@ fun MonthYearPickerDialog(
     )
 }
 
-// --- (기존) Preview (변경 없음) ---
 @Preview(showBackground = true, widthDp = 360, heightDp = 740)
 @Composable
 fun ScheduleScreenPreview() {

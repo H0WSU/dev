@@ -222,11 +222,6 @@ fun CalendarWeekRow(
             val isSelected = date == selectedDate
             val isToday = date == today
 
-            // ★ UI 로직:
-            // 1. 오늘 날짜(isToday) = 검은색 채워진 동그라미 + 흰색 글씨
-            // 2. 선택된 날짜(isSelected)이면서 오늘이 아님 = 검은색 테두리 + 검은색 글씨
-            // 3. 그 외 = 투명 + 검은색 글씨
-
             val backgroundColor = if (isToday) Color(0xFFFFDF37) else Color.Transparent
             val borderColor = if (isSelected && !isToday) Color(0xFFFFDF37) else Color.Transparent
             val textColor = if (isToday) Color(0xFF121212) else Color(0xFF121212)
