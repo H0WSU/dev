@@ -173,7 +173,7 @@ fun CreateTodoScreen(
 
             CreateTodoBottomButton(
                 modifier = Modifier.align(Alignment.BottomCenter),
-                buttonText = if (isEditMode) "수정하기" else "투두 생성 완료",
+                buttonText = if (isEditMode) "수정하기" else "저장하기",
                 onCreateClick = {
                     if (taskTitle.isBlank()) {
                         triggerShake()
@@ -300,10 +300,12 @@ private fun CreateTodoContent(
         modifier = modifier
             .verticalScroll(rememberScrollState())
             .padding(start = 24.dp, end = 24.dp, bottom = 104.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        // ★ [삭제] 전체 간격 자동 설정 제거 (개별 조절을 위해)
+        // verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(34.dp)) // 맨 위 여백 (기존 10 + 24 느낌으로 조정)
 
+        // 1. 누가
         CreateTodoSection(
             icon = rememberVectorPainter(image = Icons.Default.Person),
             title = "누가"
@@ -316,10 +318,13 @@ private fun CreateTodoContent(
             )
         }
 
-        CreateTodoSection(
-            icon = rememberVectorPainter(image = Icons.Default.DateRange),
-            title = "언제",
+        // ★ 기본 간격
+        Spacer(modifier = Modifier.height(24.dp))
 
+        // 2. 언제
+        CreateTodoSection(
+            icon = rememberVectorPainter(image = Icons.Default.DateRange), // 아이콘 수정됨
+            title = "언제",
         ) {
             DatePickerField(
                 selectedDateMillis = selectedDate,
@@ -327,6 +332,10 @@ private fun CreateTodoContent(
             )
         }
 
+        // ★ 기본 간격
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // 3. 해야 할 일
         CreateTodoSection(
             icon = rememberVectorPainter(image = Icons.Default.CheckBox),
             title = "해야 할 일"
@@ -338,6 +347,10 @@ private fun CreateTodoContent(
             )
         }
 
+        // 여기가 줄이고 싶은 간격! (예: 12dp로 줄임)
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // 4. 반려동물 선택
         CreateTodoSection(
             icon = rememberVectorPainter(image = Icons.Default.Pets),
             title = "반려동물 선택"
@@ -355,7 +368,6 @@ private fun CreateTodoContent(
         }
     }
 }
-
 @Composable
 private fun AssigneeSelector(
     members: List<FamilyMember>,
@@ -443,7 +455,7 @@ private fun DatePickerField(selectedDateMillis: Long, onClick: () -> Unit) {
         onClick = onClick
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
@@ -678,8 +690,7 @@ private fun PetIconCircle(
     Box(
         modifier = modifier
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.6f))
-            .border(1.dp, Color.White, CircleShape),
+            .background(Color.White.copy(alpha = 0.6f)),
         contentAlignment = Alignment.Center
     ) {
         if (!imageUrl.isNullOrBlank()) {
