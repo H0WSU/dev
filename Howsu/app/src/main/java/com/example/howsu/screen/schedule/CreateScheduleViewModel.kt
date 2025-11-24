@@ -165,7 +165,7 @@ class CreateScheduleViewModel : ViewModel() {
     }
 
     fun onPetTagRemoved(pet: Pet) {
-        _selectedPets.update { it.filterNot { p -> p.petId == pet.petId } }
+        _selectedPets.update { currentList -> currentList.filterNot { it.petId == pet.petId } }
     }
 
     fun onTitleChanged(newTitle: String) {
