@@ -37,7 +37,7 @@ fun MyBottomNavigationBar(navController: NavHostController) {
         BottomNavItem("schedule", "Calendar", R.drawable.date_under),
         BottomNavItem("todo", "Todo", R.drawable.todo_under),
         BottomNavItem("feed", "Feed", R.drawable.feed_under),
-        BottomNavItem("profile", "Profile", R.drawable.user_under)
+        BottomNavItem("mypage", "Mypage", R.drawable.user_under)
     )
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
