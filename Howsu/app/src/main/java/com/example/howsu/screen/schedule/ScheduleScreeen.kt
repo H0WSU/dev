@@ -78,7 +78,6 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
-// ★ 색상 상수 정의
 val YellowCustom = Color(0xFFFFDF37)
 val TextBlack = Color(0xFF121212)
 

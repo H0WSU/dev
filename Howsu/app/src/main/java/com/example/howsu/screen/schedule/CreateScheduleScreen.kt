@@ -432,6 +432,8 @@ private fun CreateScheduleContent(
     val dateFormatter = SimpleDateFormat("yyyy.MM.dd 까지", Locale.KOREAN)
     val recurrenceEndDateStr = recurrenceEndDate?.let { dateFormatter.format(Date(it)) } ?: "계속 반복"
 
+    val dividerColor = Color.LightGray.copy(alpha = 0.5f)
+
     Column(
         modifier = modifier
             // .fillMaxSize() // ★ Box에서 이미 적용됨
@@ -536,11 +538,15 @@ private fun CreateScheduleContent(
             }
         }
 
+        Divider(color = dividerColor)
+
         // --- (기존) 섹션 6: 한 줄 메모 ---
         CreateScheduleSection(
             icon = rememberVectorPainter(image = Icons.Default.Comment),
             title = "한 줄 메모"
         ) { ScheduleMemoField(memo = memo, onMemoChanged = onMemoChanged) }
+
+        Divider(color = dividerColor)
 
         // --- (기존) 섹션 7: 반려동물 선택 ---
         CreateScheduleSection(
