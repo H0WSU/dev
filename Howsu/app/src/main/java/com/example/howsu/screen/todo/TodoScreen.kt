@@ -21,12 +21,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
@@ -34,7 +33,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -63,6 +61,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.times
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.howsu.R
@@ -114,7 +113,7 @@ fun TodoScreen(
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.White,
         topBar = {
             TopAppBar(
                 title = { Text("Todo", fontWeight = FontWeight.Medium, fontSize = 24.sp) },
@@ -124,12 +123,12 @@ fun TodoScreen(
                             painter = painterResource(id = R.drawable.date_under),
                             contentDescription = "캘린더",
                             modifier = Modifier.size(24.dp),
-                            tint = Color(0xFFFFC848)
+                            tint = Color.Unspecified
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = Color.White,
                 )
             )
         },
@@ -228,9 +227,9 @@ fun CalendarWeekRow(
             // 2. 선택된 날짜(isSelected)이면서 오늘이 아님 = 검은색 테두리 + 검은색 글씨
             // 3. 그 외 = 투명 + 검은색 글씨
 
-            val backgroundColor = if (isToday) Color(0xFFFFC848) else Color.Transparent
-            val borderColor = if (isSelected && !isToday) Color(0xFFFFC848) else Color.Transparent
-            val textColor = if (isToday) Color.White else Color.Black
+            val backgroundColor = if (isToday) Color(0xFFFFDF37) else Color.Transparent
+            val borderColor = if (isSelected && !isToday) Color(0xFFFFDF37) else Color.Transparent
+            val textColor = if (isToday) Color(0xFF121212) else Color(0xFF121212)
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -243,7 +242,7 @@ fun CalendarWeekRow(
                 Text(
                     text = date.format(dayOfWeekFormatter),
                     fontSize = 12.sp,
-                    color = Color.Gray
+                    color = Color(0xFF121212)
                 )
                 Spacer(modifier = Modifier.height(4.dp))
 
@@ -252,7 +251,7 @@ fun CalendarWeekRow(
                         .size(32.dp)
                         .clip(CircleShape)
                         .background(backgroundColor)
-                        .border(1.5.dp, borderColor, CircleShape),
+                        .border(1.dp, borderColor, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -283,7 +282,7 @@ fun DailyHeader(selectedDate: LocalDate) {
             text = selectedDate.format(formatter),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
+            color = Color(0xFF121212)
         )
 
         // 2. "오늘" 뱃지 (오늘 날짜일 때만 표시)
@@ -291,7 +290,7 @@ fun DailyHeader(selectedDate: LocalDate) {
             Spacer(modifier = Modifier.width(8.dp)) // 간격
 
             Surface(
-                color = Color(0xFFFFC848), // 포인트 컬러 (노랑)
+                color = Color(0xFFFFDF37), // 포인트 컬러 (노랑)
                 shape = RoundedCornerShape(12.dp), // 둥근 모서리
                 modifier = Modifier.height(22.dp)
             ) {
@@ -303,7 +302,7 @@ fun DailyHeader(selectedDate: LocalDate) {
                         text = "오늘",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.Black
+                        color = Color(color = 0xFF121212)
                     )
                 }
             }
@@ -329,46 +328,70 @@ fun TodoGroupCard(
     viewModel: TodoViewModel
 ) {
     var isMenuExpanded by remember { mutableStateOf(false) }
+    val contentColor = Color(0xFF121212)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFFFC848) // 원하시는 노란색 적용
-        )
-        // colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFDF37))
     ) {
         Column(modifier = Modifier.padding(vertical = 10.dp)) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 23.dp, end = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val assigneeName = group.assigneeName ?: ""
-                val particle = if (hasBatchim(assigneeName)) "이" else "가"
+                // ★ 1. 프로필 사진 (여러 명이면 겹쳐서 보여주기 - 펫 아이콘 로직 재사용!)
+                OverlappingPetIcons(
+                    petNames = group.assigneeNames, // 이름 리스트
+                    petUrls = group.assigneeProfileUrls, // 사진 주소 리스트
+                    color = Color(color = 0xFF121212),
+                    modifier = Modifier.height(36.dp) // 높이 살짝 키움
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // ★ 2. 이름 텍스트 조합 ("언니, 엄마" + "가")
+                // 리스트가 비어있을 수 있으니 안전하게 처리
+                val names = group.assigneeNames
+                val nameString = names.joinToString(", ") // "언니, 엄마"
+
+                // 마지막 이름의 받침 확인
+                val lastName = names.lastOrNull() ?: ""
+                val particle = if (hasBatchim(lastName)) "이" else "가"
+
                 Text(
                     text = buildAnnotatedString {
                         withStyle(style = SpanStyle(fontWeight = FontWeight.SemiBold, fontSize = 18.sp)) {
-                            append(assigneeName)
+                            append(nameString)
                         }
                         withStyle(style = SpanStyle(fontWeight = FontWeight.Medium, fontSize = 15.sp)) {
                             append(particle)
                         }
                     },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = contentColor,
+                    maxLines = 1, // 너무 길면 ... 처리
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f) // 남은 공간 차지
                 )
-                Spacer(Modifier.weight(1f))
 
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // 펫 아이콘
                 OverlappingPetIcons(
                     petNames = group.petNames,
-                    color = Color.Black,
+                    petUrls = group.petProfileUrls,
+                    color = contentColor,
                     modifier = Modifier.height(34.dp)
                 )
 
+                // 더보기 메뉴
                 Box {
                     IconButton(onClick = { isMenuExpanded = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "더보기", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "더보기",
+                            tint = contentColor
+                        )
                     }
                     DropdownMenu(
                         expanded = isMenuExpanded,
@@ -392,8 +415,9 @@ fun TodoGroupCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(1.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
+            // 할 일 목록
             Column(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -403,7 +427,8 @@ fun TodoGroupCard(
                         task = task,
                         onCheckedChange = { isChecked ->
                             viewModel.onTaskCheckedChange(group.documentId, task.id, isChecked)
-                        }
+                        },
+                        contentColor = contentColor
                     )
                 }
             }
@@ -414,7 +439,8 @@ fun TodoGroupCard(
 @Composable
 fun TaskItemRow(
     task: Task,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: (Boolean) -> Unit,
+    contentColor: Color = Color(0xFF121212)
 ) {
     Row(
         modifier = Modifier
@@ -423,21 +449,41 @@ fun TaskItemRow(
             .padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Checkbox(
-            checked = task.isChecked,
-            onCheckedChange = onCheckedChange,
-            colors = CheckboxDefaults.colors(
-                checkedColor = MaterialTheme.colorScheme.primary,
-                uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant
+        // ★★★ [수정] 기본 Checkbox 대신 커스텀 디자인 적용
+        Box(
+            modifier = Modifier
+                .size(24.dp) // 체크박스 크기
+                .clip(RoundedCornerShape(6.dp)) // 둥근 모서리
+                .background(Color.White) // 배경은 항상 흰색
+                .border(
+                    width = 1.dp,
+                    color = contentColor, // 테두리는 항상 진한 회색(검정)
+                    shape = RoundedCornerShape(6.dp)
+                )
+                .clickable { onCheckedChange(!task.isChecked) }, // 클릭 동작
+            contentAlignment = Alignment.Center
+        ) {
+            // ★ 체크 상태에 따라 아이콘 색상만 변경
+            val iconColor = if (task.isChecked) {
+                contentColor // 체크됨: 진한 회색 (0xFF121212)
+            } else {
+                Color.LightGray // 체크 안 됨: 연한 회색 (보이긴 함)
+            }
+
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = null,
+                tint = iconColor, // 색상 적용
+                modifier = Modifier.size(16.dp) // 아이콘 크기 조절
             )
-        )
+        }
+
+        Spacer(modifier = Modifier.width(12.dp)) // 체크박스와 글자 사이 간격
 
         Text(
             text = task.title ?: "",
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 3.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+            color = contentColor,
             fontWeight = FontWeight.Medium,
             fontSize = 15.sp,
             maxLines = 1,
@@ -448,40 +494,54 @@ fun TaskItemRow(
             text = task.date ?: "",
             fontWeight = FontWeight.Medium,
             fontSize = 11.sp,
-            color = Color.Gray,
+            color = Color(color=0xFF121212),
             modifier = Modifier.padding(start = 8.dp)
         )
     }
 }
 
-
-// --- (기존 펫 아이콘 관련 코드 유지) ---
 @Composable
 private fun OverlappingPetIcons(
     petNames: List<String>,
+    petUrls: List<String?>,
     color: Color,
     modifier: Modifier = Modifier
 ) {
     if (petNames.isEmpty()) return
-    val displayNames = petNames.take(3)
-    val remaining = (petNames.size - displayNames.size).coerceAtLeast(0)
-    val width = (32 + (displayNames.size - 1) * 20 + (if (remaining > 0) 24 else 0)).dp
+
+    val displayCount = petNames.take(3).size
+    val remaining = (petNames.size - displayCount).coerceAtLeast(0)
+    val width = (32 + (displayCount - 1) * 20 + (if (remaining > 0) 24 else 0)).dp
     val overlap = 20.dp
 
     Box(
         modifier = modifier.width(width).height(32.dp),
         contentAlignment = Alignment.CenterStart
     ) {
-        displayNames.reversed().forEachIndexed { index, name ->
+        // 3개까지만 표시
+        for (index in 0 until displayCount) {
+            val reverseIndex = (displayCount - 1) - index
+            val name = petNames.getOrNull(reverseIndex) ?: ""
+            val url = petUrls.getOrNull(reverseIndex) // ★ 해당 인덱스의 URL 가져오기
+
             PetIconCircle(
                 petName = name,
-                color = color.copy(alpha = 1f - (index * 0.2f)),
-                modifier = Modifier.padding(start = ((displayNames.size - 1) - index) * overlap).size(32.dp)
+                imageUrl = url, // ★ 전달
+                color = color.copy(alpha = 1f - (reverseIndex * 0.2f)),
+                modifier = Modifier
+                    .padding(start = index * overlap)
+                    .size(32.dp)
+                    .zIndex(index.toFloat()) // 오른쪽 게 위로 올라오게
             )
         }
+
         if (remaining > 0) {
             Box(
-                modifier = Modifier.align(Alignment.CenterEnd).size(24.dp).clip(CircleShape).background(Color.Gray.copy(alpha = 0.3f)),
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(Color.Gray.copy(alpha = 0.3f)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(text = "+$remaining", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = color)
@@ -491,11 +551,32 @@ private fun OverlappingPetIcons(
 }
 
 @Composable
-private fun PetIconCircle(petName: String, color: Color, modifier: Modifier = Modifier) {
+private fun PetIconCircle(
+    petName: String,
+    imageUrl: String?, // ★ 이미지 URL 받음
+    color: Color,
+    modifier: Modifier = Modifier
+) {
     Box(
-        modifier = modifier.clip(CircleShape).background(Color.Gray.copy(alpha = 0.1f)),
+        modifier = modifier
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.6f)), // 배경 반투명 흰색
         contentAlignment = Alignment.Center
     ) {
-        Icon(imageVector = Icons.Default.Pets, contentDescription = petName, tint = color, modifier = Modifier.size(20.dp))
+        if (!imageUrl.isNullOrBlank()) {
+            coil.compose.AsyncImage(
+                model = imageUrl,
+                contentDescription = petName,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.Pets,
+                contentDescription = petName,
+                tint = color,
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
 }

@@ -819,12 +819,32 @@ private fun PetSelector(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Image(Icons.Default.AccountCircle, "펫 프로필", modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape))
+                    // ★★★ [수정] 선택된 펫이 있으면 겹친 아이콘 표시
+                    if (selectedPets.isEmpty()) {
+                        Image(
+                            imageVector = Icons.Default.AccountCircle,
+                            contentDescription = "펫 프로필",
+                            modifier = Modifier.size(32.dp).clip(CircleShape)
+                        )
+                    } else {
+                        val firstPet = selectedPets.first()
+                        if (!firstPet.profileImageUrl.isNullOrBlank()) {
+                            coil.compose.AsyncImage(
+                                model = firstPet.profileImageUrl,
+                                contentDescription = null,
+                                modifier = Modifier.size(32.dp).clip(CircleShape),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        } else {
+                            Icon(Icons.Default.Pets, null, modifier = Modifier.size(24.dp))
+                        }
+                    }
+
                     Spacer(modifier = Modifier.width(8.dp))
+
                     Text(
-                        text = if (selectedPets.isEmpty()) "반려동물을 선택해 주세요" else selectedPets.joinToString { it.name },
+                        text = if (selectedPets.isEmpty()) "반려동물을 선택해 주세요"
+                        else selectedPets.joinToString { it.name },
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                         color = if (selectedPets.isEmpty()) Color.Gray else MaterialTheme.colorScheme.onSurface
@@ -833,6 +853,7 @@ private fun PetSelector(
                     Icon(Icons.Default.KeyboardArrowDown, "열기", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
+
             DropdownMenu(
                 expanded = isDropdownVisible,
                 onDismissRequest = onDropdownDismissed,

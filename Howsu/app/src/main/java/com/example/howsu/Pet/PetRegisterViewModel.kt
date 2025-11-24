@@ -1,20 +1,34 @@
 package com.example.howsu.Pet
 
+import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.example.howsu.data.model.BirthdayInputType
 import com.example.howsu.data.model.Pet
 import com.example.howsu.data.model.PetRegisterStep
 import com.example.howsu.data.model.PetRegisterUiState
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
+import com.google.firebase.firestore.firestore
+import com.google.firebase.storage.storage
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class PetRegisterViewModel : ViewModel() {
 
     private val _uiState = MutableStateFlow(PetRegisterUiState())
     val uiState: StateFlow<PetRegisterUiState> = _uiState
 
-    // 닉네임 (지금은 안 쓰더라도 남겨둬도 됨)
+    // 추가한 부분
+    private val db = Firebase.firestore
+    private val auth = Firebase.auth
+    private val storage = Firebase.storage // 이게 없으면 껐다 켰을 때 프로필 사진이 사라짐
+
+    // 닉네임
     fun updateNickName(value: String) =
         _uiState.update { it.copy(nickName = value) }
 
@@ -120,24 +134,77 @@ class PetRegisterViewModel : ViewModel() {
     }
 
     // 저장
+    @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
     fun submit(onFinished: (Pet) -> Unit) {
         val s = _uiState.value
+        val user = auth.currentUser ?: return
 
-        val pet = Pet(
+        // [속임수] 화면에 보여줄 '임시 펫 데이터'를 먼저 만듦
+        val tempPet = Pet(
             name = s.petName,
             gender = s.gender,
-            profileImageUrl = s.profilePetImageUrl,
+            profileImageUrl = s.profilePetImageUrl, // 로컬 주소
             weight = s.weight.ifBlank { null },
             isNeutered = s.isNeutered,
             relation = s.relation,
-
             birthdayInputType = s.birthdayInputType,
             birthdayExact = s.birthdayExact.ifBlank { null },
             birthdayYearApprox = s.birthdayYearApprox.ifBlank { null },
             birthdayMonthApprox = s.birthdayMonthApprox.ifBlank { null }
         )
 
-        onFinished(pet)
+        // 화면부터 먼저 넘겨 버림
+        onFinished(tempPet)
+
+        // [백그라운드 작업] 사용자가 다음 화면 구경하는 동안 뒤에서 몰래 업로드 & 저장
+        GlobalScope.launch {
+            try {
+                // 가족 ID 가져오기
+                val userDoc = db.collection("users").document(user.uid).get().await()
+                val familyId = userDoc.getString("currentFamilyId")
+
+                if (familyId != null) {
+                    var finalProfileUrl = s.profilePetImageUrl
+
+                    // A. 이미지 업로드 (시간이 걸리는 작업)
+                    if (finalProfileUrl != null && finalProfileUrl.startsWith("content://")) {
+                        val imageUri = Uri.parse(finalProfileUrl)
+                        val fileName = "${java.util.UUID.randomUUID()}.jpg"
+                        val storageRef = storage.reference.child("pet_images/$fileName")
+
+                        // 여기서 시간 걸려도 사용자는 모름 (이미 화면 넘어감)
+                        storageRef.putFile(imageUri).await()
+                        finalProfileUrl = storageRef.downloadUrl.await().toString()
+                        Log.d("PetRegisterVM", "몰래 업로드 성공: $finalProfileUrl")
+                    }
+
+                    // B. 진짜 저장할 펫 객체 (이제 인터넷 주소 https:// 로 교체됨)
+                    val realPet = tempPet.copy(profileImageUrl = finalProfileUrl)
+
+                    // C. DB 저장
+                    db.collection("families").document(familyId)
+                        .collection("pets")
+                        .add(realPet)
+                        .await()
+
+                    // D. 관계 업데이트
+                    if (s.relation.isNotBlank()) {
+                        db.collection("families").document(familyId)
+                            .collection("members").document(user.uid)
+                            .update("relationship", s.relation)
+                            .await()
+                    }
+
+                    Log.d("PetRegisterVM", "몰래 DB 저장까지 완료!")
+
+                } else {
+                    Log.e("PetRegisterVM", "가족 정보 없음")
+                }
+            } catch (e: Exception) {
+                // 이미 화면은 넘어갔으니 에러 나도 사용자한테는 안 보임 (로그만 남김)
+                Log.e("PetRegisterVM", "백그라운드 저장 실패", e)
+            }
+        }
     }
 
     fun resetForNewPet() {
@@ -152,7 +219,8 @@ class PetRegisterViewModel : ViewModel() {
                 birthdayExact = "",
                 birthdayYearApprox = "",
                 birthdayMonthApprox = "",
-                relation = ""
+                relation = "",
+                profilePetImageUrl = null // 이미지 초기화
             )
         }
     }

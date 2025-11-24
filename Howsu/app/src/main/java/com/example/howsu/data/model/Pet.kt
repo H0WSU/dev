@@ -6,7 +6,7 @@ enum class BirthdayInputType {
 }
 
 data class Pet(
-    val strp: PetRegisterStep = PetRegisterStep.PHOTO_NAME,
+    val step: PetRegisterStep = PetRegisterStep.PHOTO_NAME, // strp로 돼 있어서 step으로 수정함 (오타가 아니라면 다시 수정해도 됨)
     val petId: String? = null,
     val name: String = "",
     val gender: String? = null,
