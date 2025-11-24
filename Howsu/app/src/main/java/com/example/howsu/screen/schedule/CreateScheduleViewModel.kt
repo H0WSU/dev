@@ -35,6 +35,7 @@ enum class DateTimePickerTarget {
 class CreateScheduleViewModel : ViewModel() {
 
     private val db = Firebase.firestore
+    private val auth = Firebase.auth // Auth 추가
     private var currentScheduleId: String? = null
 
     // --- (기존 상태들) ---
@@ -88,23 +89,40 @@ class CreateScheduleViewModel : ViewModel() {
         "#000000", "#4285F4", "#EA4335", "#34A853", "#FABC05", "#7986CB"
     )
 
-    // --- (기존 함수들 - 변경 없음) ---
     fun initialize(scheduleId: String?) {
         if (currentScheduleId == scheduleId && scheduleId != null) return
         currentScheduleId = scheduleId
         viewModelScope.launch {
-            loadPetsData()
+            loadRealPets()
+
             if (scheduleId != null) loadScheduleForEdit(scheduleId)
         }
     }
 
-    private suspend fun loadPetsData() {
-        val dummyPets = listOf(
-            Pet(petId = "pet_id_1", name = "자몽", profileImageUrl = null),
-            Pet(petId = "pet_id_2", name = "레몬", profileImageUrl = null),
-            Pet(petId = "pet_id_3", name = "망고", profileImageUrl = null)
-        )
-        _allPets.value = dummyPets
+    private suspend fun loadRealPets() {
+        val user = auth.currentUser ?: return
+
+        try {
+            // 1. 내 가족 ID 찾기
+            val userDoc = db.collection("users").document(user.uid).get().await()
+            val myFamilyId = userDoc.getString("currentFamilyId")
+
+            if (myFamilyId != null) {
+                // 2. 펫 목록 가져오기
+                val petsSnapshot = db.collection("families")
+                    .document(myFamilyId)
+                    .collection("pets")
+                    .get()
+                    .await()
+
+                val realPets = petsSnapshot.documents.mapNotNull { doc ->
+                    doc.toObject<Pet>()?.copy(petId = doc.id)
+                }
+                _allPets.value = realPets
+            }
+        } catch (e: Exception) {
+            Log.e("CreateScheduleVM", "펫 로드 실패", e)
+        }
     }
 
     private suspend fun loadScheduleForEdit(scheduleId: String) {
@@ -275,42 +293,49 @@ class CreateScheduleViewModel : ViewModel() {
     }
 
 
-    // --- ★ (수정) 저장 및 알림/반복 로직 ---
     fun saveSchedule(context: Context, onComplete: () -> Unit) {
         val title = _title.value
+        val user = auth.currentUser ?: return
 
-        // ★ 1. 유저 확인 및 familyId 확보 (투두와 동일한 패턴)
-        val currentUser = Firebase.auth.currentUser
-        val myFamilyId = currentUser?.uid ?: return
-
-        if (title.isBlank()) {
-            return
-        }
-
-        val baseScheduleMap = mapOf(
-            "familyId" to myFamilyId, // ★ 2. 맵에 familyId 추가
-            "title" to title,
-            "memo" to _memo.value,
-            "isAllDay" to _isAllDay.value,
-            "petNames" to _selectedPets.value.map { it.name },
-            "color" to _selectedColor.value,
-            "recurrenceRule" to _recurrenceRule.value,
-            "alarmRule" to _alarmRule.value
-        )
+        // 제목이 비어 있으면 저장 안 함
+        if (title.isBlank()) return
 
         viewModelScope.launch {
             try {
-                if (currentScheduleId == null && _recurrenceRule.value != "반복 안 함") {
+                // 1. [핵심] 내 유저 정보에서 '가족 ID' 먼저 가져오기
+                val userDoc = db.collection("users").document(user.uid).get().await()
+                val myFamilyId = userDoc.getString("currentFamilyId")
 
+                // 가족 ID가 없으면 저장 중단
+                if (myFamilyId == null) {
+                    Log.e("CreateScheduleVM", "가족 ID를 찾을 수 없습니다.")
+                    return@launch
+                }
+
+                // 2. 저장할 데이터 맵 만들기 (이제 myFamilyId 사용 가능)
+                val baseScheduleMap = mapOf(
+                    "familyId" to myFamilyId, // ★ 가족 ID 저장
+                    "title" to title,
+                    "memo" to _memo.value,
+                    "isAllDay" to _isAllDay.value,
+                    "petNames" to _selectedPets.value.map { it.name },
+                    "petProfileUrls" to _selectedPets.value.map { it.profileImageUrl },
+                    "color" to _selectedColor.value,
+                    "recurrenceRule" to _recurrenceRule.value,
+                    "alarmRule" to _alarmRule.value
+                )
+
+                // 3. 반복 일정인지 확인하고 저장 시작
+                if (currentScheduleId == null && _recurrenceRule.value != "반복 안 함") {
+                    // [반복 일정 저장 로직]
                     val batch = db.batch()
                     val schedulesRef = db.collection("schedules")
                     val duration = _endDate.value - _startDate.value
 
-                    // ★ (수정) 반복 날짜 계산
                     val recurrenceDates = calculateNextRecurrenceDates(
                         _startDate.value,
                         _recurrenceRule.value,
-                        _recurrenceEndDate.value // ★ 종료 날짜 전달
+                        _recurrenceEndDate.value
                     )
 
                     recurrenceDates.forEach { startDateMillis ->
@@ -322,7 +347,7 @@ class CreateScheduleViewModel : ViewModel() {
                         }
                         batch.set(newDocRef, newMap)
 
-                        // ★ (수정) 모든 반복 일정에 알림 설정
+                        // 알림 설정
                         scheduleAlarm(
                             context = context,
                             scheduleId = newDocRef.id,
@@ -331,12 +356,11 @@ class CreateScheduleViewModel : ViewModel() {
                             alarmRule = _alarmRule.value
                         )
                     }
-
                     batch.commit().await()
                     Log.d("CreateScheduleVM", "${recurrenceDates.size}개 반복 일정 생성 성공")
 
                 } else {
-                    // --- 단일 일정 저장 또는 수정 ---
+                    // [단일 일정 저장/수정 로직]
                     val scheduleMap = baseScheduleMap.toMutableMap().apply {
                         this["startDate"] = Timestamp(Date(_startDate.value))
                         this["endDate"] = Timestamp(Date(_endDate.value))
@@ -353,7 +377,7 @@ class CreateScheduleViewModel : ViewModel() {
                         Log.d("CreateScheduleVM", "일정 수정 성공")
                     }
 
-                    // ★ 단일 일정 알림 설정
+                    // 알림 설정
                     scheduleAlarm(
                         context = context,
                         scheduleId = docId,
@@ -363,7 +387,9 @@ class CreateScheduleViewModel : ViewModel() {
                     )
                 }
 
-                onComplete() // 완료 후 화면 닫기
+                // 4. 저장 완료 후 화면 닫기
+                onComplete()
+
             } catch (e: Exception) {
                 Log.e("CreateScheduleVM", "저장 실패", e)
             }

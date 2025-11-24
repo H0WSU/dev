@@ -63,6 +63,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.times
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
@@ -693,6 +695,7 @@ fun DayScheduleItem(
         Spacer(modifier = Modifier.width(16.dp))
         OverlappingPetIcons(
             petNames = schedule.petNames,
+            petUrls = schedule.petProfileUrls,
             color = scheduleColor
         )
     }
@@ -746,6 +749,7 @@ fun AllDayScheduleItem(
             }
             OverlappingPetIcons(
                 petNames = schedule.petNames,
+                petUrls = schedule.petProfileUrls,
                 color = scheduleColor
             )
         }
@@ -757,56 +761,93 @@ fun AllDayScheduleItem(
 @Composable
 fun OverlappingPetIcons(
     petNames: List<String>,
+    petUrls: List<String?>, // ★ URL 리스트 받기
     color: Color,
     modifier: Modifier = Modifier
 ) {
     if (petNames.isEmpty()) {
-        Spacer(modifier = modifier.width(40.dp))
+        // Spacer(modifier = modifier.width(40.dp)) // (선택사항: 공간 유지 여부)
         return
     }
 
+    val displayCount = petNames.take(3).size
+    val remaining = (petNames.size - displayCount).coerceAtLeast(0)
+    val iconSize = 32.dp // 투두와 동일하게 맞춤
+    val overlap = 12.dp
+    val totalWidth = (iconSize + (displayCount - 1) * 20.dp + (if (remaining > 0) 24.dp else 0.dp))
+
     Box(
         modifier = modifier
-            .width(if (petNames.size > 1) 64.dp else 40.dp)
-            .height(40.dp),
+            .width(totalWidth)
+            .height(iconSize),
         contentAlignment = Alignment.CenterStart
     ) {
-        if (petNames.size > 1) {
+        for (index in 0 until displayCount) {
+            val reverseIndex = (displayCount - 1) - index
+            val name = petNames.getOrNull(reverseIndex) ?: ""
+            val url = petUrls.getOrNull(reverseIndex) // ★ URL 가져오기
+
             PetIconCircle(
-                petName = petNames[1],
-                color = color.copy(alpha = 0.7f),
-                modifier = Modifier.padding(start = 24.dp)
+                petName = name,
+                imageUrl = url, // ★ 전달
+                color = color.copy(alpha = 1f - (reverseIndex * 0.2f)),
+                modifier = Modifier
+                    .padding(start = index * (iconSize - overlap))
+                    .size(iconSize)
+                    .zIndex(index.toFloat())
             )
         }
-        PetIconCircle(
-            petName = petNames[0],
-            color = color,
-            modifier = Modifier
-        )
+
+        if (remaining > 0) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(Color.Gray.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = "+$remaining", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = color)
+            }
+        }
     }
 }
 
-// --- (기존) PetIconCircle (변경 없음) ---
 @Composable
-private fun PetIconCircle(petName: String, color: Color, modifier: Modifier = Modifier) {
+private fun PetIconCircle(
+    petName: String,
+    imageUrl: String?, // ★ 이미지 URL
+    color: Color,
+    modifier: Modifier = Modifier
+) {
     Box(
         modifier = modifier
-            .size(40.dp)
             .clip(CircleShape)
-            .background(Color.Gray.copy(alpha = 0.1f)),
+            .background(Color.White.copy(alpha = 0.6f))
+            .border(1.dp, Color.White, CircleShape),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.Pets,
-            contentDescription = petName,
-            tint = color,
-            modifier = Modifier.size(24.dp)
-        )
+        if (!imageUrl.isNullOrBlank()) {
+            // 사진 있으면 사진 표시
+            coil.compose.AsyncImage(
+                model = imageUrl,
+                contentDescription = petName,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            // 없으면 아이콘
+            Icon(
+                imageVector = Icons.Default.Pets,
+                contentDescription = petName,
+                tint = color,
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
 }
 
 
-// --- (기존) MonthYearPickerDialog (변경 없음) ---
 @Composable
 fun MonthYearPickerDialog(
     initialYear: Int,

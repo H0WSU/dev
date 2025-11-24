@@ -7,10 +7,12 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.ktx.functions
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.messaging.FirebaseMessaging
 import com.kakao.sdk.auth.model.OAuthToken
 import com.kakao.sdk.user.UserApiClient
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -206,33 +208,64 @@ class AuthViewModel : ViewModel() {
         _loginState.value = FirebaseLoginState.Loading
         viewModelScope.launch {
             try {
-                // 1. DB 데이터 삭제
+                // ★★★ [1단계] 내가 속한 가족 방에서 나를 지우기 (가장 중요!)
+                // 먼저 내 가족 ID를 알아내야 함
+                val userDoc = db.collection("users").document(uidToDelete).get().await()
+                val myFamilyId = userDoc.getString("currentFamilyId")
+
+                if (myFamilyId != null) {
+                    // A. 가족의 'memberIds' 배열에서 내 UID 빼기
+                    db.collection("families").document(myFamilyId)
+                        .update("memberIds", FieldValue.arrayRemove(uidToDelete))
+                        .await()
+
+                    // B. 가족 안의 'members' 컬렉션에서 내 정보 문서 삭제
+                    db.collection("families").document(myFamilyId)
+                        .collection("members").document(uidToDelete)
+                        .delete()
+                        .await()
+
+                    Log.d("AuthViewModel", "가족($myFamilyId) 명단에서 삭제 완료")
+                }
+
+                // ★★★ [2단계] 내 유저 정보(users) 삭제
                 db.collection("users").document(uidToDelete).delete().await()
 
-                // 2. 계정 삭제
+                // ★★★ [3단계] 계정(Auth) 삭제
                 user.delete().await()
 
-                // 3. 로그아웃 처리 및 상태 초기화
-                auth.signOut() // (중요) 계정 삭제 후 로그아웃 처리까지 확실하게
+                auth.signOut()
                 _loginState.value = FirebaseLoginState.Idle
                 _currentUserId.value = null
+                Log.d("AuthViewModel", "회원 탈퇴 및 모든 흔적 삭제 완료.")
 
-                Log.d("AuthViewModel", "회원 탈퇴 완료. 이동 신호 보냄.")
-
-                // ★★★★★ [핵심] 여기가 없어서 안 움직인 겁니다!
-                // 작업 다 끝났으니 이제 화면 이동하라고 명령 내리는 부분
                 onSuccess()
 
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "회원 탈퇴 실패", e)
-                // 실패했을 때도 이동시킬지, 에러 메시지를 띄울지 결정해야 함
-                // 보통은 에러 메시지 띄우고 이동 안 함
-                if (e.message?.contains("REQUIRES_RECENT_LOGIN") == true) {
-                    _loginState.value = FirebaseLoginState.Error("재로그인이 필요합니다.")
-                } else {
-                    _loginState.value = FirebaseLoginState.Error("탈퇴 실패: ${e.message}")
-                }
+                // (에러 처리 로직 생략)
+                _loginState.value = FirebaseLoginState.Error("탈퇴 실패: ${e.message}")
             }
+        }
+    }
+
+    // 알림 기능을 위해 토큰 설정
+    fun updateFcmToken() {
+        val uid = auth.currentUser?.uid ?: return
+
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (!task.isSuccessful) {
+                Log.w("AuthViewModel", "토큰 가져오기 실패", task.exception)
+                return@addOnCompleteListener
+            }
+
+            // 새 토큰 가져옴
+            val token = task.result
+
+            // DB에 저장 (내 유저 정보에 fcmToken 필드 추가)
+            val updateData = hashMapOf("fcmToken" to token)
+            db.collection("users").document(uid)
+                .set(updateData, com.google.firebase.firestore.SetOptions.merge())
         }
     }
 }

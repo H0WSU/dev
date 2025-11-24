@@ -75,44 +75,46 @@ fun FamilyRegisterIntroScreen(
     val selectedTab = viewModel.selectedTab
     val context = LocalContext.current
 
-    // [공통] 참여 성공 시 이동 로직
-    val navigateToComplete = {
-        val joinedFamilyName = "새로운 가족" // (실제로는 DB에서 받아온 이름 사용 권장)
+    // 공통, 참여 성공 시 이동 로직
+    val navigateToComplete = { joinedName: String -> // ★ String 받기
         val encodedUrl = if (userProfileUrl != null) {
             URLEncoder.encode(userProfileUrl, StandardCharsets.UTF_8.toString())
         } else {
             "null"
         }
-        navController.navigate("family_join_complete/$joinedFamilyName?profileUrl=$encodedUrl")
+        // 받은 이름(joinedName)을 경로에 넣기
+        navController.navigate("family_join_complete/$joinedName?profileUrl=$encodedUrl")
     }
 
-    // [공통] 수동 참여 로직 (아이디 입력 후 버튼 클릭 시)
+    // [수동 참여]
     val handleManualJoin = {
         viewModel.joinFamily(
-            onSuccess = {
-                // 성공하면 완료 화면으로 이동
-                navigateToComplete()
+            onSuccess = { realName -> // ★ 뷰모델이 준 이름 받기
+                navigateToComplete(realName)
             },
             onFailure = {
-                // 실패하면 토스트 메시지
                 Toast.makeText(context, "아이디를 확인해 주세요!", Toast.LENGTH_SHORT).show()
             }
         )
     }
 
-    // ★ [QR 스캔] 결과 처리 런처
+    // [QR 스캔 참여]
     val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         if (result.contents != null) {
             val scannedId = result.contents
-            // 1. 뷰모델에 스캔된 ID 입력
             viewModel.inputFamilyId = scannedId
-            Toast.makeText(context, "QR 인식됨: $scannedId", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "QR 인식됨", Toast.LENGTH_SHORT).show()
 
-            // 2. (선택사항) 인식되자마자 바로 참여 시도하려면 아래 주석 해제
-            // if (viewModel.joinFamily()) { navigateToComplete() }
+            viewModel.joinFamily(
+                onSuccess = { realName -> // ★ 여기도 이름 받기
+                    navigateToComplete(realName)
+                },
+                onFailure = {
+                    Toast.makeText(context, "유효하지 않은 QR코드입니다.", Toast.LENGTH_SHORT).show()
+                }
+            )
         }
     }
-
     val isNextEnabled = when (regState) {
         FamilyRegState.NONE -> false
         FamilyRegState.SKIP -> true

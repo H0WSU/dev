@@ -242,7 +242,7 @@ fun InviteBottomBar(onComplete: () -> Unit) {
             onClick = onComplete, modifier = Modifier.fillMaxWidth().height(56.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White),
             shape = RoundedCornerShape(12.dp), enabled = true
-        ) { Text("완료하기", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+        ) { Text("계속하기", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
     }
 }
 

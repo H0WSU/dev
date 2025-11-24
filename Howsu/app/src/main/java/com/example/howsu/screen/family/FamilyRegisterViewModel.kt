@@ -83,29 +83,26 @@ class FamilyRegisterViewModel : ViewModel() {
     }
 
     // [로직 3] 가족 참여
-    fun joinFamily(onSuccess: () -> Unit, onFailure: () -> Unit) {
+    fun joinFamily(onSuccess: (String) -> Unit, onFailure: () -> Unit) {
         val user = auth.currentUser
-        if (user == null) {
-            onFailure()
-            return
-        }
-        if (inputFamilyId.isBlank()) {
+        if (user == null || inputFamilyId.isBlank()) {
             onFailure()
             return
         }
 
         viewModelScope.launch {
             try {
-                // 1. 가족 문서 확인
                 val docRef = db.collection("families").document(inputFamilyId)
                 val snapshot = docRef.get().await()
 
                 if (snapshot.exists()) {
-                    // 2. 가족 멤버 리스트에 나 추가
+                    // DB에서 진짜 가족 이름 가져오기
+                    val realFamilyName = snapshot.getString("familyName") ?: "우리"
+
+                    // 1. 멤버 리스트 추가
                     docRef.update("memberIds", FieldValue.arrayUnion(user.uid)).await()
 
-                    // 3. 멤버 정보 생성 (기본 닉네임은 유저 이름으로 하면 더 좋음)
-                    // 유저의 닉네임을 가져오기 위해 users 컬렉션 조회
+                    // 2. 멤버 정보 생성
                     val userSnapshot = db.collection("users").document(user.uid).get().await()
                     val myNickname = userSnapshot.getString("name") ?: "구성원"
                     val myProfileUrl = userSnapshot.getString("profileImageUrl")
@@ -114,22 +111,23 @@ class FamilyRegisterViewModel : ViewModel() {
                         userId = user.uid,
                         familyId = inputFamilyId,
                         nickName = myNickname,
-                        relationship = "참여자", // 나중에 관계 설정에서 변경 가능
+                        relationship = "참여자",
                         profileImageUrl = myProfileUrl
                     )
                     docRef.collection("members").document(user.uid).set(newMember).await()
 
-                    // 4. 내 유저 정보에 '현재 가족 ID' 업데이트
+                    // 3. 유저 정보 업데이트
                     db.collection("users").document(user.uid)
                         .set(mapOf("currentFamilyId" to inputFamilyId), SetOptions.merge())
                         .await()
 
-                    println("가족 참여 성공: $inputFamilyId")
+                    println("가족 참여 성공: $inputFamilyId ($realFamilyName)")
 
-                    // ★ [핵심] 모든 DB 작업이 끝나면 성공 신호를 보냄
-                    onSuccess()
+                    // 성공 시 가족 이름을 같이 보냄!
+                    onSuccess(realFamilyName)
+
                 } else {
-                    println("참여 실패: 존재하지 않는 가족 ID")
+                    println("참여 실패: ID 없음")
                     onFailure()
                 }
             } catch (e: Exception) {
