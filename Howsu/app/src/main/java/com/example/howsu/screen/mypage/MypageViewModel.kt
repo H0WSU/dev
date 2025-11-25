@@ -13,14 +13,16 @@ import kotlinx.coroutines.tasks.await
 
 class MypageViewModel : ViewModel() {
 
-    // 화면에 보여줄 상태
-    private val _familyName = MutableStateFlow("") // 로딩 중일 땐 빈 문자열
+    private val _familyName = MutableStateFlow("")
     val familyName = _familyName.asStateFlow()
 
     private val _familyId = MutableStateFlow("")
     val familyId = _familyId.asStateFlow()
 
-    // Firebase 인스턴스
+    // ★ [추가] 내 프로필 이미지 URL 상태
+    private val _myProfileUrl = MutableStateFlow<String?>(null)
+    val myProfileUrl = _myProfileUrl.asStateFlow()
+
     private val db = Firebase.firestore
     private val auth = Firebase.auth
 
@@ -30,40 +32,30 @@ class MypageViewModel : ViewModel() {
 
     private fun loadMyFamilyInfo() {
         val user = auth.currentUser
-        // 로그인이 안 되어 있으면 중단
-        if (user == null) {
-            Log.e("MypageViewModel", "로그인된 유저가 없습니다")
-            return
-        }
+        if (user == null) return
 
         viewModelScope.launch {
             try {
-                // [1단계] 'users' 컬렉션에서 내 UID로 문서 조회 -> 'currentFamilyId' 가져오기
+                // 1. 내 정보 가져오기
                 val userDoc = db.collection("users").document(user.uid).get().await()
                 val myFamilyId = userDoc.getString("currentFamilyId")
 
+                // ★ [추가] 내 프로필 사진 URL 가져오기
+                val profileUrl = userDoc.getString("profileImageUrl")
+                _myProfileUrl.value = profileUrl
+
                 if (!myFamilyId.isNullOrBlank()) {
-                    // [2단계] 'families' 컬렉션에서 familyId로 문서 조회 -> 'familyName' 가져오기
                     val familyDoc = db.collection("families").document(myFamilyId).get().await()
-
                     if (familyDoc.exists()) {
-                        val myFamilyName = familyDoc.getString("familyName") ?: "우리 가족"
-
-                        // [3단계] 상태 업데이트 (UI에 반영됨)
-                        _familyName.value = myFamilyName
+                        _familyName.value = familyDoc.getString("familyName") ?: "우리 가족"
                         _familyId.value = myFamilyId
-
-                        Log.d("MypageViewModel", "가족 정보 로드 성공: $myFamilyName ($myFamilyId)")
                     }
                 } else {
-                    Log.d("MypageViewModel", "가입된 가족이 없습니다.")
                     _familyName.value = "가족 없음"
                     _familyId.value = "-"
                 }
-
             } catch (e: Exception) {
-                Log.e("MypageViewModel", "데이터 불러오기 실패", e)
-                _familyName.value = "불러오기 실패"
+                Log.e("MypageViewModel", "데이터 로드 실패", e)
             }
         }
     }

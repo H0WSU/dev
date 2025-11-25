@@ -39,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -60,7 +61,11 @@ fun MypageScreen(
     val myFamilyName by viewModel.familyName.collectAsState()
     val myFamilyId by viewModel.familyId.collectAsState()
 
+    // 뷰모델에서 프로필 URL 관찰
+    val myProfileUrl by viewModel.myProfileUrl.collectAsState()
+
     Scaffold(
+        containerColor = Color.White,
         topBar = {
             TopAppBar(
                 title = {
@@ -131,8 +136,15 @@ fun MypageScreen(
                     },
                     text = "가족 초대하기",
                     onClick = {
-                        // 실제 데이터(myFamilyName, myFamilyId)를 가지고 이동
-                        navController.navigate("invite_family/$myFamilyName/$myFamilyId?isFromMypage=true")
+                        // URL 인코딩 처리 (URL에 특수문자가 있어서 필수)
+                        val encodedUrl = if (myProfileUrl != null) {
+                            java.net.URLEncoder.encode(myProfileUrl, java.nio.charset.StandardCharsets.UTF_8.toString())
+                        } else {
+                            "null"
+                        }
+
+                        // 경로에 profileUrl 추가해서 이동
+                        navController.navigate("invite_family/$myFamilyName/$myFamilyId?profileUrl=$encodedUrl&isFromMypage=true")
                     }
                 )
                 Divider(modifier = Modifier.padding(horizontal = 25.dp))

@@ -176,12 +176,14 @@ fun FamilyRegisterIntroScreen(
                         viewModel.createSharedFamily(userNickname, userProfileUrl)
                         val name = viewModel.inputFamilyName
                         val id = viewModel.createdFamilyId
+
                         val encodedUrl = if (userProfileUrl != null) {
                             URLEncoder.encode(userProfileUrl, StandardCharsets.UTF_8.toString())
                         } else {
                             "null"
                         }
-                        navController.navigate("family_invite_screen/$name/$id?profileUrl=$encodedUrl")
+
+                        navController.navigate("invite_family/$name/$id?profileUrl=$encodedUrl&isFromMypage=false")
                     } else {
                         // B. [가족 참여]
                         handleManualJoin()

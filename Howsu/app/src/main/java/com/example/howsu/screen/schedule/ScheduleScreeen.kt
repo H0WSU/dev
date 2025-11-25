@@ -376,7 +376,7 @@ fun SimpleCalendarMonthView(
                                         .clip(CircleShape)
                                         .background(containerColor)
                                         .border(
-                                            width = 1.dp,
+                                            width = 1.5.dp,
                                             color = borderColor,
                                             shape = CircleShape
                                         ),
