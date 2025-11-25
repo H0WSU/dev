@@ -353,7 +353,7 @@ private fun CreateScheduleBottomButton(
             ),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("저장하기", fontWeight = FontWeight.Bold , fontSize = 16.sp)
+            Text("저장하기", fontWeight = FontWeight.Medium, fontSize = 15.sp)
         }
     }
 }

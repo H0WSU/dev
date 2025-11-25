@@ -3,7 +3,6 @@ package com.example.howsu.screen.login // (1. 본인 패키지 이름 확인)
 import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,14 +17,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.AlertDialog // ★ 1. 팝업창을 위해 import
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -37,7 +35,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton // ★ 2. 팝업창 버튼을 위해 import
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -67,6 +65,8 @@ import com.example.howsu.screen.login.social.GoogleLoginButton
 import com.example.howsu.screen.login.social.KakaoLoginButton
 import com.example.howsu.screen.login.social.NaverLoginButton
 import com.example.howsu.screen.login.social.SocialLoginButton
+import com.example.howsu.screen.todo.ContentBlack
+import com.example.howsu.screen.todo.YellowBox
 import com.example.howsu.ui.theme.HowsuTheme
 
 
@@ -95,13 +95,14 @@ fun JoinScreen(
     // 팝업창을 보여줄지 여부
     val showDialog = dialogError != null
 
-    // --- ★ 4. Firebase 오류(서버 오류)를 팝업창으로 설정 ---
     LaunchedEffect(loginState) {
         when (loginState) {
             is FirebaseLoginState.Success -> {
-                Log.d("JoinScreen", "Firebase 회원가입 및 로그인 성공!")
-                // TODO: (중요) 회원가입 성공 시 홈 화면으로 이동
-                navController.navigate("loading") { popUpTo("auth_graph") { inclusive = true } }
+                Log.d("JoinScreen", "회원가입 성공 -> 로딩 화면으로 이동")
+                // 구글이든 이메일이든 무조건 loading으로 보냄
+                navController.navigate("loading") {
+                    popUpTo("auth_graph") { inclusive = true }
+                }
             }
 
             is FirebaseLoginState.Error -> {
@@ -128,6 +129,7 @@ fun JoinScreen(
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { dialogError = null }, // 바깥쪽 클릭 시 닫힘
+            containerColor = Color.White,
             title = { Text(text = "알림") },
             text = { Text(text = dialogError ?: "알 수 없는 오류") },
             confirmButton = {
@@ -238,12 +240,12 @@ fun JoinScreen(
                     .fillMaxWidth()
                     .height(56.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Black,
-                    contentColor = Color.White
+                    containerColor = YellowBox, // ★ 색상 적용 (노랑)
+                    contentColor = ContentBlack // ★ 색상 적용 (검정)
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("지금 가입하기", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                Text("지금 가입하기", fontWeight = FontWeight.Medium, fontSize = 15.sp)
             }
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -265,11 +267,9 @@ fun JoinScreen(
                     viewModel = vm,
                     webClientId = WEB_CLIENT_ID,
                     onLoginSuccess = {
-                        Log.d("JoinScreen", "Firebase 로그인 성공!")
-                        navController.navigate("todo") { popUpTo("auth_graph") { inclusive = true } }
+                        Log.d("JoinScreen", "구글 로그인 성공")
                     },
                     onLoginError = { message ->
-                        Log.e("JoinScreen", "로그인 실패: $message")
                         dialogError = "구글 로그인 실패: $message"
                     }
                 )
@@ -313,10 +313,6 @@ private fun JoinTopBar(onBackClick: () -> Unit) {
             modifier = Modifier
                 .size(24.dp)
                 .align(Alignment.CenterStart)
-                .border(
-                    BorderStroke(0.1.dp, Color.LightGray),
-                    CircleShape
-                )
         ) {
             Icon(
                 imageVector = Icons.Default.ArrowBack,

@@ -75,6 +75,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.howsu.R
+import com.example.howsu.screen.todo.ContentBlack
+import com.example.howsu.screen.todo.YellowBox
 import com.example.howsu.ui.theme.HowsuTheme
 import kotlinx.coroutines.launch // ★ 5. (신규) 코루틴 launch
 import java.time.ZoneId
@@ -535,12 +537,12 @@ private fun DeleteScheduleBottomButton(onDeleteClick: () -> Unit) {
                 .fillMaxWidth()
                 .height(56.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Black,
-                contentColor = Color.White
+                containerColor = YellowBox, // ★ 색상 적용 (노랑)
+                contentColor = ContentBlack // ★ 색상 적용 (검정)
             ),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("삭제하기", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+            Text("삭제하기", fontWeight = FontWeight.Medium, fontSize = 15.sp)
         }
     }
 }

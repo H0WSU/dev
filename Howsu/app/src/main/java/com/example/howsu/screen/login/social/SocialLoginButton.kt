@@ -34,7 +34,7 @@ fun SocialLoginButton(
             contentDescription = null,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(12.dp)
+                .padding(16.dp)
         )
     }
 }

@@ -246,7 +246,7 @@ fun CalendarWeekRow(
                         .size(32.dp)
                         .clip(CircleShape)
                         .background(backgroundColor)
-                        .border(1.dp, borderColor, CircleShape),
+                        .border(1.5.dp, borderColor, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -381,7 +381,8 @@ fun TodoGroupCard(
                     }
                     DropdownMenu(
                         expanded = isMenuExpanded,
-                        onDismissRequest = { isMenuExpanded = false }
+                        onDismissRequest = { isMenuExpanded = false },
+                        containerColor = Color.White
                     ) {
                         DropdownMenuItem(
                             text = { Text("수정하기") },

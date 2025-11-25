@@ -840,7 +840,7 @@ private fun PetIconCircle(
         modifier = modifier
             .clip(CircleShape)
             .background(Color.White.copy(alpha = 0.6f))
-            .border(1.dp, Color.White, CircleShape),
+            .border(1.5.dp, Color.White, CircleShape),
         contentAlignment = Alignment.Center
     ) {
         if (!imageUrl.isNullOrBlank()) {

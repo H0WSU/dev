@@ -240,7 +240,7 @@ private fun CreateTodoBottomButton(
             ),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text(buttonText, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text(buttonText, fontWeight = FontWeight.Medium, fontSize = 15.sp)
         }
     }
 }
