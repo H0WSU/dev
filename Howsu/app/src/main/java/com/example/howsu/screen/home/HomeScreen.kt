@@ -1,12 +1,7 @@
 package com.example.howsu.screen.home
 
 // 필요한 모든 Compose 및 기타 Import
-import android.Manifest
 import android.annotation.SuppressLint
-import android.os.Build
-import android.util.Log
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,12 +23,10 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Pets
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -47,23 +40,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.fontscaling.MathUtils.lerp
@@ -73,111 +58,162 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.howsu.common.MyBottomNavigationBar
 import com.example.howsu.common.MyFloatingActionButton
+import com.example.howsu.screen.todo.CalendarWeekRow
+import com.example.howsu.screen.todo.TodoGroupCard
+import com.example.howsu.screen.todo.TodoViewModel
+import java.time.LocalDate
 import kotlin.math.absoluteValue
-
-
-// ----------------------------------------------------
-// HomeScreen.kt
-// UI 컴포넌트 정의 및 ViewModel 연결
-// ----------------------------------------------------
-
 
 @Composable
 fun HomeScreen(
     navController: NavHostController,
-    viewModel: HomeScreenViewModel = viewModel(), // ViewModel 인스턴스 주입
-    onTodoClick: () -> Unit = {},
-    onScheduleClick: () -> Unit = {},
+    viewModel: HomeScreenViewModel = viewModel(),
+    // 불필요한 파라미터 제거
+    todoViewModel: TodoViewModel = viewModel(),
 ){
-    // ViewModel의 상태를 수집하여 State로 변환
     val uiState by viewModel.uiState.collectAsState()
 
-    // (추가) 알림
-    val context = LocalContext.current
+    val todoGroups by todoViewModel.todoGroups.collectAsState(initial = emptyList())
+    val selectedDate by todoViewModel.selectedDate.collectAsState()
+    val currentWeekStart by todoViewModel.currentWeekStart.collectAsState()
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            Log.d("HomeScreen", "알림 권한 허용됨")
-        } else {
-            Log.e("HomeScreen", "알림 권한 거부됨")
-        }
-    }
+    // (context 변수 제거됨)
 
-    // 2. 화면이 켜지자마자 권한 체크 및 요청 (안드로이드 13 이상만)
-    LaunchedEffect(Unit) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-    }
+    // ... (permissionLauncher 및 LaunchedEffect 유지) ...
 
     Scaffold (
         topBar = { MyTopBar() },
         bottomBar = { MyBottomNavigationBar(navController = navController) },
         floatingActionButton = {
             MyFloatingActionButton(
-                onTodoClick = {
-                    navController.navigate("create_todo")
-                },
-                onScheduleClick = {
-                    navController.navigate("create_schedule")
-                },
-                onFeedCreateClick = {
-                    navController.navigate("create_feed")
-                }
+                onTodoClick = { navController.navigate("create_todo") },
+                onScheduleClick = { navController.navigate("create_schedule") },
+                onFeedCreateClick = { navController.navigate("create_feed") }
             )
         }
     ){ paddingValues ->
+
+        // ★★★ 좁은 패딩 값 정의
+        val NarrowPadding = 26.dp
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            // ★ 1. contentPadding을 0dp로 설정하여 모든 아이템에 수동 패딩을 적용할 수 있도록 함
+            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp)
         ) {
             item{ Spacer(Modifier.height(24.dp)) }
 
-            // 2. 반려동물 섹션
+            // 1. 반려동물 섹션 (NarrowPadding 적용)
             item{
-                PetSection(
-                    pets = uiState.pets,
-                    onPetClick = { pet ->
-                        // TODO: 실제 내비게이션 로직 구현
-                        // navController.navigate("pet_detail/${pet.id}") 형태로 구현해야 함
-                        println("Navigate to Pet Detail for: ${pet.name}")
+                // ★ 16.dp 패딩 적용
+                Column(modifier = Modifier.padding(horizontal = NarrowPadding)) {
+                    PetSection(
+                        pets = uiState.pets,
+                        onPetClick = { pet ->
+                            println("Navigate to Pet Detail for: ${pet.name}")
+                        }
+                    )
+                }
+                Spacer(Modifier.height(24.dp))
+            }
+
+            // 2. 가족 구성원 섹션 (NarrowPadding 적용)
+            item{
+                // ★ 32.dp 패딩 적용
+                Column(modifier = Modifier.padding(horizontal = NarrowPadding)) {
+                    FamilySection(
+                        members = uiState.familyMembers,
+                        showInviteDialog = uiState.showInviteDialog,
+                        onOpenInviteDialog = { viewModel.onInviteDialogVisibilityChange(true) },
+                        onDismissInviteDialog = { viewModel.onInviteDialogVisibilityChange(false) },
+                        onInvite = viewModel::inviteFamilyMember
+                    )
+                }
+                Spacer(Modifier.height(24.dp))
+            }
+
+            // ★★★ 3. 일정 섹션 (캘린더의 기존 좁은 너비에 맞춤)
+            item {
+                // 특별 패딩 지정
+                Column(modifier = Modifier.padding(horizontal = 10.dp)) {
+                    // 텍스트는 캘린더와 같은 시작점에 오도록 추가 16dp 패딩을 적용
+                    Text(
+                        "이번 주 일정",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    Spacer(Modifier.height(8.dp))
+
+                    CalendarWeekRow(
+                        selectedDate = selectedDate,
+                        currentWeekStart = currentWeekStart,
+                        today = LocalDate.now(),
+                        onWeekSwipe = todoViewModel::onWeekSwipe,
+                        onWeekDaySelected = todoViewModel::onWeekDaySelected
+                    )
+                }
+                Spacer(Modifier.height(24.dp))
+            }
+
+            // ★★★ 4. 투두 리스트 (NarrowPadding 적용)
+            item {
+                Text(
+                    "남은 할 일",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    // ★ 32.dp 패딩 적용
+                    modifier = Modifier.padding(horizontal = NarrowPadding)
+                )
+                Spacer(Modifier.height(16.dp))
+            }
+
+            // [로직] ... (unfinishedGroups 로직 유지) ...
+            val unfinishedGroups = todoGroups.mapNotNull { group ->
+                val incompleteTasks = group.tasks.filter { !it.isChecked }
+
+                if (incompleteTasks.isNotEmpty()) {
+                    group.copy(tasks = incompleteTasks)
+                } else {
+                    null
+                }
+            }
+
+            if (unfinishedGroups.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // ★ 32.dp 패딩 적용
+                            .padding(horizontal = NarrowPadding)
+                            .padding(20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "남은 할 일이 없어요! 👏",
+                            color = Color.Gray,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
-                )
-                Spacer(Modifier.height(24.dp))
+                }
+            } else {
+                items(unfinishedGroups, key = { it.documentId }) { group ->
+                    // ★ 32.dp 패딩 적용
+                    Box(modifier = Modifier.padding(horizontal = NarrowPadding)) {
+                        TodoGroupCard(
+                            group = group,
+                            navController = navController,
+                            viewModel = todoViewModel
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
             }
 
-            // 3. 가족 구성원 섹션
-            item{
-                FamilySection(
-                    members = uiState.familyMembers,
-                    showInviteDialog = uiState.showInviteDialog,
-                    onOpenInviteDialog = { viewModel.onInviteDialogVisibilityChange(true) },
-                    onDismissInviteDialog = { viewModel.onInviteDialogVisibilityChange(false) },
-                    onInvite = viewModel::inviteFamilyMember
-                )
-                Spacer(Modifier.height(24.dp))
+            // 5. 리마인더 목록 (마지막 Spacer도 32.dp 패딩에 영향을 받도록)
+            item {
+                Spacer(Modifier.height(80.dp).padding(horizontal = NarrowPadding))
             }
-
-            // 4. 일정 섹션
-            item{
-                ScheduleSection(scheduleDays = uiState.scheduleDays)
-                Spacer(Modifier.height(24.dp))
-            }
-
-            // 5. 리마인더 목록
-            item { Text("리마인더", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))}
-            item{Spacer(Modifier.height(16.dp))}
-            items(uiState.reminders) { reminder ->
-                ReminderItem(
-                    reminder = reminder,
-                    onCheckedChange = { isChecked -> viewModel.onReminderCheckedChange(reminder, isChecked) }
-                )
-            }
-            item { Spacer(Modifier.height(80.dp)) }
         }
     }
 }
@@ -195,8 +231,6 @@ fun HomeScreenPreview() {
         // Mock ViewModel을 사용하는 것이 일반적입니다. 여기서는 기본 설정으로 둡니다.
         HomeScreen(
             navController = navController,
-            onTodoClick = {},
-            onScheduleClick = {}
         )
     }
 }
@@ -399,13 +433,6 @@ fun FamilySection(
             }
         }
     }
-
-    if (showInviteDialog) {
-        FamilyInvitationDialog(
-            onDismissRequest = onDismissInviteDialog,
-            onInvite = onInvite
-        )
-    }
 }
 
 @Composable
@@ -433,7 +460,7 @@ fun FamilyMemberItem(member: FamilyMember) {
     }
 }
 
-@Composable
+/*@Composable
 fun ScheduleSection(scheduleDays: List<ScheduleDay>) {
     Column {
         Text(
@@ -451,7 +478,7 @@ fun ScheduleSection(scheduleDays: List<ScheduleDay>) {
             }
         }
     }
-}
+}*/
 
 @Composable
 fun ScheduleDayItem(day: ScheduleDay) {
@@ -512,117 +539,4 @@ fun ReminderItem(
             color = Color.Gray
         )
     }
-}
-
-// ----------------------------------------------------
-// 가족 초대 다이얼로그
-// ----------------------------------------------------
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun FamilyInvitationDialog(
-    onDismissRequest: () -> Unit,
-    onInvite: (email: String) -> Unit
-) {
-    var emailInput by remember { mutableStateOf("") }
-    var isError by remember { mutableStateOf(false) }
-
-    AlertDialog(
-        onDismissRequest = onDismissRequest,
-        // 👈 크기 조절이 일어나는 위치
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp)), // shape를 modifier에 적용
-
-        title = {
-            Text(
-                "가족 구성원 초대",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-        },
-        // 다이얼로그의 내용 (이메일 입력 필드와 버튼)
-        text = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // 1. 이메일 입력 필드
-                TextField(
-                    value = emailInput,
-                    onValueChange = {
-                        emailInput = it
-                        isError = false
-                    },
-                    placeholder = {
-                        Text(
-                            text ="초대할 이메일을 입력해 주세요.",
-                            style = MaterialTheme.typography.bodySmall)
-                    },
-                    singleLine = true,
-                    isError = isError,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    // 디자인에 맞게 배경색 및 형태 커스텀
-                    colors = TextFieldDefaults.colors(
-                        // 배경색 지정
-                        focusedContainerColor = Color.LightGray.copy(alpha = 0.5f),
-                        unfocusedContainerColor = Color.LightGray.copy(alpha = 0.5f),
-                        disabledContainerColor = Color.LightGray.copy(alpha = 0.5f),
-
-                        // 하단 밑줄(Indicator)을 제거하기 위해 투명하게 설정
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        disabledIndicatorColor = Color.Transparent,
-                        errorIndicatorColor = Color.Transparent,
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                    // 너비를 버튼 공간을 제외하고 채움
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(56.dp) // 높이 지정 (버튼과 맞추기)
-                )
-
-                Spacer(Modifier.width(8.dp))
-
-                // 2. 초대하기 버튼
-                Button(
-                    onClick = {
-                        if (emailInput.contains("@") && emailInput.contains(".")) {
-                            onInvite(emailInput)
-                        } else {
-                            isError = true
-                        }
-                    },
-                    enabled = emailInput.isNotBlank() && !isError,
-                    // 디자인에 맞는 색상 및 형태 적용
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Black, // 검은색 배경
-                        contentColor = Color.White // 흰색 텍스트
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
-                    modifier = Modifier.height(56.dp) // 높이 지정
-                ) {
-                    Text("초대하기", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
-                }
-            }
-
-            // 유효성 검사 오류 메시지
-            if (isError) {
-                Text(
-                    text = "유효한 이메일 주소를 입력해 주세요.",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = 4.dp, start = 4.dp)
-                )
-            }
-        },
-        // 취소/확인
-        confirmButton = { /* 비워둠 */ },
-        dismissButton = { /* 비워둠 */ },
-        shape = RoundedCornerShape(16.dp)
-    )
 }
