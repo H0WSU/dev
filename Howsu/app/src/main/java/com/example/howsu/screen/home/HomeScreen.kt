@@ -30,7 +30,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Pets
@@ -397,22 +396,6 @@ fun FamilySection(
         ) {
             members.forEach { member ->
                 FamilyMemberItem(member = member)
-            }
-            // Add New 버튼
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Surface(
-                    shape = CircleShape,
-                    modifier = Modifier
-                        .size(60.dp)
-                        .clickable { onOpenInviteDialog() },
-                    color = Color.LightGray.copy(alpha = 0.5f)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Filled.Add, contentDescription = "add new", tint = Color.DarkGray)
-                    }
-                }
-                Spacer(Modifier.height(4.dp))
-                Text("add new", style = MaterialTheme.typography.bodySmall)
             }
         }
     }
