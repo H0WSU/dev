@@ -1,10 +1,19 @@
-package com.example.howsu.screen.home
+package com.example.howsu.screen.pet // 패키지명 확인 필요
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,33 +21,47 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
-import com.example.howsu.R
+import com.example.howsu.data.model.Pet
+import com.example.howsu.screen.home.PetDetailViewModel
 
 // ----------------------------------------------------
 // 펫 상세 정보 스크린
 // ----------------------------------------------------
 
-private val DummyPetImage = R.drawable.jamong
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PetDetailScreen(
     navController: NavHostController,
-    pet: Pet // 표시할 펫 정보
+    viewModel: PetDetailViewModel = viewModel() // ViewModel 주입
 ) {
+    val uiState by viewModel.uiState.collectAsState()
+    val pet = uiState.pet
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -49,64 +72,83 @@ fun PetDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* 편집 버튼 클릭 */ }) {
+                    IconButton(onClick = { /* 편집 버튼 클릭: navController.navigate("edit_pet/${pet?.petId}") */ }) {
                         Icon(Icons.Filled.Edit, contentDescription = "편집")
                     }
                 }
             )
         }
     ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-            // 👈 최상위 패딩 제거
-            ,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // 1. 프로필 이미지 섹션 (패딩 불필요)
-            item {
-                Spacer(Modifier.height(32.dp))
-                PetProfileImageSection(pet = pet)
-                Spacer(Modifier.height(32.dp))
-            }
 
-            // 2. 이름 필드 (개별 패딩 적용)
-            item {
-                DetailField(
-                    label = "이름",
-                    value = pet.name,
-                    modifier = Modifier.padding(horizontal = 24.dp) // 👈 패딩 적용
-                )
-                Spacer(Modifier.height(32.dp))
+        // 로딩 중이거나 데이터가 없을 때 처리
+        if (uiState.isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
             }
-
-            // 3. 성별 필드 (개별 패딩 적용)
-            item {
-                GenderSelectionSection(
-                    selectedGender = pet.gender,
-                    modifier = Modifier.padding(horizontal = 24.dp) // 👈 패딩 적용
-                )
-                Spacer(Modifier.height(32.dp))
+        } else if (pet == null) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("정보를 불러올 수 없습니다.")
             }
+        } else {
+            // 데이터가 있을 때 화면 그리기
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // 1. 프로필 이미지 섹션
+                item {
+                    Spacer(Modifier.height(32.dp))
+                    PetProfileImageSection(pet = pet)
+                    Spacer(Modifier.height(32.dp))
+                }
 
-            // 4. 체중 필드 (개별 패딩 적용)
-            item {
-                WeightField(
-                    value = 3.8f, // 임시 체중 값
-                    modifier = Modifier.padding(horizontal = 24.dp) // 👈 패딩 적용
-                )
-                Spacer(Modifier.height(32.dp))
-            }
+                // 2. 이름 필드
+                item {
+                    DetailField(
+                        label = "이름",
+                        value = pet.name,
+                        modifier = Modifier.padding(horizontal = 24.dp)
+                    )
+                    Spacer(Modifier.height(32.dp))
+                }
 
-            // 5. 생년월일/나이 필드 (개별 패딩 적용)
-            item {
-                BirthDateAgeSection(
-                    birthDate = "2018년 7월 2일",
-                    age = pet.age,
-                    modifier = Modifier.padding(horizontal = 24.dp) // 👈 패딩 적용
-                )
-                Spacer(Modifier.height(50.dp))
+                // 3. 성별 필드
+                item {
+                    GenderSelectionSection(
+                        selectedGender = pet.gender ?: "",
+                        isNeutered = pet.isNeutered ?: false,
+                        modifier = Modifier.padding(horizontal = 24.dp)
+                    )
+                    Spacer(Modifier.height(32.dp))
+                }
+
+                // 4. 체중 필드
+                item {
+                    WeightField(
+                        // String으로 저장된 weight를 Float로 변환 (예외처리 포함)
+                        value = pet.weight?.toFloatOrNull() ?: 0.0f,
+                        modifier = Modifier.padding(horizontal = 24.dp)
+                    )
+                    Spacer(Modifier.height(32.dp))
+                }
+
+                // 5. 생년월일/나이 필드
+                item {
+                    val displayDate = if (!pet.birthdayExact.isNullOrEmpty()) {
+                        pet.birthdayExact
+                    } else {
+                        "${pet.birthdayYearApprox}년 ${pet.birthdayMonthApprox}월 (추정)"
+                    }
+
+                    BirthDateAgeSection(
+                        birthDate = displayDate ?: "-",
+                        ageText = uiState.ageText,
+                        modifier = Modifier.padding(horizontal = 24.dp)
+                    )
+                    Spacer(Modifier.height(50.dp))
+                }
             }
         }
     }
@@ -126,18 +168,26 @@ fun PetProfileImageSection(pet: Pet) {
             .border(2.dp, Color.LightGray.copy(alpha = 0.5f), CircleShape),
         contentAlignment = Alignment.Center
     ) {
-        // 실제 이미지 로딩 (현재는 임시)
-        if (pet.imageUrl.isNotEmpty()) {
-            // Coil/Glide 등을 사용하여 URL 이미지 로딩
+        if (!pet.profileImageUrl.isNullOrEmpty()) {
+            // TODO: Coil - AsyncImage(model = pet.profileImageUrl, ...) 사용 권장
+            // 임시로 아이콘 표시
+            Icon(
+                imageVector = Icons.Default.Pets,
+                contentDescription = null,
+                modifier = Modifier.size(60.dp),
+                tint = Color.Gray
+            )
         } else {
-            Image(
-                painter = painterResource(id = DummyPetImage),
-                contentDescription = "Pet Profile Image",
-                modifier = Modifier.fillMaxSize()
+            // 기본 이미지
+            Icon(
+                imageVector = Icons.Default.Pets,
+                contentDescription = null,
+                modifier = Modifier.size(60.dp),
+                tint = Color.Gray
             )
         }
 
-        // 카메라/갤러리 아이콘 (우측 하단 작은 버튼)
+        // 갤러리 아이콘
         Surface(
             shape = CircleShape,
             color = Color.White.copy(alpha = 0.8f),
@@ -149,9 +199,10 @@ fun PetProfileImageSection(pet: Pet) {
             shadowElevation = 4.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
+                // R.drawable.ic_menu_gallery 대신 기본 아이콘 사용 가능
                 Icon(
-                    painter = painterResource(android.R.drawable.ic_menu_gallery),
-                    contentDescription = "Gallery Icon",
+                    imageVector = Icons.Default.Edit, // 혹은 적절한 갤러리 아이콘
+                    contentDescription = "Edit Profile",
                     modifier = Modifier.size(20.dp),
                     tint = Color.DarkGray
                 )
@@ -164,7 +215,7 @@ fun PetProfileImageSection(pet: Pet) {
 fun DetailField(
     label: String,
     value: String,
-    modifier: Modifier = Modifier // 👈 Modifier 파라미터 추가
+    modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
@@ -190,9 +241,10 @@ fun DetailField(
 @Composable
 fun GenderSelectionSection(
     selectedGender: String,
-    modifier: Modifier = Modifier // 👈 Modifier 파라미터 추가
+    isNeutered: Boolean,
+    modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.fillMaxWidth()) { // 👈 받은 Modifier 사용
+    Column(modifier = modifier.fillMaxWidth()) {
         Text(
             "성별",
             style = MaterialTheme.typography.titleSmall.copy(
@@ -205,15 +257,16 @@ fun GenderSelectionSection(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // 보여주기 전용이므로 클릭 이벤트 비활성화 혹은 뷰 모드 처리
             GenderButton(
                 label = "여아",
                 isSelected = selectedGender == "여아",
-                modifier = Modifier.weight(1f) // 👈 균등 분할
+                modifier = Modifier.weight(1f)
             )
             GenderButton(
                 label = "남아",
                 isSelected = selectedGender == "남아",
-                modifier = Modifier.weight(1f) // 👈 균등 분할
+                modifier = Modifier.weight(1f)
             )
         }
         Spacer(Modifier.height(8.dp))
@@ -222,10 +275,14 @@ fun GenderSelectionSection(
                 modifier = Modifier
                     .size(6.dp)
                     .clip(CircleShape)
-                    .background(Color.Black)
+                    .background(if(isNeutered) Color.Black else Color.LightGray)
             )
             Spacer(Modifier.width(8.dp))
-            Text("중성화했어요", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Text(
+                "중성화했어요",
+                style = MaterialTheme.typography.bodySmall,
+                color = if(isNeutered) Color.Gray else Color.LightGray
+            )
         }
     }
 }
@@ -243,10 +300,10 @@ fun GenderButton(
     Surface(
         shape = RoundedCornerShape(8.dp),
         color = containerColor,
-        modifier = modifier // 👈 외부에서 받은 Modifier 사용
+        modifier = modifier
             .height(50.dp)
-            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
-            .clickable { /* 성별 선택 이벤트 */ },
+            .border(1.dp, borderColor, RoundedCornerShape(8.dp)),
+        // .clickable {} // 상세 보기 모드에서는 클릭 제거
         shadowElevation = 0.dp
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -256,8 +313,8 @@ fun GenderButton(
 }
 
 @Composable
-fun WeightField(value: Float, modifier: Modifier = Modifier) { // 👈 Modifier 파라미터 추가
-    Column(modifier = modifier.fillMaxWidth()) { // 👈 받은 Modifier 사용
+fun WeightField(value: Float, modifier: Modifier = Modifier) {
+    Column(modifier = modifier.fillMaxWidth()) {
         Text(
             "체중",
             style = MaterialTheme.typography.titleSmall.copy(
@@ -287,8 +344,8 @@ fun WeightField(value: Float, modifier: Modifier = Modifier) { // 👈 Modifier 
 }
 
 @Composable
-fun BirthDateAgeSection(birthDate: String, age: Int, modifier: Modifier = Modifier) { // 👈 Modifier 파라미터 추가
-    Column(modifier = modifier.fillMaxWidth()) { // 👈 받은 Modifier 사용
+fun BirthDateAgeSection(birthDate: String, ageText: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier.fillMaxWidth()) {
         Text(
             "생년월일/나이",
             style = MaterialTheme.typography.titleSmall.copy(
@@ -321,25 +378,10 @@ fun BirthDateAgeSection(birthDate: String, age: Int, modifier: Modifier = Modifi
                     Text(birthDate, style = MaterialTheme.typography.bodyLarge)
                 }
                 Text(
-                    "${age}세",
+                    ageText, // "7세"
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
             }
         }
-    }
-}
-
-// ----------------------------------------------------
-// Preview
-// ----------------------------------------------------
-
-@Preview(showBackground = true)
-@Composable
-fun PetDetailScreenPreview() {
-    MaterialTheme {
-        PetDetailScreen(
-            navController = rememberNavController(),
-            pet = Pet(name = "자몽", age = 7, gender = "여아")
-        )
     }
 }

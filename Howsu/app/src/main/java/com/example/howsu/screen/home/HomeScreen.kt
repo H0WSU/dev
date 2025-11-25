@@ -2,6 +2,8 @@ package com.example.howsu.screen.home
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,11 +26,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Pets
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -47,13 +50,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.fontscaling.MathUtils.lerp
-import androidx.compose.ui.zIndex
+import androidx.compose.ui.util.lerp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.howsu.common.MyBottomNavigationBar
 import com.example.howsu.common.MyFloatingActionButton
+import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.screen.todo.CalendarWeekRow
 import com.example.howsu.screen.todo.TodoGroupCard
 import com.example.howsu.screen.todo.TodoViewModel
@@ -65,17 +68,26 @@ fun HomeScreen(
     navController: NavHostController,
     viewModel: HomeScreenViewModel = viewModel(),
     todoViewModel: TodoViewModel = viewModel(),
-){
+) {
+    // ----------------------------------------------------
+    // ViewModel 상태 구독
+    // ----------------------------------------------------
     val uiState by viewModel.uiState.collectAsState()
 
+    // Todo 관련 상태 (TodoViewModel 사용)
     val todoGroups by todoViewModel.todoGroups.collectAsState(initial = emptyList())
     val selectedDate by todoViewModel.selectedDate.collectAsState()
     val currentWeekStart by todoViewModel.currentWeekStart.collectAsState()
 
-    // ... (permissionLauncher 및 LaunchedEffect 유지) ...
-
-    Scaffold (
-        topBar = { MyTopBar() },
+    Scaffold(
+        // TopBar에 ViewModel에서 가져온 데이터 전달
+        topBar = {
+            MyTopBar(
+                userName = uiState.myName,
+                familyName = uiState.familyName,
+                profileUrl = uiState.myProfileUrl
+            )
+        },
         bottomBar = { MyBottomNavigationBar(navController = navController) },
         floatingActionButton = {
             MyFloatingActionButton(
@@ -84,141 +96,119 @@ fun HomeScreen(
                 onFeedCreateClick = { navController.navigate("create_feed") }
             )
         }
-    ){ paddingValues ->
+    ) { paddingValues ->
 
-        // 좁은 패딩 값 정의
         val NarrowPadding = 26.dp
 
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp)   // 수동 패딩 적용 위함
-        ) {
-            item{ Spacer(Modifier.height(24.dp)) }
-
-            // 1. 반려동물 섹션
-            item{
-                Column(modifier = Modifier.padding(horizontal = NarrowPadding)) {
-                    PetSection(
-                        pets = uiState.pets,
-                        onPetClick = { pet ->
-                            println("Navigate to Pet Detail for: ${pet.name}")
-                        }
-                    )
-                }
-                Spacer(Modifier.height(24.dp))
+        if (uiState.isLoading) {
+            // 로딩 중일 때 로딩 인디케이터 표시
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
             }
+        } else {
+            // 데이터 로드가 완료되었을 때 화면 그리기
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentPadding = PaddingValues(bottom = 100.dp) // 하단 여백 확보
+            ) {
+                item { Spacer(Modifier.height(24.dp)) }
 
-            // 2. 가족 구성원 섹션
-            item{
-                Column(modifier = Modifier.padding(horizontal = NarrowPadding)) {
-                    FamilySection(
-                        members = uiState.familyMembers,
-                        showInviteDialog = uiState.showInviteDialog,
-                        onOpenInviteDialog = { viewModel.onInviteDialogVisibilityChange(true) },
-                        onDismissInviteDialog = { viewModel.onInviteDialogVisibilityChange(false) },
-                        onInvite = viewModel::inviteFamilyMember
-                    )
-                }
-                Spacer(Modifier.height(24.dp))
-            }
-
-            // 3. 일정 섹션
-            item {
-                Column(modifier = Modifier.padding(horizontal = 10.dp)) {   // 별도 패딩 지정
-                    Text(
-                        "이번 주 일정",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                    Spacer(Modifier.height(8.dp))
-
-                    CalendarWeekRow(
-                        selectedDate = selectedDate,
-                        currentWeekStart = currentWeekStart,
-                        today = LocalDate.now(),
-                        onWeekSwipe = todoViewModel::onWeekSwipe,
-                        onWeekDaySelected = todoViewModel::onWeekDaySelected
-                    )
-                }
-                Spacer(Modifier.height(24.dp))
-            }
-
-            // 4. 투두 리스트 (NarrowPadding 적용)
-            item {
-                Text(
-                    "남은 할 일",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    // ★ 32.dp 패딩 적용
-                    modifier = Modifier.padding(horizontal = NarrowPadding)
-                )
-                Spacer(Modifier.height(16.dp))
-            }
-
-            // [로직]
-            val unfinishedGroups = todoGroups.mapNotNull { group ->
-                val incompleteTasks = group.tasks.filter { !it.isChecked }
-
-                if (incompleteTasks.isNotEmpty()) {
-                    group.copy(tasks = incompleteTasks)
-                } else {
-                    null
-                }
-            }
-
-            if (unfinishedGroups.isEmpty()) {
+                // 1. 반려동물 섹션
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            // ★ 32.dp 패딩 적용
-                            .padding(horizontal = NarrowPadding)
-                            .padding(20.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "남은 할 일이 없어요! 👏",
-                            color = Color.Gray,
-                            style = MaterialTheme.typography.bodyMedium
+                    Column(modifier = Modifier.padding(horizontal = NarrowPadding)) {
+                        PetSection(
+                            pets = uiState.pets,
+                            onPetClick = { petUi ->
+                                // NavController를 사용하여 petId를 인자로 넘겨 상세 화면으로 이동
+                                val petId = petUi.originalPet.petId
+                                if (petId != null) {
+                                    navController.navigate("pet_detail/$petId")
+                                }
+                            }
                         )
                     }
+                    Spacer(Modifier.height(24.dp))
                 }
-            } else {
-                items(unfinishedGroups, key = { it.documentId }) { group ->
-                    Box(modifier = Modifier.padding(horizontal = NarrowPadding)) {
-                        TodoGroupCard(
-                            group = group,
-                            navController = navController,
-                            viewModel = todoViewModel
+
+                // 2. 가족 구성원 섹션 (초대 로직 완전히 제거됨)
+                item {
+                    Column(modifier = Modifier.padding(horizontal = NarrowPadding)) {
+                        FamilySection(
+                            members = uiState.familyMembers
                         )
                     }
+                    Spacer(Modifier.height(24.dp))
+                }
+
+                // 3. 일정 섹션
+                item {
+                    Column(modifier = Modifier.padding(horizontal = 10.dp)) {
+                        Text(
+                            "이번 주 일정",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                        Spacer(Modifier.height(8.dp))
+
+                        CalendarWeekRow(
+                            selectedDate = selectedDate,
+                            currentWeekStart = currentWeekStart,
+                            today = LocalDate.now(),
+                            onWeekSwipe = todoViewModel::onWeekSwipe,
+                            onWeekDaySelected = todoViewModel::onWeekDaySelected
+                        )
+                    }
+                    Spacer(Modifier.height(24.dp))
+                }
+
+                // 4. 투두 리스트
+                item {
+                    Text(
+                        "남은 할 일",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        modifier = Modifier.padding(horizontal = NarrowPadding)
+                    )
                     Spacer(Modifier.height(16.dp))
                 }
-            }
 
-            // 5. 리마인더 목록
-            item {
-                Spacer(Modifier.height(80.dp).padding(horizontal = NarrowPadding))
+                // 완료되지 않은 그룹 필터링 로직
+                val unfinishedGroups = todoGroups.mapNotNull { group ->
+                    val incompleteTasks = group.tasks.filter { !it.isChecked }
+                    if (incompleteTasks.isNotEmpty()) group.copy(tasks = incompleteTasks) else null
+                }
+
+                if (unfinishedGroups.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = NarrowPadding, vertical = 20.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("남은 할 일이 없어요! 👏", color = Color.Gray)
+                        }
+                    }
+                } else {
+                    items(unfinishedGroups, key = { it.documentId }) { group ->
+                        Box(modifier = Modifier.padding(horizontal = NarrowPadding)) {
+                            TodoGroupCard(
+                                group = group,
+                                navController = navController,
+                                viewModel = todoViewModel
+                            )
+                        }
+                        Spacer(Modifier.height(16.dp))
+                    }
+                }
+
+                // 5. 리마인더 목록 (기존 코드에서 제거되었으므로 빈 공간만 남김)
+                item {
+                    Spacer(Modifier.height(80.dp).padding(horizontal = NarrowPadding))
+                }
             }
         }
-    }
-}
-
-// ----------------------------------------------------
-// Preview 함수
-// ----------------------------------------------------
-
-@Preview(showBackground = true)
-@Composable
-fun HomeScreenPreview() {
-    val navController = rememberNavController()
-    MaterialTheme {
-        // Preview에서는 ViewModel을 직접 생성자로 전달하지 않고 기본 함수를 사용하거나
-        // Mock ViewModel을 사용하는 것이 일반적입니다. 여기서는 기본 설정으로 둡니다.
-        HomeScreen(
-            navController = navController,
-        )
     }
 }
 
@@ -228,13 +218,15 @@ fun HomeScreenPreview() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MyTopBar() {    // <수정 필요>
+fun MyTopBar(
+    userName: String,
+    familyName: String,
+    profileUrl: String?
+) {
     CenterAlignedTopAppBar(
         navigationIcon = {
-            // 기존 UserProfileHeader의 왼쪽 프로필 정보
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                // TopAppBar의 기본 패딩을 고려하여 조절
                 modifier = Modifier.padding(start = 20.dp)
             ) {
                 Surface(
@@ -242,9 +234,10 @@ fun MyTopBar() {    // <수정 필요>
                     modifier = Modifier.size(40.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
                 ) {
+                    // TODO: profileUrl이 있으면 Coil Image 등으로 교체
                     Icon(
                         imageVector = Icons.Default.Person,
-                        contentDescription = "User Profile Icon",
+                        contentDescription = "User Profile",
                         modifier = Modifier.fillMaxSize(0.7f),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -252,19 +245,19 @@ fun MyTopBar() {    // <수정 필요>
                 Spacer(Modifier.width(8.dp))
                 Column {
                     Text(
-                        text = "자몽이 언니",
+                        text = familyName.ifEmpty { "내 정보" },
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.Gray
                     )
                     Text(
-                        text = "이구역의짱",
+                        text = userName.ifEmpty { "로딩 중..." },
                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                         color = Color.Black
                     )
                 }
             }
         },
-        title = { /* ... */ },
+        title = { /* Empty */ },
         actions = {
             IconButton(onClick = { /* 알림 클릭 */ }) {
                 Icon(
@@ -282,8 +275,8 @@ fun MyTopBar() {    // <수정 필요>
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PetSection(
-    pets: List<Pet>,
-    onPetClick: (Pet) -> Unit // 👈 펫 클릭 이벤트 핸들러 추가
+    pets: List<PetUiModel>,
+    onPetClick: (PetUiModel) -> Unit
 ) {
     Column {
         Row(verticalAlignment = Alignment.Bottom) {
@@ -305,36 +298,40 @@ fun PetSection(
         }
         Spacer(Modifier.height(16.dp))
 
-        val pagerState = rememberPagerState(pageCount = { pets.size })
+        if (pets.isEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+                Text("등록된 반려동물이 없어요 🐶", color = Color.Gray)
+            }
+        } else {
+            val pagerState = rememberPagerState(pageCount = { pets.size })
 
-        HorizontalPager(
-            state = pagerState,
-            contentPadding = PaddingValues(horizontal = 40.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) { page ->
+            HorizontalPager(
+                state = pagerState,
+                contentPadding = PaddingValues(end = 40.dp),
+                pageSpacing = 10.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) { page ->
+                // 애니메이션 효과
+                val pageOffset = (
+                        (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+                        ).absoluteValue
 
-            val pageOffset = (
-                    (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
-                    ).absoluteValue
+                val scale = lerp(0.85f, 1f, 1f - pageOffset.coerceIn(0f, 1f))
+                val alpha = lerp(0.5f, 1f, 1f - pageOffset.coerceIn(0f, 1f))
 
-            // 애니메이션 효과
-            val scale = lerp(0.85f, 1f, 1 - pageOffset)
-            val alpha = lerp(0.4f, 1f, 1 - pageOffset)
-            val zIndex = lerp(-1f, 1f, 1 - pageOffset)
-
-            Box(
-                modifier = Modifier
-                    .graphicsLayer {
-                        this.scaleX = scale
-                        this.scaleY = scale
-                        this.alpha = alpha
-                    }
-                    .zIndex(zIndex)
-            ) {
-                PetCard(
-                    pet = pets[page],
-                    onViewDetail = onPetClick // 이벤트 연결
-                )
+                Box(
+                    modifier = Modifier
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                            this.alpha = alpha
+                        }
+                ) {
+                    PetCard(
+                        petModel = pets[page],
+                        onViewDetail = onPetClick
+                    )
+                }
             }
         }
     }
@@ -343,15 +340,18 @@ fun PetSection(
 
 @Composable
 fun PetCard(
-    pet: Pet,
-    onViewDetail: (Pet) -> Unit // 클릭 이벤트 핸들러 추가
+    petModel: PetUiModel,
+    onViewDetail: (PetUiModel) -> Unit
 ) {
+    val pet = petModel.originalPet
+
     Card(
         modifier = Modifier
             .width(300.dp)
-            .height(100.dp),
+            .height(100.dp)
+            .clickable { onViewDetail(petModel) }, // 카드 전체 클릭 가능하도록 수정
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.9f)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF333333)),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Row(
@@ -365,9 +365,10 @@ fun PetCard(
                 Surface(
                     modifier = Modifier
                         .size(70.dp)
-                        .clip(RoundedCornerShape(12.dp)),
-                    color = Color.White.copy(alpha = 0.15f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.15f))
                 ) {
+                    // TODO: pet.profileImageUrl 로드
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.Pets,
@@ -381,16 +382,20 @@ fun PetCard(
                 Column {
                     Text(pet.name, color = Color.White, style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(4.dp))
-                    Text("${pet.age}세 | ${pet.gender}", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "${petModel.ageText} | ${pet.gender ?: "성별미상"}",
+                        color = Color.White.copy(alpha = 0.7f),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
             }
-            Button(
-                onClick = { onViewDetail(pet)}, // 상세 정보 보기 이벤트 호출
-                colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.2f)),
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+            // "펫 정보 보기" 버튼은 카드 클릭으로 대체하거나, 필요 시 다시 구현
+            TextButton(
+                onClick = { onViewDetail(petModel) },
+                colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(alpha = 0.8f)),
+                modifier = Modifier.padding(end = 4.dp)
             ) {
-                Text("펫 정보 보기", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                Text("정보 보기", style = MaterialTheme.typography.bodySmall)
             }
         }
     }
@@ -400,10 +405,6 @@ fun PetCard(
 @Composable
 fun FamilySection(
     members: List<FamilyMember>,
-    showInviteDialog: Boolean,
-    onOpenInviteDialog: () -> Unit,
-    onDismissInviteDialog: () -> Unit,
-    onInvite: (email: String) -> Unit
 ) {
     Column {
         Text(
@@ -433,7 +434,7 @@ fun FamilyMemberItem(member: FamilyMember) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = Icons.Default.Person,
-                    contentDescription = "${member.name} icon",
+                    contentDescription = "${member.nickName} icon",
                     modifier = Modifier.fillMaxSize(0.7f),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -441,69 +442,18 @@ fun FamilyMemberItem(member: FamilyMember) {
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            member.name,
-            style = MaterialTheme.typography.bodySmall.copy(fontWeight = if (member.isUser) FontWeight.Bold else FontWeight.Normal)
+            text = member.nickName.ifEmpty { "이름없음" },
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Normal)
         )
     }
 }
 
-/*@Composable
-fun ScheduleDayItem(day: ScheduleDay) {
-    val containerColor = if (day.isSelected) Color.Black else Color.LightGray.copy(alpha = 0.5f)
-    val contentColor = if (day.isSelected) Color.White else Color.Black
-
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(day.dayOfWeek, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
-        Spacer(Modifier.height(4.dp))
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(containerColor)
-                .clickable { /* 날짜 선택 이벤트 */ },
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                day.dayOfMonth.toString(),
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                color = contentColor
-            )
-        }
-    }
-}
-
+@Preview(showBackground = true)
 @Composable
-fun ReminderItem(
-    reminder: Reminder,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .clip(RoundedCornerShape(15.dp))
-            .background(Color.Gray.copy(alpha = 0.15f))
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-            Checkbox(
-                checked = reminder.isDone,
-                onCheckedChange = onCheckedChange,
-                modifier = Modifier.size(40.dp)
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                reminder.text,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium
-            )
-        }
-        Text(
-            reminder.date,
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.Gray
+fun HomeScreenPreview() {
+    MaterialTheme {
+        HomeScreen(
+            navController = rememberNavController(),
         )
     }
-}*/
+}

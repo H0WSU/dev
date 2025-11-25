@@ -105,7 +105,7 @@ fun MypageScreen(
                 ContentItem(
                     icon = { Icon(Icons.Default.Add, contentDescription = "반려동물 추가") },
                     text = "반려동물 추가하기",
-                    onClick = { navController.navigate("add_pet") }
+                    onClick = { navController.navigate("register_pet") }
                 )
                 Divider(modifier = Modifier.padding(horizontal = 25.dp))
 
