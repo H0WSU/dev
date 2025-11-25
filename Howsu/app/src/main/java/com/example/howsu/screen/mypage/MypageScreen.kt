@@ -34,6 +34,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,7 +55,11 @@ import com.example.howsu.common.MyFloatingActionButton
 @Composable
 fun MypageScreen(
     navController: NavHostController,
+    viewModel: MypageViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 ){
+    val myFamilyName by viewModel.familyName.collectAsState()
+    val myFamilyId by viewModel.familyId.collectAsState()
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -122,9 +128,12 @@ fun MypageScreen(
                             Icons.Default.GroupAdd,
                             contentDescription = "가족 초대"
                         )
-                    }, // GroupAdd 아이콘 가정
+                    },
                     text = "가족 초대하기",
-                    onClick = { navController.navigate("invite_family") }
+                    onClick = {
+                        // 실제 데이터(myFamilyName, myFamilyId)를 가지고 이동
+                        navController.navigate("invite_family/$myFamilyName/$myFamilyId?isFromMypage=true")
+                    }
                 )
                 Divider(modifier = Modifier.padding(horizontal = 25.dp))
 
