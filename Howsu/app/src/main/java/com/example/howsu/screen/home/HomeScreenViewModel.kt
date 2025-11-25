@@ -3,6 +3,7 @@ package com.example.howsu.screen.home
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.howsu.data.model.Family
 import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.data.model.Pet
 import com.example.howsu.data.model.User
@@ -19,21 +20,19 @@ import java.time.LocalDate
 import java.time.Period
 import java.time.format.DateTimeFormatter
 
-// UI 상태를 관리하는 데이터 클래스 (showInviteDialog 제거)
+// 1. UI 상태 변경: Family와 FamilyMember 객체 자체를 보유하도록 수정
 data class HomeUiState(
     val isLoading: Boolean = false,
-    val myName: String = "",
-    val myProfileUrl: String? = null,
-    val familyName: String = "",
+    val family: Family = Family(),             // TopBar용 가족 객체
+    val member: FamilyMember = FamilyMember(), // TopBar용 내 멤버 정보
     val pets: List<PetUiModel> = emptyList(),
     val familyMembers: List<FamilyMember> = emptyList(),
-    // 초대 관련 필드 제거됨
 )
 
-// UI에 보여주기 위해 가공된 펫 모델
 data class PetUiModel(
     val originalPet: Pet,
-    val ageText: String // "7세" 등으로 계산된 문자열
+    val ageText: String,
+    val displayGender: String
 )
 
 class HomeScreenViewModel : ViewModel() {
@@ -41,7 +40,6 @@ class HomeScreenViewModel : ViewModel() {
     private val db = Firebase.firestore
     private val auth = Firebase.auth
 
-    // 1. UI 전체 상태 (펫, 가족, 내정보)
     private val _uiState = MutableStateFlow(HomeUiState(isLoading = true))
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
@@ -49,31 +47,31 @@ class HomeScreenViewModel : ViewModel() {
         fetchHomeData()
     }
 
-    /**
-     * Firebase에서 유저 -> 가족 -> 펫/멤버 순으로 데이터를 가져옴
-     */
     private fun fetchHomeData() {
         viewModelScope.launch {
             val uid = auth.currentUser?.uid
             if (uid == null) {
-                // 로그인 안됨 처리
                 _uiState.update { it.copy(isLoading = false) }
                 return@launch
             }
 
             try {
-                // 1. 내 정보 가져오기 (users 컬렉션)
+                // 1. User 정보 가져오기
                 val userDoc = db.collection("users").document(uid).get().await()
                 val user = userDoc.toObject(User::class.java)
 
                 if (user?.currentFamilyId != null) {
-                    // 2. 가족 정보 및 멤버 가져오기
-                    fetchFamilyData(user.currentFamilyId!!, user.name)
+                    // 2. 가족 데이터 가져오기
+                    fetchFamilyData(user.currentFamilyId!!, uid, user.name)
                 } else {
-                    // 가족 없음 (솔로 모드 등)
-                    _uiState.update { it.copy(isLoading = false, myName = user?.name ?: "알 수 없음") }
+                    // 가족 없음: 임시 멤버 객체 생성
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            member = FamilyMember(nickName = user?.name ?: "알 수 없음")
+                        )
+                    }
                 }
-
             } catch (e: Exception) {
                 Log.e("HomeScreenVM", "Error fetching home data", e)
                 _uiState.update { it.copy(isLoading = false) }
@@ -81,13 +79,13 @@ class HomeScreenViewModel : ViewModel() {
         }
     }
 
-    private suspend fun fetchFamilyData(familyId: String, myName: String) {
+    private suspend fun fetchFamilyData(familyId: String, myUid: String, myName: String) {
         try {
-            // A. 가족 기본 정보 (이름 등)
+            // A. 가족 정보 가져오기 (객체로 변환)
             val familyDoc = db.collection("families").document(familyId).get().await()
-            val familyName = familyDoc.getString("familyName") ?: "우리 가족"
+            val familyObj = familyDoc.toObject(Family::class.java) ?: Family(familyName = "우리 가족")
 
-            // B. 가족 구성원 (families -> members 서브컬렉션 가정)
+            // B. 가족 구성원 가져오기
             val membersSnapshot = db.collection("families").document(familyId)
                 .collection("members")
                 .get()
@@ -95,7 +93,12 @@ class HomeScreenViewModel : ViewModel() {
 
             val members = membersSnapshot.documents.mapNotNull { it.toObject(FamilyMember::class.java) }
 
-            // C. 펫 목록 (families -> pets 서브컬렉션 가정)
+            // C. 구성원 목록에서 '나' 찾기 (TopBar 표시용)
+            // FamilyMember에 userId 필드가 있다고 가정하고 매칭합니다.
+            val myMemberInfo = members.find { it.userId == myUid }
+                ?: FamilyMember(nickName = myName, userId = myUid)
+
+            // D. 펫 목록 가져오기
             val petsSnapshot = db.collection("families").document(familyId)
                 .collection("pets")
                 .get()
@@ -104,17 +107,18 @@ class HomeScreenViewModel : ViewModel() {
             val petsList = petsSnapshot.documents.mapNotNull { doc ->
                 val pet = doc.toObject(Pet::class.java)
                 pet?.let {
-                    // 나이 계산 로직 적용
                     val age = calculatePetAge(it)
-                    PetUiModel(it, age)
+                    val gender = translateGender(it.gender)
+                    PetUiModel(it, age, gender)
                 }
             }
 
+            // 상태 업데이트
             _uiState.update {
                 it.copy(
                     isLoading = false,
-                    myName = myName,
-                    familyName = familyName,
+                    family = familyObj,   // 가족 객체 저장
+                    member = myMemberInfo,// 내 멤버 객체 저장
                     pets = petsList,
                     familyMembers = members
                 )
@@ -125,14 +129,12 @@ class HomeScreenViewModel : ViewModel() {
         }
     }
 
-    // 생일 문자열(YYYY-MM-DD)을 기반으로 나이 계산
     private fun calculatePetAge(pet: Pet): String {
         return try {
             if (!pet.birthdayExact.isNullOrEmpty()) {
                 val birthDate = LocalDate.parse(pet.birthdayExact, DateTimeFormatter.ISO_DATE)
                 val now = LocalDate.now()
-                val age = Period.between(birthDate, now).years
-                "${age}세"
+                "${Period.between(birthDate, now).years}세"
             } else if (!pet.birthdayYearApprox.isNullOrEmpty()) {
                 val birthYear = pet.birthdayYearApprox.toInt()
                 val currentYear = LocalDate.now().year
@@ -140,8 +142,14 @@ class HomeScreenViewModel : ViewModel() {
             } else {
                 "?세"
             }
-        } catch (e: Exception) {
-            "?세"
+        } catch (e: Exception) { "?세" }
+    }
+
+    private fun translateGender(gender: String?): String {
+        return when (gender?.uppercase()) {
+            "MALE" -> "남아"
+            "FEMALE" -> "여아"
+            else -> "성별미상"
         }
     }
 }

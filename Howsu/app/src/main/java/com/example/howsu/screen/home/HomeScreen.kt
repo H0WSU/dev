@@ -23,17 +23,13 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -54,6 +50,7 @@ import androidx.compose.ui.util.lerp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.example.howsu.common.HomeTopAppBar
 import com.example.howsu.common.MyBottomNavigationBar
 import com.example.howsu.common.MyFloatingActionButton
 import com.example.howsu.data.model.FamilyMember
@@ -69,23 +66,19 @@ fun HomeScreen(
     viewModel: HomeScreenViewModel = viewModel(),
     todoViewModel: TodoViewModel = viewModel(),
 ) {
-    // ----------------------------------------------------
-    // ViewModel 상태 구독
-    // ----------------------------------------------------
     val uiState by viewModel.uiState.collectAsState()
 
-    // Todo 관련 상태 (TodoViewModel 사용)
     val todoGroups by todoViewModel.todoGroups.collectAsState(initial = emptyList())
     val selectedDate by todoViewModel.selectedDate.collectAsState()
     val currentWeekStart by todoViewModel.currentWeekStart.collectAsState()
 
     Scaffold(
-        // TopBar에 ViewModel에서 가져온 데이터 전달
         topBar = {
-            MyTopBar(
-                userName = uiState.myName,
-                familyName = uiState.familyName,
-                profileUrl = uiState.myProfileUrl
+            // 새로 만든 HomeTopAppBar 적용
+            HomeTopAppBar(
+                member = uiState.member,
+                family = uiState.family,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 40.dp) // 약간의 여백 추가  -> 머지 후 수정할것임.
             )
         },
         bottomBar = { MyBottomNavigationBar(navController = navController) },
@@ -101,19 +94,17 @@ fun HomeScreen(
         val NarrowPadding = 26.dp
 
         if (uiState.isLoading) {
-            // 로딩 중일 때 로딩 인디케이터 표시
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
         } else {
-            // 데이터 로드가 완료되었을 때 화면 그리기
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
-                contentPadding = PaddingValues(bottom = 100.dp) // 하단 여백 확보
+                contentPadding = PaddingValues(bottom = 100.dp)
             ) {
-                item { Spacer(Modifier.height(24.dp)) }
+                item { Spacer(Modifier.height(12.dp)) } // TopBar와의 간격 조절
 
                 // 1. 반려동물 섹션
                 item {
@@ -121,7 +112,6 @@ fun HomeScreen(
                         PetSection(
                             pets = uiState.pets,
                             onPetClick = { petUi ->
-                                // NavController를 사용하여 petId를 인자로 넘겨 상세 화면으로 이동
                                 val petId = petUi.originalPet.petId
                                 if (petId != null) {
                                     navController.navigate("pet_detail/$petId")
@@ -132,7 +122,7 @@ fun HomeScreen(
                     Spacer(Modifier.height(24.dp))
                 }
 
-                // 2. 가족 구성원 섹션 (초대 로직 완전히 제거됨)
+                // 2. 가족 구성원 섹션
                 item {
                     Column(modifier = Modifier.padding(horizontal = NarrowPadding)) {
                         FamilySection(
@@ -173,7 +163,6 @@ fun HomeScreen(
                     Spacer(Modifier.height(16.dp))
                 }
 
-                // 완료되지 않은 그룹 필터링 로직
                 val unfinishedGroups = todoGroups.mapNotNull { group ->
                     val incompleteTasks = group.tasks.filter { !it.isChecked }
                     if (incompleteTasks.isNotEmpty()) group.copy(tasks = incompleteTasks) else null
@@ -202,11 +191,6 @@ fun HomeScreen(
                         Spacer(Modifier.height(16.dp))
                     }
                 }
-
-                // 5. 리마인더 목록 (기존 코드에서 제거되었으므로 빈 공간만 남김)
-                item {
-                    Spacer(Modifier.height(80.dp).padding(horizontal = NarrowPadding))
-                }
             }
         }
     }
@@ -216,7 +200,7 @@ fun HomeScreen(
 // 하위 컴포넌트들
 // ----------------------------------------------------
 
-@OptIn(ExperimentalMaterial3Api::class)
+/*@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyTopBar(
     userName: String,
@@ -269,7 +253,7 @@ fun MyTopBar(
             }
         }
     )
-}
+}*/
 
 @SuppressLint("RestrictedApi")
 @OptIn(ExperimentalFoundationApi::class)
