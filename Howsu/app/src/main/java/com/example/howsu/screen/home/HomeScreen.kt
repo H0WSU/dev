@@ -1,10 +1,7 @@
 package com.example.howsu.screen.home
 
-// 필요한 모든 Compose 및 기타 Import
 import android.annotation.SuppressLint
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,7 +29,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -68,7 +64,6 @@ import kotlin.math.absoluteValue
 fun HomeScreen(
     navController: NavHostController,
     viewModel: HomeScreenViewModel = viewModel(),
-    // 불필요한 파라미터 제거
     todoViewModel: TodoViewModel = viewModel(),
 ){
     val uiState by viewModel.uiState.collectAsState()
@@ -76,8 +71,6 @@ fun HomeScreen(
     val todoGroups by todoViewModel.todoGroups.collectAsState(initial = emptyList())
     val selectedDate by todoViewModel.selectedDate.collectAsState()
     val currentWeekStart by todoViewModel.currentWeekStart.collectAsState()
-
-    // (context 변수 제거됨)
 
     // ... (permissionLauncher 및 LaunchedEffect 유지) ...
 
@@ -93,21 +86,19 @@ fun HomeScreen(
         }
     ){ paddingValues ->
 
-        // ★★★ 좁은 패딩 값 정의
+        // 좁은 패딩 값 정의
         val NarrowPadding = 26.dp
 
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            // ★ 1. contentPadding을 0dp로 설정하여 모든 아이템에 수동 패딩을 적용할 수 있도록 함
-            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp)
+            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp)   // 수동 패딩 적용 위함
         ) {
             item{ Spacer(Modifier.height(24.dp)) }
 
-            // 1. 반려동물 섹션 (NarrowPadding 적용)
+            // 1. 반려동물 섹션
             item{
-                // ★ 16.dp 패딩 적용
                 Column(modifier = Modifier.padding(horizontal = NarrowPadding)) {
                     PetSection(
                         pets = uiState.pets,
@@ -119,9 +110,8 @@ fun HomeScreen(
                 Spacer(Modifier.height(24.dp))
             }
 
-            // 2. 가족 구성원 섹션 (NarrowPadding 적용)
+            // 2. 가족 구성원 섹션
             item{
-                // ★ 32.dp 패딩 적용
                 Column(modifier = Modifier.padding(horizontal = NarrowPadding)) {
                     FamilySection(
                         members = uiState.familyMembers,
@@ -134,11 +124,9 @@ fun HomeScreen(
                 Spacer(Modifier.height(24.dp))
             }
 
-            // ★★★ 3. 일정 섹션 (캘린더의 기존 좁은 너비에 맞춤)
+            // 3. 일정 섹션
             item {
-                // 특별 패딩 지정
-                Column(modifier = Modifier.padding(horizontal = 10.dp)) {
-                    // 텍스트는 캘린더와 같은 시작점에 오도록 추가 16dp 패딩을 적용
+                Column(modifier = Modifier.padding(horizontal = 10.dp)) {   // 별도 패딩 지정
                     Text(
                         "이번 주 일정",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
@@ -157,7 +145,7 @@ fun HomeScreen(
                 Spacer(Modifier.height(24.dp))
             }
 
-            // ★★★ 4. 투두 리스트 (NarrowPadding 적용)
+            // 4. 투두 리스트 (NarrowPadding 적용)
             item {
                 Text(
                     "남은 할 일",
@@ -168,7 +156,7 @@ fun HomeScreen(
                 Spacer(Modifier.height(16.dp))
             }
 
-            // [로직] ... (unfinishedGroups 로직 유지) ...
+            // [로직]
             val unfinishedGroups = todoGroups.mapNotNull { group ->
                 val incompleteTasks = group.tasks.filter { !it.isChecked }
 
@@ -198,7 +186,6 @@ fun HomeScreen(
                 }
             } else {
                 items(unfinishedGroups, key = { it.documentId }) { group ->
-                    // ★ 32.dp 패딩 적용
                     Box(modifier = Modifier.padding(horizontal = NarrowPadding)) {
                         TodoGroupCard(
                             group = group,
@@ -210,7 +197,7 @@ fun HomeScreen(
                 }
             }
 
-            // 5. 리마인더 목록 (마지막 Spacer도 32.dp 패딩에 영향을 받도록)
+            // 5. 리마인더 목록
             item {
                 Spacer(Modifier.height(80.dp).padding(horizontal = NarrowPadding))
             }
@@ -241,7 +228,7 @@ fun HomeScreenPreview() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MyTopBar() {
+fun MyTopBar() {    // <수정 필요>
     CenterAlignedTopAppBar(
         navigationIcon = {
             // 기존 UserProfileHeader의 왼쪽 프로필 정보
@@ -461,26 +448,6 @@ fun FamilyMemberItem(member: FamilyMember) {
 }
 
 /*@Composable
-fun ScheduleSection(scheduleDays: List<ScheduleDay>) {
-    Column {
-        Text(
-            "일정",
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
-        )
-        Spacer(Modifier.height(16.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            scheduleDays.forEach { day ->
-                ScheduleDayItem(day = day)
-            }
-        }
-    }
-}*/
-
-@Composable
 fun ScheduleDayItem(day: ScheduleDay) {
     val containerColor = if (day.isSelected) Color.Black else Color.LightGray.copy(alpha = 0.5f)
     val contentColor = if (day.isSelected) Color.White else Color.Black
@@ -539,4 +506,4 @@ fun ReminderItem(
             color = Color.Gray
         )
     }
-}
+}*/
