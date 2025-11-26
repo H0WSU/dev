@@ -569,7 +569,7 @@ private fun ScheduleTagItem(schedule: Schedule) {
         Text(
             text = schedule.title,
             fontSize = 9.sp,
-            color = scheduleColor.copy(alpha = 0.9f),
+            color = TextBlack,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -838,8 +838,7 @@ private fun PetIconCircle(
     Box(
         modifier = modifier
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.6f))
-            .border(1.5.dp, Color.White, CircleShape),
+            .background(Color.White.copy(alpha = 0.6f)),
         contentAlignment = Alignment.Center
     ) {
         if (!imageUrl.isNullOrBlank()) {

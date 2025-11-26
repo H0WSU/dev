@@ -344,7 +344,7 @@ fun InitialSelectionButtons(currentState: FamilyRegState, onSelect: (FamilyRegSt
 
 @Composable
 fun SelectableActionBox(text: String, isSelected: Boolean, onClick: () -> Unit) {
-    val borderColor = if (isSelected) Color.Black else Color(0xFFEAEAEA)
+    val borderColor = if (isSelected) YellowBox else Color(0xFFEAEAEA)
     val textColor = if (isSelected) Color.Black else Color(0xFFBDBDBD)
     Box(
         modifier = Modifier
@@ -428,7 +428,7 @@ fun TabButton(text: String, isSelected: Boolean, modifier: Modifier, onClick: ()
             containerColor = if (isSelected) Color.White else Color(0xFFFAFAFA),
             contentColor = if (isSelected) Color.Black else Color(0xFFBDBDBD)
         ),
-        border = androidx.compose.foundation.BorderStroke(1.5.dp, if (isSelected) Color.Black else Color(0xFFEEEEEE)),
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, if (isSelected) YellowBox else Color(0xFFEEEEEE)),
         elevation = null
     ) { Text(text, fontWeight = FontWeight.Bold, fontSize = 16.sp) }
 }
@@ -437,7 +437,7 @@ fun TabButton(text: String, isSelected: Boolean, modifier: Modifier, onClick: ()
 fun familyInputColors() = OutlinedTextFieldDefaults.colors(
     focusedContainerColor = Color.White,
     unfocusedContainerColor = Color.White,
-    focusedBorderColor = Color.Black,
+    focusedBorderColor = YellowBox,
     unfocusedBorderColor = Color(0xFFE0E0E0),
     cursorColor = Color.Black
 )
