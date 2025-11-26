@@ -1,4 +1,4 @@
-package com.example.howsu.feed
+package com.example.howsu.common
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box

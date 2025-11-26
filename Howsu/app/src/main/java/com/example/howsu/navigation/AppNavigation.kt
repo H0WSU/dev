@@ -21,6 +21,7 @@ import com.example.howsu.screen.family.FamilyRegisterIntroScreen
 import com.example.howsu.screen.family.NicknameRegisterScreen
 import com.example.howsu.screen.family.SetRelationshipScreen
 import com.example.howsu.screen.feed.FeedHomeScreen
+import com.example.howsu.screen.feed.FeedDetailScreen
 import com.example.howsu.screen.feed.FeedViewModel
 import com.example.howsu.screen.feed.FeedWriteScreen
 import com.example.howsu.screen.home.HomeScreen
@@ -48,15 +49,6 @@ import java.nio.charset.StandardCharsets
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
-
-    // 임시 데이터
-    val member = FamilyMember(
-        userId = "user123",
-        familyId = "test_family",
-        relationship = "언니",
-        profileImageUrl = null,
-        nickName = "이구역의짱"
-    )
 
     // ★ 상위 레벨에서 ViewModel 생성
     val feedViewModel: FeedViewModel = viewModel()
@@ -282,6 +274,19 @@ fun AppNavigation() {
                     imagePickerLauncher.launch("image/*")
                 }
             )
+        }
+
+        composable("feed_detail/{postId}") { backStackEntry ->
+            val idString = backStackEntry.arguments?.getString("postId")
+            val postId = idString?.toLongOrNull()
+
+            if (postId != null) {
+                FeedDetailScreen(
+                    postId = postId,
+                    viewModel = feedViewModel,
+                    navController = navController
+                )
+            }
         }
     }
 }

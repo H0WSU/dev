@@ -1,12 +1,12 @@
 package com.example.howsu.screen.pet.component
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,27 +39,40 @@ fun DatePickerField(
         }
     }
 
+    // 투두 DatePickerField 와 동일한 스타일
+    val borderColor = Color(0xFF121212)
+    val contentBlack = Color(0xFF121212)
+
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, borderColor, RoundedCornerShape(17.dp)),
         shape = RoundedCornerShape(17.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = Color.White,
         onClick = onClick
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                painter = painterResource(id = R.drawable.calendar),
+                painter = painterResource(id = R.drawable.date_under), // 투두와 같은 아이콘 사용
                 contentDescription = null,
+                tint = Color.Unspecified,
                 modifier = Modifier.padding(end = 8.dp)
             )
+
             Column {
-                Text("date", fontSize = 10.sp, color = Color.Gray)
+                Text(
+                    text = "date",
+                    fontSize = 10.sp,
+                    color = contentBlack.copy(alpha = 0.7f)
+                )
                 Text(
                     text = displayText,
                     fontWeight = FontWeight.Medium,
-                    fontSize = 13.sp
+                    fontSize = 13.sp,
+                    color = contentBlack
                 )
             }
         }

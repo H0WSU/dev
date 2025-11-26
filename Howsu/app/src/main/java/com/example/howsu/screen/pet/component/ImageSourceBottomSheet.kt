@@ -1,5 +1,6 @@
 package com.example.howsu.screen.pet.component
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,19 +28,23 @@ fun ImageSourceBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        dragHandle = { BottomSheetDefaults.DragHandle() }
+        dragHandle = { BottomSheetDefaults.DragHandle(color = Color.LightGray) },
+        containerColor = Color.White,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+                .background(Color.White)
+                .padding(top = 8.dp, bottom = 30.dp)
+                .padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = "사진 추가 방법을 선택해 주세요",
-                fontSize = 16.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(vertical = 8.dp)
+                color = Color.Black,
+                modifier = Modifier.padding(bottom = 20.dp)
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -74,7 +79,7 @@ private fun SheetOption(
             .height(52.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
-        color = Color(0xFFF5F5F5)
+        color = Color.White
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
