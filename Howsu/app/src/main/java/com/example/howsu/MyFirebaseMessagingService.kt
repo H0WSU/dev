@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
@@ -14,9 +15,24 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     // 메시지를 받았을 때 실행됨
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
-        // 알림 내용이 있으면 화면에 띄우기
+        // ★ 이 로그가 뜨는지 확인하세요!
+        Log.d("FCM_TEST", "메시지 수신됨! ID: ${remoteMessage.messageId}")
+
+        // 1. 알림(Notification) 부분 확인
         remoteMessage.notification?.let {
+            Log.d("FCM_TEST", "알림 내용: ${it.title} - ${it.body}")
             showNotification(it.title, it.body)
+        }
+
+        // 2. 데이터(Data) 부분 확인 (서버에서 데이터만 보낼 때)
+        if (remoteMessage.data.isNotEmpty()) {
+            Log.d("FCM_TEST", "데이터 내용: ${remoteMessage.data}")
+            // 혹시 notification이 비어있고 data만 왔다면 여기서 띄워야 함
+            if (remoteMessage.notification == null) {
+                val title = remoteMessage.data["title"] ?: "알림"
+                val body = remoteMessage.data["body"] ?: "내용 확인"
+                showNotification(title, body)
+            }
         }
     }
 

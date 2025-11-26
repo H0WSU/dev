@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.example.howsu.screen.todo.ContentBlack
+import com.example.howsu.screen.todo.YellowBox
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
@@ -81,11 +83,11 @@ fun FamilyJoinCompleteScreen(
                         .height(56.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Black,
-                        contentColor = Color.White
+                        containerColor = YellowBox, // ★ 색상 적용 (노랑)
+                        contentColor = ContentBlack // ★ 색상 적용 (검정)
                     )
                 ) {
-                    Text("계속하기", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("계속하기", fontWeight = FontWeight.Medium, fontSize = 15.sp)
                 }
             }
         },

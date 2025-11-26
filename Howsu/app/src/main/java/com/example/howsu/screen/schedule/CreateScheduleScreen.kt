@@ -353,7 +353,7 @@ private fun CreateScheduleBottomButton(
             ),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("저장하기", fontWeight = FontWeight.Bold , fontSize = 16.sp)
+            Text("저장하기", fontWeight = FontWeight.Medium, fontSize = 15.sp)
         }
     }
 }
@@ -431,6 +431,8 @@ private fun CreateScheduleContent(
 ) {
     val dateFormatter = SimpleDateFormat("yyyy.MM.dd 까지", Locale.KOREAN)
     val recurrenceEndDateStr = recurrenceEndDate?.let { dateFormatter.format(Date(it)) } ?: "계속 반복"
+
+    val dividerColor = Color.LightGray.copy(alpha = 0.5f)
 
     Column(
         modifier = modifier
@@ -536,11 +538,15 @@ private fun CreateScheduleContent(
             }
         }
 
+        Divider(color = dividerColor)
+
         // --- (기존) 섹션 6: 한 줄 메모 ---
         CreateScheduleSection(
             icon = rememberVectorPainter(image = Icons.Default.Comment),
             title = "한 줄 메모"
         ) { ScheduleMemoField(memo = memo, onMemoChanged = onMemoChanged) }
+
+        Divider(color = dividerColor)
 
         // --- (기존) 섹션 7: 반려동물 선택 ---
         CreateScheduleSection(

@@ -7,6 +7,8 @@ const axios = require("axios");
 
 admin.initializeApp();
 
+const db = admin.firestore();
+
 setGlobalOptions({ region: "asia-northeast3" });
 
 // ------------------------------------------------------------------
@@ -150,7 +152,7 @@ exports.sendTodoNotification = onDocumentCreated(
     const notificationBody =
       taskCount > 1
         ? `${title} 외 ${taskCount - 1}건의 할 일이 등록되었어요!`
-        : `${title} 할 일이 등록되었어요!`;
+        : `${title}`;
 
     // 2. 담당자들의 FCM 토큰 가져오기
     const tokens = [];

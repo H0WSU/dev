@@ -204,47 +204,46 @@ class AuthViewModel : ViewModel() {
         }
 
         val uidToDelete = user.uid
-
         _loginState.value = FirebaseLoginState.Loading
+
         viewModelScope.launch {
             try {
-                // ★★★ [1단계] 내가 속한 가족 방에서 나를 지우기 (가장 중요!)
-                // 먼저 내 가족 ID를 알아내야 함
-                val userDoc = db.collection("users").document(uidToDelete).get().await()
-                val myFamilyId = userDoc.getString("currentFamilyId")
+                // 1. DB 데이터 삭제 시도 (실패해도 계정 삭제는 진행하기 위해 try-catch 내부 분리 가능)
+                try {
+                    val userDoc = db.collection("users").document(uidToDelete).get().await()
+                    val myFamilyId = userDoc.getString("currentFamilyId")
 
-                if (myFamilyId != null) {
-                    // A. 가족의 'memberIds' 배열에서 내 UID 빼기
-                    db.collection("families").document(myFamilyId)
-                        .update("memberIds", FieldValue.arrayRemove(uidToDelete))
-                        .await()
-
-                    // B. 가족 안의 'members' 컬렉션에서 내 정보 문서 삭제
-                    db.collection("families").document(myFamilyId)
-                        .collection("members").document(uidToDelete)
-                        .delete()
-                        .await()
-
-                    Log.d("AuthViewModel", "가족($myFamilyId) 명단에서 삭제 완료")
+                    if (myFamilyId != null) {
+                        // 가족 명단에서 제거
+                        db.collection("families").document(myFamilyId)
+                            .update("memberIds", FieldValue.arrayRemove(uidToDelete))
+                            .await()
+                        // 가족 내 멤버 정보 삭제
+                        db.collection("families").document(myFamilyId)
+                            .collection("members").document(uidToDelete)
+                            .delete()
+                            .await()
+                    }
+                    // 내 유저 정보 삭제
+                    db.collection("users").document(uidToDelete).delete().await()
+                } catch (e: Exception) {
+                    Log.e("AuthViewModel", "DB 삭제 중 일부 실패(계정 삭제는 계속 진행)", e)
                 }
 
-                // ★★★ [2단계] 내 유저 정보(users) 삭제
-                db.collection("users").document(uidToDelete).delete().await()
-
-                // ★★★ [3단계] 계정(Auth) 삭제
+                // 2. Firebase Auth 계정 삭제 (가장 중요)
                 user.delete().await()
 
+                // 3. 로그아웃 및 상태 초기화
                 auth.signOut()
                 _loginState.value = FirebaseLoginState.Idle
                 _currentUserId.value = null
-                Log.d("AuthViewModel", "회원 탈퇴 및 모든 흔적 삭제 완료.")
 
-                onSuccess()
+                onSuccess() // UI에서 화면 이동 처리
 
             } catch (e: Exception) {
+                // 재로그인이 필요한 경우(오래된 세션) 에러 처리
                 Log.e("AuthViewModel", "회원 탈퇴 실패", e)
-                // (에러 처리 로직 생략)
-                _loginState.value = FirebaseLoginState.Error("탈퇴 실패: ${e.message}")
+                _loginState.value = FirebaseLoginState.Error("탈퇴 실패: ${e.message}. 다시 로그인 후 시도해주세요.")
             }
         }
     }

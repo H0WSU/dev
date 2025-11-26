@@ -46,6 +46,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.example.howsu.screen.pet.component.RelationChip
+import com.example.howsu.screen.todo.ContentBlack
+import com.example.howsu.screen.todo.YellowBox
 
 @Composable
 fun SetRelationshipScreen(
@@ -195,15 +197,15 @@ fun SetRelationshipBottomBar(enabled: Boolean, onNext: () -> Unit) {
             onClick = onNext,
             modifier = Modifier.fillMaxWidth().height(56.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (enabled) Color.Black else Color(0xFFD6D6D6),
-                contentColor = Color.White,
+                containerColor = if (enabled) YellowBox else Color(0xFFD6D6D6),
+                contentColor = ContentBlack,
                 disabledContainerColor = Color(0xFFD6D6D6),
                 disabledContentColor = Color.White
             ),
             shape = RoundedCornerShape(12.dp),
             enabled = enabled
         ) {
-            Text(text = "시작하기", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text(text = "시작하기", fontWeight = FontWeight.Medium, fontSize = 15.sp)
         }
     }
 }
