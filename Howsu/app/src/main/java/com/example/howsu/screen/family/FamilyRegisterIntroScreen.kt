@@ -55,6 +55,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
+import com.example.howsu.screen.todo.ContentBlack
+import com.example.howsu.screen.todo.YellowBox
 import com.journeyapps.barcodescanner.CaptureActivity
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
@@ -174,12 +176,14 @@ fun FamilyRegisterIntroScreen(
                         viewModel.createSharedFamily(userNickname, userProfileUrl)
                         val name = viewModel.inputFamilyName
                         val id = viewModel.createdFamilyId
+
                         val encodedUrl = if (userProfileUrl != null) {
                             URLEncoder.encode(userProfileUrl, StandardCharsets.UTF_8.toString())
                         } else {
                             "null"
                         }
-                        navController.navigate("family_invite_screen/$name/$id?profileUrl=$encodedUrl")
+
+                        navController.navigate("invite_family/$name/$id?profileUrl=$encodedUrl&isFromMypage=false")
                     } else {
                         // B. [가족 참여]
                         handleManualJoin()
@@ -443,16 +447,16 @@ fun FamilyRegisterBottomBar(enabled: Boolean, onNext: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().background(Color.Transparent).padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 60.dp)) {
         Button(
             onClick = onNext,
-            modifier = Modifier.fillMaxWidth().height(64.dp),
+            modifier = Modifier.fillMaxWidth().height(56.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (enabled) Color.Black else Color(0xFFD6D6D6),
-                contentColor = Color.White,
+                containerColor = if (enabled) YellowBox else Color(0xFFD6D6D6),
+                contentColor = ContentBlack,
                 disabledContainerColor = Color(0xFFD6D6D6),
                 disabledContentColor = Color.White
             ),
             shape = RoundedCornerShape(12.dp),
             enabled = enabled
-        ) { Text("계속하기", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+        ) { Text("계속하기", fontWeight = FontWeight.Medium, fontSize = 15.sp) }
     }
 }
 

@@ -1,13 +1,17 @@
 package com.example.howsu.screen.pet.bottombar
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.howsu.screen.todo.ContentBlack
+import com.example.howsu.screen.todo.YellowBox
 
 @Composable
 fun PetRegisterBottomBar(
@@ -18,7 +22,10 @@ fun PetRegisterBottomBar(
     onSkip: () -> Unit
 ) {
     Column(
-        modifier = Modifier.padding(horizontal = 24.dp, vertical = 60.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.Transparent)
+            .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 30.dp)
     ) {
 
         Button(
@@ -27,13 +34,16 @@ fun PetRegisterBottomBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
-            shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (enabled) Color.Black else Color(0xFFE0E0E0),
-                contentColor = if (enabled) Color.White else Color(0xFFBDBDBD)
-            )
+                containerColor = YellowBox, // ★ 색상 적용 (노랑)
+                contentColor = ContentBlack // ★ 색상 적용 (검정)
+            ),
+            shape = RoundedCornerShape(12.dp)
         ) {
-            Text(if (isLastStep) "완료하기" else "계속하기", fontSize = 14.sp)
+            Text(if (isLastStep) "완료하기" else "계속하기",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium
+            )
         }
 
         if (showSkip) {
@@ -43,7 +53,9 @@ fun PetRegisterBottomBar(
                 onClick = onSkip,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("나중에 등록하고 싶어요! 건너뛰기", color = Color.Gray)
+                Text("나중에 등록하고 싶어요! 건너뛰기",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp)
             }
         }
     }

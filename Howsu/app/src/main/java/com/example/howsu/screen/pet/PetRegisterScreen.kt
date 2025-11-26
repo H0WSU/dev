@@ -1,7 +1,11 @@
 package com.example.howsu.screen.pet
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,7 +25,9 @@ import java.util.Locale
 import androidx.core.content.FileProvider
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.content.ContextCompat
 import androidx.navigation.compose.rememberNavController
 import com.example.howsu.data.model.PetRegisterUiState
 import com.example.howsu.screen.pet.bottombar.PetRegisterBottomBar
@@ -44,23 +50,26 @@ fun PetRegisterScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     var showExitDialog by remember { mutableStateOf(false) }
     var showRelationSheet by remember { mutableStateOf(false) }
-    var showImageSourceDialog by remember { mutableStateOf(false) }   // ← 사진 촬영/앨범 선택 다이얼로그
+    var showImageSourceDialog by remember { mutableStateOf(false) }
 
     val datePickerState = rememberDatePickerState()
 
-    // 카메라 촬영용 임시 Uri
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
 
-    // 갤러리에서 선택
+    // 갤러리 런처
     val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri ->
-        uri?.toString()?.let { url ->
-            viewModel.updatePetProfileImage(url)
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
+
+        val data = result.data
+        val uri = data?.data
+        if (uri != null) {
+            viewModel.updatePetProfileImage(uri.toString())
         }
     }
 
-    // 카메라 촬영
+    // 카메라 런처
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
@@ -68,6 +77,25 @@ fun PetRegisterScreen(
             viewModel.updatePetProfileImage(cameraImageUri.toString())
         }
     }
+
+    // 카메라 여는 실제 함수
+    fun startCamera() {
+        val uri = createImageUri(context)
+        cameraImageUri = uri
+        cameraLauncher.launch(uri)
+    }
+
+    // 카메라 권한 요청 런처
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            startCamera()
+        } else {
+            // 필요하면 여기서 "권한이 필요합니다" 안내용 UI/Toast 추가 가능
+        }
+    }
+
 
     val (title, stepIndex) = when (uiState.step) {
         PetRegisterStep.PHOTO_NAME    -> "반려동물 등록하기" to 1
@@ -79,6 +107,7 @@ fun PetRegisterScreen(
     val isLastStep = uiState.step == PetRegisterStep.RELATIONSHIP
 
     Scaffold(
+        containerColor = Color.White,
         topBar = {
             PetRegisterTopBar(
                 title = title,
@@ -121,6 +150,7 @@ fun PetRegisterScreen(
             val onPickImage: () -> Unit = { showImageSourceDialog = true }
 
             when (uiState.step) {
+
                 PetRegisterStep.PHOTO_NAME -> PhotoNameStep(
                     state = uiState,
                     onName = viewModel::updatePetName,
@@ -216,13 +246,32 @@ fun PetRegisterScreen(
             onDismiss = { showImageSourceDialog = false },
             onPickGallery = {
                 showImageSourceDialog = false
-                galleryLauncher.launch("image/*")
+
+                // 1) 이미지 전용 인텐트 생성
+                val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                    type = "image/*"                      // 사진만
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                }
+
+                // 2) "사용할 애플리케이션" 선택창 강제
+                val chooser = Intent.createChooser(intent, "사진 선택")
+
+                // 3) 런처 실행
+                galleryLauncher.launch(chooser)
             },
             onTakePhoto = {
                 showImageSourceDialog = false
-                val uri = createImageUri(context)
-                cameraImageUri = uri
-                cameraLauncher.launch(uri)
+
+                val hasPermission = ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.CAMERA
+                ) == PackageManager.PERMISSION_GRANTED
+
+                if (hasPermission) {
+                    startCamera()
+                } else {
+                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                }
             }
         )
     }
@@ -264,6 +313,8 @@ private fun createImageUri(context: Context): Uri {
         imageFile
     )
 }
+
+
 
 
 @SuppressLint("ViewModelConstructorInComposable")

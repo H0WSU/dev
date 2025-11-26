@@ -21,6 +21,7 @@ import com.example.howsu.screen.family.FamilyRegisterIntroScreen
 import com.example.howsu.screen.family.NicknameRegisterScreen
 import com.example.howsu.screen.family.SetRelationshipScreen
 import com.example.howsu.screen.feed.FeedHomeScreen
+import com.example.howsu.screen.feed.FeedDetailScreen
 import com.example.howsu.screen.feed.FeedViewModel
 import com.example.howsu.screen.feed.FeedWriteScreen
 import com.example.howsu.screen.home.HomeScreen
@@ -48,15 +49,6 @@ import java.nio.charset.StandardCharsets
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
-
-    // 임시 데이터
-    val member = FamilyMember(
-        userId = "user123",
-        familyId = "test_family",
-        relationship = "언니",
-        profileImageUrl = null,
-        nickName = "이구역의짱"
-    )
 
     // ★ 상위 레벨에서 ViewModel 생성
     val feedViewModel: FeedViewModel = viewModel()
@@ -117,32 +109,41 @@ fun AppNavigation() {
             FamilyRegisterIntroScreen(navController = navController, userNickname = nickname, userProfileUrl = finalProfileUrl)
         }
 
-        // ★ family_invite_screen 경로 (HEAD와 313... 합치기)
+        // 가족 초대 화면 (회원가입/마이페이지 공용)
         composable(
-            route = "family_invite_screen/{familyName}/{familyId}?profileUrl={profileUrl}", // 313... 영역의 profileUrl 인자 추가 포함
+            // 1. 라우트 이름을 'invite_family'로 통일 (MypageScreen과 맞춤)
+            // 2. '&isFromMypage={isFromMypage}' 파라미터 추가
+            route = "invite_family/{familyName}/{familyId}?profileUrl={profileUrl}&isFromMypage={isFromMypage}",
             arguments = listOf(
                 navArgument("familyName") { type = NavType.StringType },
                 navArgument("familyId") { type = NavType.StringType },
-                // 프로필 URL 인자 설정
                 navArgument("profileUrl") {
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
+                },
+                // ★ 3. 마이페이지 여부 인자 추가 (기본값 false = 회원가입 흐름)
+                navArgument("isFromMypage") {
+                    type = NavType.BoolType
+                    defaultValue = false
                 }
             )
         ) { backStackEntry ->
             val familyName = backStackEntry.arguments?.getString("familyName") ?: ""
             val familyId = backStackEntry.arguments?.getString("familyId") ?: ""
 
-            // 받은 URL 꺼내기 (null 문자열 처리)
             val profileUrlStr = backStackEntry.arguments?.getString("profileUrl")
             val finalProfileUrl = if (profileUrlStr == "null") null else profileUrlStr
+
+            // ★ 4. 인자값 꺼내기
+            val isFromMypage = backStackEntry.arguments?.getBoolean("isFromMypage") ?: false
 
             FamilyInviteScreen(
                 navController = navController,
                 familyNameInput = familyName,
                 invitedFamilyId = familyId,
-                userProfileUrl = finalProfileUrl // ★ userProfileUrl 전달 (313... 영역의 코드)
+                userProfileUrl = finalProfileUrl,
+                isFromMypage = isFromMypage // ★ 화면으로 전달
             )
         }
 
@@ -273,6 +274,19 @@ fun AppNavigation() {
                     imagePickerLauncher.launch("image/*")
                 }
             )
+        }
+
+        composable("feed_detail/{postId}") { backStackEntry ->
+            val idString = backStackEntry.arguments?.getString("postId")
+            val postId = idString?.toLongOrNull()
+
+            if (postId != null) {
+                FeedDetailScreen(
+                    postId = postId,
+                    viewModel = feedViewModel,
+                    navController = navController
+                )
+            }
         }
     }
 }

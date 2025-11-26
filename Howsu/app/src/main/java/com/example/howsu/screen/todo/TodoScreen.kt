@@ -222,11 +222,6 @@ fun CalendarWeekRow(
             val isSelected = date == selectedDate
             val isToday = date == today
 
-            // ★ UI 로직:
-            // 1. 오늘 날짜(isToday) = 검은색 채워진 동그라미 + 흰색 글씨
-            // 2. 선택된 날짜(isSelected)이면서 오늘이 아님 = 검은색 테두리 + 검은색 글씨
-            // 3. 그 외 = 투명 + 검은색 글씨
-
             val backgroundColor = if (isToday) Color(0xFFFFDF37) else Color.Transparent
             val borderColor = if (isSelected && !isToday) Color(0xFFFFDF37) else Color.Transparent
             val textColor = if (isToday) Color(0xFF121212) else Color(0xFF121212)
@@ -251,7 +246,7 @@ fun CalendarWeekRow(
                         .size(32.dp)
                         .clip(CircleShape)
                         .background(backgroundColor)
-                        .border(1.dp, borderColor, CircleShape),
+                        .border(1.5.dp, borderColor, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -337,25 +332,14 @@ fun TodoGroupCard(
     ) {
         Column(modifier = Modifier.padding(vertical = 10.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // ★ 1. 프로필 사진 (여러 명이면 겹쳐서 보여주기 - 펫 아이콘 로직 재사용!)
-                OverlappingPetIcons(
-                    petNames = group.assigneeNames, // 이름 리스트
-                    petUrls = group.assigneeProfileUrls, // 사진 주소 리스트
-                    color = Color(color = 0xFF121212),
-                    modifier = Modifier.height(36.dp) // 높이 살짝 키움
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // ★ 2. 이름 텍스트 조합 ("언니, 엄마" + "가")
-                // 리스트가 비어있을 수 있으니 안전하게 처리
+                // 1. 이름 텍스트 (사람 사진은 지우고 이름만 표시)
                 val names = group.assigneeNames
-                val nameString = names.joinToString(", ") // "언니, 엄마"
-
-                // 마지막 이름의 받침 확인
+                val nameString = names.joinToString(", ")
                 val lastName = names.lastOrNull() ?: ""
                 val particle = if (hasBatchim(lastName)) "이" else "가"
 
@@ -369,14 +353,16 @@ fun TodoGroupCard(
                         }
                     },
                     color = contentColor,
-                    maxLines = 1, // 너무 길면 ... 처리
+                    maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f) // 남은 공간 차지
+                    modifier = Modifier.weight(1f) // 텍스트가 남은 공간 차지
                 )
+
+                // (여기 있던 사람 프로필 사진 코드 삭제함)
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // 펫 아이콘
+                // ★ 2. 펫 아이콘/사진 (이건 남겨둠!)
                 OverlappingPetIcons(
                     petNames = group.petNames,
                     petUrls = group.petProfileUrls,
@@ -384,7 +370,7 @@ fun TodoGroupCard(
                     modifier = Modifier.height(34.dp)
                 )
 
-                // 더보기 메뉴
+                // 3. 더보기 메뉴
                 Box {
                     IconButton(onClick = { isMenuExpanded = true }) {
                         Icon(
@@ -395,7 +381,8 @@ fun TodoGroupCard(
                     }
                     DropdownMenu(
                         expanded = isMenuExpanded,
-                        onDismissRequest = { isMenuExpanded = false }
+                        onDismissRequest = { isMenuExpanded = false },
+                        containerColor = Color.White
                     ) {
                         DropdownMenuItem(
                             text = { Text("수정하기") },

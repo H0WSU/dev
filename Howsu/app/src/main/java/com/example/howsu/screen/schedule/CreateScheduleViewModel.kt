@@ -81,12 +81,17 @@ class CreateScheduleViewModel : ViewModel() {
     private val _showAlarmPicker = MutableStateFlow(false)
     val showAlarmPicker: StateFlow<Boolean> = _showAlarmPicker.asStateFlow()
     val alarmOptions = listOf("설정 안 함", "일정 시작 시간", "10분 전", "1시간 전", "1일 전")
-    private val _selectedColor = MutableStateFlow("#000000")
+    private val _selectedColor = MutableStateFlow("#FFDF37")
     val selectedColor: StateFlow<String> = _selectedColor.asStateFlow()
     private val _isColorPickerVisible = MutableStateFlow(false)
     val isColorPickerVisible: StateFlow<Boolean> = _isColorPickerVisible.asStateFlow()
     val predefinedColors = listOf(
-        "#000000", "#4285F4", "#EA4335", "#34A853", "#FABC05", "#7986CB"
+        "#000000",
+        "#4285F4",
+        "#EA4335",
+        "#34A853",
+        "#FFDF37",
+        "#7986CB"
     )
 
     fun initialize(scheduleId: String?) {
@@ -165,7 +170,7 @@ class CreateScheduleViewModel : ViewModel() {
     }
 
     fun onPetTagRemoved(pet: Pet) {
-        _selectedPets.update { it.filterNot { p -> p.petId == pet.petId } }
+        _selectedPets.update { currentList -> currentList.filterNot { it.petId == pet.petId } }
     }
 
     fun onTitleChanged(newTitle: String) {

@@ -1,32 +1,18 @@
 package com.example.howsu.screen.family
 
+import android.Manifest
+import android.app.Activity
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -34,54 +20,96 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+<<<<<<< Updated upstream
 import coil.compose.AsyncImage
+import com.example.howsu.screen.todo.ContentBlack
+import com.example.howsu.screen.todo.YellowBox
+=======
+import com.example.howsu.screen.pet.component.DoubleRingProfileImage
+import com.example.howsu.screen.pet.component.ImageSourceBottomSheet
+>>>>>>> Stashed changes
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
+import java.io.File
+import androidx.core.content.FileProvider
 
 @Composable
 fun NicknameRegisterScreen(
     navController: NavHostController,
-    onNicknameComplete: (String, String?) -> Unit = { nick, img -> },
-    // ViewModel 주입 (기본값으로 내부 생성)
+    onNicknameComplete: (String, String?) -> Unit = { _, _ -> },
     viewModel: NicknameRegisterViewModel = viewModel()
 ) {
-    // ViewModel 상태 사용 (화면 갔다가 돌아와도 유지됨)
     val nickname = viewModel.nickname
     val profileImageUrl = viewModel.profileImageUrl
+    val isNextEnabled = nickname.isNotBlank()
 
-    // 갤러리 런처
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
+    val context = LocalContext.current
+
+    // 사진 선택 관련 상태
+    var showImageSourceDialog by remember { mutableStateOf(false) }
+    var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
+
+    // 앨범 런처
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
+
+        val uri = result.data?.data
         if (uri != null) {
             viewModel.profileImageUrl = uri.toString()
         }
     }
 
-    val isNextEnabled = nickname.isNotBlank()
+    // 카메라 런처
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && cameraImageUri != null) {
+            viewModel.profileImageUrl = cameraImageUri.toString()
+        }
+    }
+
+    // 카메라 실제 실행 함수
+    fun startCamera() {
+        val uri = createImageUriForFamily(context)
+        cameraImageUri = uri
+        cameraLauncher.launch(uri)
+    }
+
+    // 카메라 권한 요청 런처
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            startCamera()
+        } else {
+            // 필요하면 "권한이 필요합니다" 안내 UI 추가 가능
+        }
+    }
 
     Scaffold(
         topBar = {
             NicknameRegisterTopBar(
                 onBack = {
-                    // 뒤로가기 시 로그아웃 및 로그인 화면으로 이동
                     Firebase.auth.signOut()
                     navController.navigate("login") {
                         popUpTo(0) { inclusive = true }
@@ -93,9 +121,7 @@ fun NicknameRegisterScreen(
             NicknameRegisterBottomBar(
                 enabled = isNextEnabled,
                 onNext = {
-                    // 저장 함수 호출하고, 저장이 다 끝나면(onSuccess) 이동
                     viewModel.saveNicknameToFirebase {
-                        // 이 안의 코드는 업로드+DB저장이 끝난 뒤 실행됨
                         onNicknameComplete(nickname, viewModel.profileImageUrl)
                     }
                 }
@@ -112,10 +138,10 @@ fun NicknameRegisterScreen(
         ) {
             Spacer(modifier = Modifier.height(30.dp))
 
-            // 프로필 이미지 컴포넌트
+            // 프로필 이미지 (눌렀을 때 bottom sheet 열기)
             DoubleRingProfileImage(
                 imageUrl = profileImageUrl,
-                onClick = { imagePickerLauncher.launch("image/*") }
+                onClick = { showImageSourceDialog = true }
             )
 
             Spacer(modifier = Modifier.height(30.dp))
@@ -131,7 +157,7 @@ fun NicknameRegisterScreen(
 
             OutlinedTextField(
                 value = nickname,
-                onValueChange = { viewModel.nickname = it }, // ViewModel 값 업데이트
+                onValueChange = { viewModel.nickname = it },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {
                     Text(
@@ -151,12 +177,60 @@ fun NicknameRegisterScreen(
                 )
             )
         }
+
+        // 사진 촬영 / 앨범 선택 BottomSheet
+        if (showImageSourceDialog) {
+            ImageSourceBottomSheet(
+                onDismiss = { showImageSourceDialog = false },
+                onPickGallery = {
+                    showImageSourceDialog = false
+
+                    // 이미지 선택용 Intent
+                    val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                        type = "image/*"
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                    }
+
+                    // 앱 선택창 강제 호출
+                    val chooser = Intent.createChooser(intent, "사진 선택")
+
+                    galleryLauncher.launch(chooser)
+                },
+
+                onTakePhoto = {
+                    showImageSourceDialog = false
+
+                    val hasPermission = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.CAMERA
+                    ) == PackageManager.PERMISSION_GRANTED
+
+                    if (hasPermission) {
+                        startCamera()
+                    } else {
+                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    }
+                }
+            )
+        }
     }
 }
 
-/* -----------------------------------------------------------------------
-   UI Components
-   ----------------------------------------------------------------------- */
+/**
+ * 가족 닉네임 화면용 카메라 임시 파일 Uri 생성
+ * PetRegisterScreen 쪽 FileProvider 설정과 file_paths.xml 과 반드시 일치해야 함
+ */
+private fun createImageUriForFamily(context: Context): Uri {
+    val imageFile = File(
+        context.cacheDir,
+        "family_${System.currentTimeMillis()}.jpg"
+    )
+    return FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.fileprovider",
+        imageFile
+    )
+}
 
 @Composable
 fun NicknameRegisterTopBar(onBack: () -> Unit) {
@@ -198,54 +272,19 @@ fun NicknameRegisterBottomBar(enabled: Boolean, onNext: () -> Unit) {
     ) {
         Button(
             onClick = onNext,
-            modifier = Modifier.fillMaxWidth().height(56.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (enabled) Color.Black else Color(0xFFD6D6D6),
-                contentColor = Color.White,
+                containerColor = if (enabled) YellowBox else Color(0xFFD6D6D6),
+                contentColor = ContentBlack,
                 disabledContainerColor = Color(0xFFD6D6D6),
                 disabledContentColor = Color.White
             ),
             shape = RoundedCornerShape(12.dp),
             enabled = enabled
         ) {
-            Text(text = "계속하기", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        }
-    }
-}
-
-@Composable
-fun DoubleRingProfileImage(imageUrl: String?, onClick: () -> Unit) {
-    val infiniteTransition = rememberInfiniteTransition(label = "profilePulse")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1f, targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ), label = "scale"
-    )
-
-    Box(
-        modifier = Modifier
-            .size(280.dp)
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center
-    ) {
-        Box(modifier = Modifier.size(280.dp).scale(pulseScale).border(1.dp, Color(0xFFF5F5F5), CircleShape))
-        Box(modifier = Modifier.size(220.dp).scale(pulseScale).border(1.dp, Color(0xFFF5F5F5), CircleShape))
-        Box(modifier = Modifier.size(160.dp).clip(CircleShape).background(Color(0xFFEBEBEB)), contentAlignment = Alignment.Center) {
-            if (!imageUrl.isNullOrBlank()) {
-                AsyncImage(model = imageUrl, contentDescription = "Profile Image", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            }
-        }
-        Box(modifier = Modifier.size(160.dp)) {
-            Surface(
-                modifier = Modifier.align(Alignment.BottomEnd).offset(4.dp, 4.dp).size(40.dp),
-                shape = RoundedCornerShape(12.dp), color = Color.White, shadowElevation = 3.dp
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Outlined.Image, "사진 변경", tint = Color.Black, modifier = Modifier.size(22.dp))
-                }
-            }
+            Text(text = "계속하기", fontWeight = FontWeight.Medium, fontSize = 15.sp)
         }
     }
 }

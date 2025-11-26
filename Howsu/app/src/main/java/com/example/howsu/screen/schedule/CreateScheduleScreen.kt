@@ -3,7 +3,6 @@ package com.example.howsu.screen.schedule
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -49,6 +48,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -76,18 +76,20 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.times
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import com.example.howsu.R
 import com.example.howsu.data.model.Pet
+import com.example.howsu.screen.todo.ContentBlack
+import com.example.howsu.screen.todo.YellowBox
 import com.example.howsu.ui.theme.HowsuTheme
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -208,7 +210,7 @@ fun CreateScheduleScreen(
     val context = LocalContext.current
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.White,
         topBar = {
             CreateScheduleTopBar(
                 title = if (scheduleId == null) "일정 생성하기" else "일정 수정하기",
@@ -268,7 +270,6 @@ fun CreateScheduleScreen(
                 onRecurrenceEndDateClicked = viewModel::onRecurrenceEndDateClicked
             )
 
-            // ★★★ (신규) 하단 버튼을 Box의 바닥에 정렬
             CreateScheduleBottomButton(
                 modifier = Modifier.align(Alignment.BottomCenter), // ★ 여기에 배치
                 onCreateClick = {
@@ -346,10 +347,13 @@ private fun CreateScheduleBottomButton(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
-            colors = ButtonDefaults.buttonColors(Color.Black, Color.White),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = YellowBox, // ★ 색상 적용 (노랑)
+                contentColor = ContentBlack // ★ 색상 적용 (검정)
+            ),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("저장하기", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+            Text("저장하기", fontWeight = FontWeight.Medium, fontSize = 15.sp)
         }
     }
 }
@@ -427,6 +431,8 @@ private fun CreateScheduleContent(
 ) {
     val dateFormatter = SimpleDateFormat("yyyy.MM.dd 까지", Locale.KOREAN)
     val recurrenceEndDateStr = recurrenceEndDate?.let { dateFormatter.format(Date(it)) } ?: "계속 반복"
+
+    val dividerColor = Color.LightGray.copy(alpha = 0.5f)
 
     Column(
         modifier = modifier
@@ -532,11 +538,15 @@ private fun CreateScheduleContent(
             }
         }
 
+        Divider(color = dividerColor)
+
         // --- (기존) 섹션 6: 한 줄 메모 ---
         CreateScheduleSection(
             icon = rememberVectorPainter(image = Icons.Default.Comment),
             title = "한 줄 메모"
         ) { ScheduleMemoField(memo = memo, onMemoChanged = onMemoChanged) }
+
+        Divider(color = dividerColor)
 
         // --- (기존) 섹션 7: 반려동물 선택 ---
         CreateScheduleSection(
@@ -550,7 +560,8 @@ private fun CreateScheduleContent(
                 onDropdownClicked = onPetDropdownClicked,
                 onDropdownDismissed = onPetDropdownDismissed,
                 onPetSelected = onPetSelected,
-                onPetTagRemoved = onPetTagRemoved
+                onPetTagRemoved = onPetTagRemoved,
+                enabled = true
             )
         }
 
@@ -586,11 +597,6 @@ private fun ScheduleTitleField(
         trailingIcon = {
             Box {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.mood),
-                        contentDescription = "이모티콘",
-                        modifier = Modifier.size(24.dp).clickable { /* TODO */ }
-                    )
                     Spacer(modifier = Modifier.width(10.dp))
                     Box(
                         modifier = Modifier
@@ -603,7 +609,8 @@ private fun ScheduleTitleField(
                 }
                 DropdownMenu(
                     expanded = isColorPickerVisible,
-                    onDismissRequest = onColorPickerDismissed
+                    onDismissRequest = onColorPickerDismissed,
+                    containerColor = Color.White
                 ) {
                     ColorPickerRow(
                         colors = predefinedColors,
@@ -661,12 +668,12 @@ private fun ColorPickerRow(
 @Composable
 private fun AllDaySwitch(isChecked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     val customSwitchColors = SwitchDefaults.colors(
-        checkedTrackColor = Color.Black,
+        checkedTrackColor = Color(0xFFFFDF37),
         checkedThumbColor = Color.White,
         uncheckedTrackColor = Color.LightGray,
         uncheckedThumbColor = Color.White,
         uncheckedBorderColor = Color.LightGray,
-        disabledCheckedTrackColor = Color.Black,
+        disabledCheckedTrackColor = Color(0xFFFFDF37),
         disabledCheckedThumbColor = Color.White,
         disabledUncheckedTrackColor = Color.LightGray,
         disabledUncheckedThumbColor = Color.White,
@@ -788,6 +795,13 @@ private fun ScheduleMemoField(memo: String, onMemoChanged: (String) -> Unit) {
             shape = RoundedCornerShape(17.dp),
             placeholder = { Text("메모 입력하기", fontWeight = FontWeight.Medium, fontSize = 13.sp) },
             maxLines = 3,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFF121212),   // 포커스 됐을 때
+                unfocusedBorderColor = Color(0xFF121212), // 평소 상태일 때 (회색 말고 검정으로 변경)
+                cursorColor = Color(0xFF121212),
+                focusedTextColor = Color(0xFF121212),
+                unfocusedTextColor = Color(0xFF121212)
+            )
         )
         Spacer(modifier = Modifier.height(2.dp))
         Text(
@@ -800,89 +814,236 @@ private fun ScheduleMemoField(memo: String, onMemoChanged: (String) -> Unit) {
         )
     }
 }
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PetSelector(
-    allPets: List<Pet>, selectedPets: List<Pet>, isDropdownVisible: Boolean,
-    onDropdownClicked: () -> Unit, onDropdownDismissed: () -> Unit,
-    onPetSelected: (Pet) -> Unit, onPetTagRemoved: (Pet) -> Unit
+    allPets: List<Pet>,
+    selectedPets: List<Pet>,
+    isDropdownVisible: Boolean,
+    onDropdownClicked: () -> Unit,
+    onDropdownDismissed: () -> Unit,
+    onPetSelected: (Pet) -> Unit,
+    onPetTagRemoved: (Pet) -> Unit,
+    enabled: Boolean
 ) {
+    val alpha = if (enabled) 1f else 0.4f
+    // 테두리 색상 (진한 회색)
+    val borderColor = Color(0xFF121212)
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box {
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // ★ 테두리: 진한 회색 (투두와 동일)
+                    .border(1.dp, borderColor, RoundedCornerShape(17.dp)),
                 shape = RoundedCornerShape(17.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                onClick = onDropdownClicked
+                // ★ 배경: 흰색 (투두와 동일)
+                color = Color.White,
+                onClick = { if (enabled) onDropdownClicked() }
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // ★★★ [수정] 선택된 펫이 있으면 겹친 아이콘 표시
                     if (selectedPets.isEmpty()) {
-                        Image(
+                        Icon(
                             imageVector = Icons.Default.AccountCircle,
                             contentDescription = "펫 프로필",
-                            modifier = Modifier.size(32.dp).clip(CircleShape)
+                            modifier = Modifier
+                                .size(32.dp)
+                                .graphicsLayer { this.alpha = alpha },
+                            tint = ContentBlack
                         )
                     } else {
-                        val firstPet = selectedPets.first()
-                        if (!firstPet.profileImageUrl.isNullOrBlank()) {
-                            coil.compose.AsyncImage(
-                                model = firstPet.profileImageUrl,
-                                contentDescription = null,
-                                modifier = Modifier.size(32.dp).clip(CircleShape),
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                            )
-                        } else {
-                            Icon(Icons.Default.Pets, null, modifier = Modifier.size(24.dp))
-                        }
+                        // ★★★ [수정] 겹치는 펫 아이콘 (사진 포함)
+                        ScheduleOverlappingPetIcons(
+                            petNames = selectedPets.map { it.name },
+                            petUrls = selectedPets.map { it.profileImageUrl },
+                            color = ContentBlack,
+                            modifier = Modifier.height(32.dp)
+                        )
                     }
 
                     Spacer(modifier = Modifier.width(8.dp))
 
                     Text(
-                        text = if (selectedPets.isEmpty()) "반려동물을 선택해 주세요"
-                        else selectedPets.joinToString { it.name },
+                        text = if (selectedPets.isEmpty()) "반려동물을 선택해 주세요" else selectedPets.joinToString { it.name },
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
-                        color = if (selectedPets.isEmpty()) Color.Gray else MaterialTheme.colorScheme.onSurface
+                        color = ContentBlack.copy(alpha = if (enabled) 1f else 0.4f)
                     )
+
                     Spacer(modifier = Modifier.weight(1f))
-                    Icon(Icons.Default.KeyboardArrowDown, "열기", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                    if (enabled) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = "열기",
+                            tint = ContentBlack
+                        )
+                    }
                 }
             }
 
+            // 드롭다운 메뉴 (사진 표시 추가)
             DropdownMenu(
-                expanded = isDropdownVisible,
+                expanded = isDropdownVisible && enabled,
                 onDismissRequest = onDropdownDismissed,
-                modifier = Modifier.fillMaxWidth(0.8f)
+                modifier = Modifier.fillMaxWidth(0.8f),
+                containerColor = Color.White
             ) {
                 allPets.forEach { pet ->
-                    DropdownMenuItem(text = { Text(pet.name) }, onClick = { onPetSelected(pet) })
+                    DropdownMenuItem(
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (!pet.profileImageUrl.isNullOrBlank()) {
+                                    coil.compose.AsyncImage(
+                                        model = pet.profileImageUrl,
+                                        contentDescription = null,
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                        modifier = Modifier.size(24.dp).clip(CircleShape)
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Pets,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(24.dp),
+                                        tint = Color.Gray
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(pet.name, color = ContentBlack)
+                            }
+                        },
+                        onClick = { onPetSelected(pet) }
+                    )
                 }
             }
         }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            selectedPets.forEach { pet ->
-                PetTagChip(pet = pet, onRemoveClick = { onPetTagRemoved(pet) })
+
+        if (selectedPets.isNotEmpty()) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                selectedPets.forEach { pet ->
+                    PetTagChip(
+                        pet = pet,
+                        onRemoveClick = { onPetTagRemoved(pet) },
+                        enabled = enabled
+                    )
+                }
             }
         }
     }
 }
+
+
 @Composable
-private fun PetTagChip(pet: Pet, onRemoveClick: () -> Unit) {
-    Surface(shape = RoundedCornerShape(8.dp), color = Color.Gray) {
+private fun ScheduleOverlappingPetIcons(
+    petNames: List<String>,
+    petUrls: List<String?>,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    if (petNames.isEmpty()) return
+
+    val displayCount = petNames.take(3).size
+    val remaining = (petNames.size - displayCount).coerceAtLeast(0)
+    val width = (32 + (displayCount - 1) * 20 + (if (remaining > 0) 24 else 0)).dp
+    val overlap = 20.dp
+
+    Box(
+        modifier = modifier.width(width).height(32.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        for (index in 0 until displayCount) {
+            val reverseIndex = (displayCount - 1) - index
+            val name = petNames.getOrNull(reverseIndex) ?: ""
+            val url = petUrls.getOrNull(reverseIndex)
+
+            PetIconCircle(
+                petName = name,
+                imageUrl = url,
+                color = color.copy(alpha = 1f - (reverseIndex * 0.2f)),
+                modifier = Modifier
+                    .padding(start = index * overlap)
+                    .size(32.dp)
+                    .zIndex(index.toFloat())
+            )
+        }
+        if (remaining > 0) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(Color.Gray.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = "+$remaining", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = color)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PetIconCircle(
+    petName: String,
+    imageUrl: String?,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.6f))
+            .border(1.dp, Color.White, CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        if (!imageUrl.isNullOrBlank()) {
+            coil.compose.AsyncImage(
+                model = imageUrl,
+                contentDescription = petName,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.Pets,
+                contentDescription = petName,
+                tint = color,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun PetTagChip(pet: Pet, onRemoveClick: () -> Unit, enabled: Boolean) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        // 배경: 노란색 (0xFFFFDF37)
+        color = Color(0xFFFFDF37).copy(alpha = if (enabled) 1f else 0.4f)
+    ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(pet.name, fontSize = 12.sp)
+            // 글자: 진한 회색 (0xFF121212)
+            Text(pet.name, fontSize = 12.sp, color = Color(0xFF121212))
             Spacer(modifier = Modifier.width(4.dp))
-            Icon(Icons.Default.Close, "${pet.name} 삭제", modifier = Modifier
-                .size(16.dp)
-                .clickable(onClick = onRemoveClick))
+            if (enabled) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "${pet.name} 삭제",
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable(onClick = onRemoveClick),
+                    tint = Color(0xFF121212)
+                )
+            }
         }
     }
 }

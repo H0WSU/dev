@@ -1,5 +1,6 @@
 package com.example.howsu.screen.pet.step
 
+import android.R.attr.fontWeight
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,10 +22,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.howsu.data.model.PetRegisterUiState
+import com.example.howsu.screen.pet.component.DoubleRingProfileImage
 import com.example.howsu.screen.pet.component.GenderChip
 import com.example.howsu.screen.pet.component.PetProfileImageOnly
 
@@ -34,33 +38,42 @@ fun GenderWeightStep(
     onGender: (String) -> Unit,
     onWeight: (String) -> Unit,
     onNeuteredChanged: (Boolean) -> Unit,
-
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp)
+            .padding(horizontal = 18.dp)
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
+        // PhotoNameStep 과 동일: 맨 위 여백
+        Spacer(modifier = Modifier.height(28.dp))
 
         PetProfileImageOnly(
             imageUrl = state.profilePetImageUrl,
             size = 160.dp
         )
 
+        // 이름
         Text(
             text = state.petName.ifBlank { "우리 아이" },
-            style = MaterialTheme.typography.titleMedium
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            fontSize = 22.sp,
+            color = Color.Black
         )
 
+        // 성별 질문
         Text(
             text = "성별은 무엇인가요?",
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.DarkGray,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Normal
         )
 
+        // 성별 선택 버튼
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -79,6 +92,7 @@ fun GenderWeightStep(
             )
         }
 
+        // 중성화 여부 (네가 쓰던 로직 그대로)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -98,53 +112,68 @@ fun GenderWeightStep(
             Text(
                 text = "중성화했어요",
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF828282)
+                color = Color(0xFF828282),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Normal
             )
         }
 
+        // 몸무게 질문
         Text(
             text = "몸무게는 몇 kg 인가요?",
             style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.align(Alignment.Start),
-            fontSize = 16.sp
+            color = Color.DarkGray,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Normal
         )
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedTextField(
-                value = state.weight,
-                onValueChange = { new ->
-                    // 숫자와 '.' 만 허용
-                    var filtered = new.filter { it.isDigit() || it == '.' }
+        // 몸무게 입력
+        // 몸무게 입력
+        OutlinedTextField(
+            value = state.weight,
+            onValueChange = { new ->
+                // 숫자와 '.' 만 허용
+                var filtered = new.filter { it.isDigit() || it == '.' }
 
-                    // '.' 은 최대 1개만 허용
-                    val dotCount = filtered.count { it == '.' }
-                    if (dotCount > 1) {
-                        // 마지막 '.' 을 제거
-                        val lastDotIndex = filtered.lastIndexOf('.')
-                        filtered = filtered.removeRange(lastDotIndex, lastDotIndex + 1)
-                    }
+                // '.' 은 최대 1개만 허용
+                val dotCount = filtered.count { it == '.' }
+                if (dotCount > 1) {
+                    val lastDotIndex = filtered.lastIndexOf('.')
+                    filtered = filtered.removeRange(lastDotIndex, lastDotIndex + 1)
+                }
 
-                    // 맨 앞이 '.' 이면 "0." 으로 보정
-                    if (filtered.startsWith(".")) {
-                        filtered = "0$filtered"
-                    }
+                // 맨 앞이 '.' 이면 "0." 으로 보정
+                if (filtered.startsWith(".")) {
+                    filtered = "0$filtered"
+                }
 
-                    onWeight(filtered)
-                },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("예) 2.3") },
-                singleLine = true,
-                shape = RoundedCornerShape(14.dp),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Number
+                onWeight(filtered)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp),
+            placeholder = { Text("예) 2.3") },
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number
+            ),
+            suffix = {                    // ← 오른쪽 안쪽에 붙는 텍스트
+                Text(
+                    text = "kg",
+                    fontSize = 14.sp,
+                    color = Color.Black
                 )
-            )
-        }
+            }
+        )
 
-        Spacer(modifier = Modifier.height(24.dp))
+// PhotoNameStep 과 동일: 맨 아래 여백
+        Spacer(modifier = Modifier.height(40.dp))
+
+
+        // PhotoNameStep 과 동일: 맨 아래 여백
+        Spacer(modifier = Modifier.height(40.dp))
     }
 }
+
+

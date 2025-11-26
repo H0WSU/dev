@@ -1,5 +1,6 @@
 package com.example.howsu.screen.pet.component
 
+
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
