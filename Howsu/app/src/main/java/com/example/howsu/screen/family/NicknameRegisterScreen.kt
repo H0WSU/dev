@@ -38,14 +38,11 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-<<<<<<< Updated upstream
 import coil.compose.AsyncImage
 import com.example.howsu.screen.todo.ContentBlack
 import com.example.howsu.screen.todo.YellowBox
-=======
 import com.example.howsu.screen.pet.component.DoubleRingProfileImage
 import com.example.howsu.screen.pet.component.ImageSourceBottomSheet
->>>>>>> Stashed changes
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import java.io.File
