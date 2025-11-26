@@ -24,7 +24,7 @@ fun RelationshipStep(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
         PetProfileImageOnly(
             imageUrl = state.profilePetImageUrl,

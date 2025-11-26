@@ -3,6 +3,7 @@ package com.example.howsu.Pet
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.howsu.data.model.BirthdayInputType
 import com.example.howsu.data.model.Pet
 import com.example.howsu.data.model.PetRegisterStep
@@ -157,7 +158,7 @@ class PetRegisterViewModel : ViewModel() {
         onFinished(tempPet)
 
         // [백그라운드 작업] 사용자가 다음 화면 구경하는 동안 뒤에서 몰래 업로드 & 저장
-        GlobalScope.launch {
+        viewModelScope.launch {
             try {
                 // 가족 ID 가져오기
                 val userDoc = db.collection("users").document(user.uid).get().await()
