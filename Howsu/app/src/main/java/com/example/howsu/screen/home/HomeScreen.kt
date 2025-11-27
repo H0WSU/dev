@@ -1,8 +1,10 @@
 package com.example.howsu.screen.home
 
 import android.annotation.SuppressLint
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -80,7 +82,7 @@ fun HomeScreen(
             HomeTopAppBar(
                 member = uiState.member,
                 family = uiState.family,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 40.dp) // 약간의 여백 추가  -> 머지 후 수정할것임.
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 40.dp) // 약간의 여백 추가
             )
         },
         bottomBar = { MyBottomNavigationBar(navController = navController) },
@@ -128,7 +130,8 @@ fun HomeScreen(
                 item {
                     Column(modifier = Modifier.padding(horizontal = NarrowPadding)) {
                         FamilySection(
-                            members = uiState.familyMembers
+                            members = uiState.familyMembers,
+                            currentUserId = uiState.member.userId // 현재 로그인된 사용자 id 전달
                         )
                     }
                     Spacer(Modifier.height(24.dp))
@@ -347,6 +350,7 @@ fun PetCard(    // 반려동물 리스트
 @Composable
 fun FamilySection(
     members: List<FamilyMember>,
+    currentUserId: String? = null
 ) {
     Column {
         Text(
@@ -359,18 +363,36 @@ fun FamilySection(
             horizontalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             members.forEach { member ->
-                FamilyMemberItem(member = member)
+                val isCurrentUser = member.userId == currentUserId
+                FamilyMemberItem(member = member, isCurrentUser = isCurrentUser)
             }
         }
     }
 }
 
 @Composable
-fun FamilyMemberItem(member: FamilyMember) {
+fun FamilyMemberItem(
+    member: FamilyMember,
+    isCurrentUser: Boolean = false
+) {
+
+    val borderStroke = if(isCurrentUser){
+        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+    } else {
+        null
+    }
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Surface(
             shape = CircleShape,
-            modifier = Modifier.size(60.dp),
+            modifier = Modifier
+                .size(60.dp)
+                .let{ modifier ->    // 테두리 추가
+                    if(borderStroke != null){
+                        modifier.border(border = borderStroke, shape = CircleShape)
+                    } else{
+                        modifier
+                    }
+                },
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
         ) {
             Box(contentAlignment = Alignment.Center) {

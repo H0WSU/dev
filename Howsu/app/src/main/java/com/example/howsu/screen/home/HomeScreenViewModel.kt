@@ -94,10 +94,12 @@ class HomeScreenViewModel : ViewModel() {
             val members = membersSnapshot.documents.mapNotNull { it.toObject(FamilyMember::class.java) }
 
             // C. 구성원 목록에서 '나' 찾기 (TopBar 표시용)
-            // FamilyMember에 userId 필드가 있다고 가정하고 매칭합니다.
             val myMemberInfo = members.find { it.userId == myUid }
                 ?: FamilyMember(nickName = myName, userId = myUid)
 
+            val sortedMenbers = members.sortedWith(   // 사용자 본인을 가장 앞에 보여줌
+                compareByDescending { it.userId == myUid }
+            )
             // D. 펫 목록 가져오기
             val petsSnapshot = db.collection("families").document(familyId)
                 .collection("pets")
@@ -120,7 +122,7 @@ class HomeScreenViewModel : ViewModel() {
                     family = familyObj,   // 가족 객체 저장
                     member = myMemberInfo,// 내 멤버 객체 저장
                     pets = petsList,
-                    familyMembers = members
+                    familyMembers = sortedMenbers
                 )
             }
 
@@ -145,7 +147,7 @@ class HomeScreenViewModel : ViewModel() {
         } catch (e: Exception) { "?세" }
     }
 
-    private fun translateGender(gender: String?): String {
+    private fun translateGender(gender: String?): String {   // DB 상 저장된 성별 형태 변경
         return when (gender?.uppercase()) {
             "MALE" -> "남아"
             "FEMALE" -> "여아"
