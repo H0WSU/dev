@@ -26,7 +26,6 @@ class TodoViewModel : ViewModel() {
 
     private val _allTodoGroups = MutableStateFlow<List<TodoGroup>>(emptyList())
 
-    // ★ (수정) 초기화 시점에도 '지난 일요일'을 기준으로 설정 (앱 켜자마자 다음주가 보이는 문제 해결)
     private val _selectedDate = MutableStateFlow(LocalDate.now())
     val selectedDate = _selectedDate.asStateFlow()
 
@@ -34,6 +33,10 @@ class TodoViewModel : ViewModel() {
         LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
     )
     val currentWeekStart = _currentWeekStart.asStateFlow()
+
+    // 닉네임 표시용
+    private val _userNickname = MutableStateFlow("")
+    val userNickname = _userNickname.asStateFlow()
 
     val todoGroups = combine(_allTodoGroups, _selectedDate) { groups, date ->
         val formattedDate = date.format(DateTimeFormatter.ofPattern("yyyy. MM. dd", Locale.KOREA))
@@ -49,7 +52,6 @@ class TodoViewModel : ViewModel() {
     }
 
     init {
-        // 초기화 시점에 데이터를 가져옴
         fetchTodoGroups()
     }
 
@@ -60,14 +62,19 @@ class TodoViewModel : ViewModel() {
             return
         }
 
-        // 1단계: 내 유저 정보에서 '가족 ID'를 먼저 가져옴
+        // 1단계: 내 유저 정보에서 닉네임 & 가족 ID 가져옴
         db.collection("users").document(currentUser.uid).get()
             .addOnSuccessListener { document ->
-                // User 모델의 필드명에 맞춰서 가져옵니다 (예: currentFamilyId)
+                val name = document.getString("name") ?: "사용자"
+                _userNickname.value = name
+
                 val myFamilyId = document.getString("currentFamilyId")
 
                 if (myFamilyId != null) {
-                    // 2단계: 알아낸 가족 ID로 투두 그룹을 구독
+                    // ★★★ [추가됨] 지난 할 일 체크 및 오늘로 이동시키기 (여기!!)
+                    checkAndMigrateOverdueTasks(myFamilyId)
+
+                    // 2단계: 투두 구독
                     startListeningToTodos(myFamilyId)
                 } else {
                     Log.e("TodoViewModel", "가족 ID를 찾을 수 없습니다.")
@@ -79,10 +86,65 @@ class TodoViewModel : ViewModel() {
             }
     }
 
+    // ★★★ [추가됨] 지난 할 일(미완료) 오늘로 자동 이월 함수
+    private fun checkAndMigrateOverdueTasks(familyId: String) {
+        viewModelScope.launch {
+            try {
+                val today = LocalDate.now()
+                val formatter = DateTimeFormatter.ofPattern("yyyy. MM. dd", Locale.KOREA)
+                val todayStr = today.format(formatter)
+
+                // 1. 우리 가족의 모든 투두 가져오기
+                val snapshot = db.collection("todoGroups")
+                    .whereEqualTo("familyId", familyId)
+                    .get()
+                    .await()
+
+                val batch = db.batch()
+                var hasUpdates = false
+
+                for (doc in snapshot.documents) {
+                    val group = doc.toObject(TodoGroup::class.java) ?: continue
+                    var groupUpdated = false
+
+                    val newTasks = group.tasks.map { task ->
+                        val taskDateStr = task.date ?: ""
+                        var taskDate: LocalDate? = null
+                        try {
+                            taskDate = LocalDate.parse(taskDateStr, formatter)
+                        } catch (e: Exception) {
+                            null
+                        }
+
+                        // 조건: "체크 안 됨" AND "오늘보다 이전 날짜" -> 오늘로 변경
+                        if (task.isChecked.not() && taskDate != null && taskDate.isBefore(today)) {
+                            groupUpdated = true
+                            hasUpdates = true
+                            task.copy(date = todayStr)
+                        } else {
+                            task
+                        }
+                    }
+
+                    if (groupUpdated) {
+                        batch.update(doc.reference, "tasks", newTasks)
+                    }
+                }
+
+                if (hasUpdates) {
+                    batch.commit().await()
+                    Log.d("TodoViewModel", "지난 할 일들을 오늘로 이동했습니다.")
+                }
+
+            } catch (e: Exception) {
+                Log.e("TodoViewModel", "할 일 이월 실패", e)
+            }
+        }
+    }
     // 실제 투두 리스너 (가족 ID가 있을 때만 실행)
     private fun startListeningToTodos(familyId: String) {
         db.collection("todoGroups")
-            .whereEqualTo("familyId", familyId) // ★ 이제 정확한 가족 ID로 찾습니다!
+            .whereEqualTo("familyId", familyId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     Log.w("TodoViewModel", "Listen failed.", error)
@@ -104,7 +166,6 @@ class TodoViewModel : ViewModel() {
     fun resetToToday() {
         val today = LocalDate.now()
         _selectedDate.value = today
-        // "오늘이 포함된 주의 일요일"을 계산
         _currentWeekStart.value = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
     }
 
@@ -117,11 +178,10 @@ class TodoViewModel : ViewModel() {
         viewModelScope.launch {
             val docRef = db.collection("todoGroups").document(documentId)
             try {
-                // 'get'/'update' 대신 'transaction'을 사용
                 db.runTransaction { transaction ->
                     val snapshot = transaction.get(docRef)
                     val group = snapshot.toObject(TodoGroup::class.java)
-                        ?: throw Exception("Group not found") // 그룹이 없으면 중단
+                        ?: throw Exception("Group not found")
 
                     val newTasks = group.tasks.map { task ->
                         if (task.id == taskId) {
@@ -130,19 +190,15 @@ class TodoViewModel : ViewModel() {
                             task
                         }
                     }
-
                     transaction.update(docRef, "tasks", newTasks)
-
-                    // (트랜잭션이 성공하면 null을 반환)
                     null
                 }.await()
-                // 트랜잭션이 성공하면 snapshotListener가 알아서 UI를 갱신합니다.
-
             } catch (e: Exception) {
-                Log.e("TodoViewModel", "태스크 업데이트 실패 (Transaction)", e)
+                Log.e("TodoViewModel", "태스크 업데이트 실패", e)
             }
         }
     }
+
     fun onWeekDaySelected(date: LocalDate) {
         _selectedDate.value = date
     }
@@ -150,7 +206,6 @@ class TodoViewModel : ViewModel() {
     fun onWeekSwipe(days: Long) {
         val newWeekStart = _currentWeekStart.value.plusDays(days)
         _currentWeekStart.value = newWeekStart
-
         val currentSelected = _selectedDate.value
         if (currentSelected !in newWeekStart..newWeekStart.plusDays(6)) {
             _selectedDate.value = newWeekStart.plusDays(if (days > 0) 0 else 6)
@@ -162,7 +217,6 @@ class TodoViewModel : ViewModel() {
         val newDate = Instant.ofEpochMilli(millis)
             .atZone(ZoneId.systemDefault())
             .toLocalDate()
-
         _selectedDate.value = newDate
         _currentWeekStart.value = newDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
     }

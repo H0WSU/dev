@@ -443,7 +443,7 @@ fun FamilyRegisterBottomBar(enabled: Boolean, onNext: () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().background(Color.Transparent).padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 60.dp)) {
         Button(
             onClick = onNext,
-            modifier = Modifier.fillMaxWidth().height(64.dp),
+            modifier = Modifier.fillMaxWidth().height(56.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (enabled) Color.Black else Color(0xFFD6D6D6),
                 contentColor = Color.White,
