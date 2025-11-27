@@ -31,6 +31,7 @@ import com.example.howsu.screen.login.LoginScreen
 import com.example.howsu.screen.mypage.FAQScreen
 import com.example.howsu.screen.mypage.MypageScreen
 import com.example.howsu.screen.mypage.NotificationScreen
+import com.example.howsu.screen.pet.EditPetScreen
 import com.example.howsu.screen.pet.PetDetailScreen
 import com.example.howsu.screen.pet.PetRegisterCompleteScreen
 import com.example.howsu.screen.pet.PetRegisterScreen
@@ -172,6 +173,31 @@ fun AppNavigation() {
             HomeScreen(navController = navController)
         }
 
+        // 펫 정보 보기
+        composable(
+            route = "pet_detail/{familyId}/{petId}",
+            arguments = listOf(
+                navArgument("familyId") { type = NavType.StringType },
+                navArgument("petId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            PetDetailScreen(navController = navController)
+        }
+
+        // 펫 정보 수정
+        composable(
+            route = "edit_pet/{familyId}/{petId}", // 경로 패턴 정의
+            arguments = listOf(
+                navArgument("familyId") { type = NavType.StringType },
+                navArgument("petId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            // EditPetScreen 컴포저블을 호출
+            // SavedStateHandle을 통해 familyId와 petId가 자동으로 ViewModel에 전달됩니다.
+            EditPetScreen(navController = navController)
+        }
+
+
         // --- (스케줄) ---
         composable(route = "schedule") {
             ScheduleScreen(navController = navController)
@@ -198,17 +224,6 @@ fun AppNavigation() {
         composable(route = "edit_todo/{documentId}") { backStackEntry ->
             val documentId = backStackEntry.arguments?.getString("documentId")
             CreateTodoScreen(navController = navController, documentId = documentId)
-        }
-
-        // 펫 상세
-        composable(
-            route = "pet_detail/{familyId}/{petName}",
-            arguments = listOf(
-                navArgument("familyId") { type = NavType.StringType },
-                navArgument("petName") { type = NavType.StringType }
-            )
-        ) { backStackEntry ->
-            PetDetailScreen(navController = navController)
         }
 
         // --- (피드) ---
