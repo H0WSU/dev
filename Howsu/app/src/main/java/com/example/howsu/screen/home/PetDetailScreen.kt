@@ -72,7 +72,16 @@ fun PetDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* 편집 버튼 클릭: navController.navigate("edit_pet/${pet?.petId}") */ }) {
+                    IconButton(
+                        onClick = {
+                            // 💡 수정된 부분: pet?.petId는 ViewModel에서 문서 ID로 채워져 있습니다.
+                            pet?.petId?.let {
+                                // "edit_pet/{petId}" 경로가 NavGraph에 정의되어 있어야 합니다.
+                                navController.navigate("edit_pet/$it")
+                            }
+                        },
+                        enabled = pet != null // 펫 정보가 있을 때만 편집 가능
+                    ) {
                         Icon(Icons.Filled.Edit, contentDescription = "편집")
                     }
                 }
@@ -116,6 +125,7 @@ fun PetDetailScreen(
 
                 // 3. 성별 필드
                 item {
+                    // PetDetailViewModel에서 이미 "남아"/"여아"로 변환된 값 사용
                     GenderSelectionSection(
                         selectedGender = pet.gender ?: "",
                         isNeutered = pet.isNeutered ?: false,

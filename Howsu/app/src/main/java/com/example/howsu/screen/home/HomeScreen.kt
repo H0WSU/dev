@@ -1,11 +1,11 @@
 package com.example.howsu.screen.home
 
 import android.annotation.SuppressLint
+import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -116,9 +116,16 @@ fun HomeScreen(
                         PetSection(
                             pets = uiState.pets,
                             onPetClick = { petUi ->
-                                val petId = petUi.originalPet.petId
-                                if (petId != null) {
-                                    navController.navigate("pet_detail/$petId")
+                                // 💡 최종 수정: uiState.member (FamilyMember)에서 familyId를 가져옴
+                                val familyId = uiState.member.familyId
+                                val petName = petUi.originalPet.name
+
+                                if (familyId.isNotEmpty() && petName.isNotEmpty()) {
+                                    Log.d("NAV_DEBUG", "Navigating to pet_detail/$familyId/$petName")
+                                    navController.navigate("pet_detail/$familyId/$petName")
+                                } else {
+                                    // familyId or petName이 없을 경우
+                                    Log.e("NAV_DEBUG", "Navigation failed: familyId or petName is missing (FamilyId: $familyId, PetName: $petName).")
                                 }
                             }
                         )
@@ -278,8 +285,8 @@ fun PetCard(    // 반려동물 리스트
     Card(
         modifier = Modifier
             .width(300.dp)
-            .height(100.dp)
-            .clickable { onViewDetail(petModel) }, // 카드 전체 클릭 가능하도록 수정
+            .height(100.dp),
+            //.clickable { onViewDetail(petModel) }, // 카드 전체 클릭 가능하도록 수정
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF333333)),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)

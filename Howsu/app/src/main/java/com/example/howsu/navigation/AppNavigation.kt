@@ -201,7 +201,7 @@ fun AppNavigation() {
         }
 
         // 펫 상세
-        composable(
+        /*composable(
             // 라우트 경로: pet_detail/특정ID
             route = "pet_detail/{petId}",
             arguments = listOf(
@@ -210,6 +210,16 @@ fun AppNavigation() {
             )
         ) { backStackEntry ->
             // backStackEntry에서 petId를 자동으로 ViewModel로 전달합니다 (SavedStateHandle 이용).
+            PetDetailScreen(navController = navController)
+        }*/
+        // 펫 상세 (복합 키 경로)
+        composable(
+            route = "pet_detail/{familyId}/{petName}",
+            arguments = listOf(
+                navArgument("familyId") { type = NavType.StringType },
+                navArgument("petName") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
             PetDetailScreen(navController = navController)
         }
 

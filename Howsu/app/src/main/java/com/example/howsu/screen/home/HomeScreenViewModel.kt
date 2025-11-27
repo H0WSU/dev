@@ -100,6 +100,7 @@ class HomeScreenViewModel : ViewModel() {
             val sortedMenbers = members.sortedWith(   // 사용자 본인을 가장 앞에 보여줌
                 compareByDescending { it.userId == myUid }
             )
+
             // D. 펫 목록 가져오기
             val petsSnapshot = db.collection("families").document(familyId)
                 .collection("pets")
@@ -108,9 +109,14 @@ class HomeScreenViewModel : ViewModel() {
 
             val petsList = petsSnapshot.documents.mapNotNull { doc ->
                 val pet = doc.toObject(Pet::class.java)
+
                 pet?.let {
+                    // 💡 최종 수정: Pet 데이터 클래스에 familyId 필드가 없으므로,
+                    //    Pet 객체를 확장하는 로직(petWithFamilyId)을 제거하고 순수하게 사용합니다.
+                    //    familyId는 HomeScreen에서 uiState.member.familyId를 통해 접근합니다.
                     val age = calculatePetAge(it)
                     val gender = translateGender(it.gender)
+
                     PetUiModel(it, age, gender)
                 }
             }
