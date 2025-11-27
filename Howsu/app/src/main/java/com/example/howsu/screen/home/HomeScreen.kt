@@ -213,7 +213,7 @@ fun PetSection(
             )
             Spacer(Modifier.width(8.dp))
             Surface(
-                shape = CircleShape,   // 가족 구성원 프로필 모양
+                shape = CircleShape,   // 반려동물 프로필 모양
                 color = Color.LightGray.copy(alpha = 0.5f)
             ) {
                 Text(
@@ -325,7 +325,7 @@ fun PetCard(    // 반려동물 리스트
                     Text(pet.name, color = Color.White, style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "${petModel.ageText} | ${pet.gender ?: "성별미상"}",
+                        "${petModel.ageText} | ${petModel.displayGender ?: "성별미상"}",
                         color = Color.White.copy(alpha = 0.7f),
                         style = MaterialTheme.typography.bodyMedium
                     )
