@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -50,6 +51,7 @@ import androidx.compose.ui.util.lerp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import coil.compose.AsyncImage
 import com.example.howsu.common.HomeTopAppBar
 import com.example.howsu.common.MyBottomNavigationBar
 import com.example.howsu.common.MyFloatingActionButton
@@ -196,65 +198,6 @@ fun HomeScreen(
     }
 }
 
-// ----------------------------------------------------
-// 하위 컴포넌트들
-// ----------------------------------------------------
-
-/*@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun MyTopBar(
-    userName: String,
-    familyName: String,
-    profileUrl: String?
-) {
-    CenterAlignedTopAppBar(
-        navigationIcon = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(start = 20.dp)
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    modifier = Modifier.size(40.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
-                ) {
-                    // TODO: profileUrl이 있으면 Coil Image 등으로 교체
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "User Profile",
-                        modifier = Modifier.fillMaxSize(0.7f),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Spacer(Modifier.width(8.dp))
-                Column {
-                    Text(
-                        text = familyName.ifEmpty { "내 정보" },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
-                    )
-                    Text(
-                        text = userName.ifEmpty { "로딩 중..." },
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = Color.Black
-                    )
-                }
-            }
-        },
-        title = { /* Empty */ },
-        actions = {
-            IconButton(onClick = { /* 알림 클릭 */ }) {
-                Icon(
-                    Icons.Filled.Notifications,
-                    contentDescription = "알림",
-                    modifier = Modifier.size(24.dp),
-                    tint = Color.Gray
-                )
-            }
-        }
-    )
-}*/
-
 @SuppressLint("RestrictedApi")
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -270,7 +213,7 @@ fun PetSection(
             )
             Spacer(Modifier.width(8.dp))
             Surface(
-                shape = RoundedCornerShape(8.dp),
+                shape = CircleShape,   // 가족 구성원 프로필 모양
                 color = Color.LightGray.copy(alpha = 0.5f)
             ) {
                 Text(
@@ -321,9 +264,9 @@ fun PetSection(
     }
 }
 
-
+// 1. <반려동물>
 @Composable
-fun PetCard(
+fun PetCard(    // 반려동물 리스트
     petModel: PetUiModel,
     onViewDetail: (PetUiModel) -> Unit
 ) {
@@ -348,18 +291,33 @@ fun PetCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     modifier = Modifier
-                        .size(70.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .size(70.dp) // 반려동물 프로필 모양 -> 원형
+                        .clip(CircleShape)
                         .background(Color.White.copy(alpha = 0.15f))
                 ) {
                     // TODO: pet.profileImageUrl 로드
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.Pets,
-                            contentDescription = "Pet Icon",
-                            modifier = Modifier.fillMaxSize(0.7f),
-                            tint = Color.White.copy(alpha = 0.7f)
+                    val imageUrl = pet.profileImageUrl
+
+                    if(imageUrl != null && imageUrl.isNotEmpty()){
+                        AsyncImage(
+                            model = imageUrl,   // 유효한 이미지인지 확인
+                            contentDescription = "Pet Profile Image",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+
+                            //error = {/* 이미지 로드 실패 시, 로직*/},
+                            //placeholder = {/* 로딩 중*/}
                         )
+                    } else {
+                        // url이 없을 경우에는 기본 아이콘으로 표시
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Pets,
+                                contentDescription = "Pet Icon(Default)",
+                                modifier = Modifier.fillMaxSize(0.7f),
+                                tint = Color.White.copy(alpha = 0.7f)
+                            )
+                        }
                     }
                 }
                 Spacer(Modifier.width(12.dp))
@@ -385,7 +343,7 @@ fun PetCard(
     }
 }
 
-
+// 2. <가족 구성원>
 @Composable
 fun FamilySection(
     members: List<FamilyMember>,
