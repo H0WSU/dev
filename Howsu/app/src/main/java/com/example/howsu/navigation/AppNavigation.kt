@@ -64,7 +64,7 @@ fun AppNavigation() {
     // 5. NavHost가 화면을 관리
     NavHost(
         navController = navController,
-        startDestination = "loading"
+        startDestination = "loading"   // 시작 화면
     ) {
         composable(route = "loading") {
             LoadingScreen(navController = navController)

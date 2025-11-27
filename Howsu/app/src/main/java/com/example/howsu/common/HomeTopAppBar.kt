@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -84,7 +84,7 @@ fun HomeTopAppBar(
 
         // 알림 버튼
         IconButton(onClick = { /* 연결 필요 */ }) {
-            Icon(Icons.Default.Menu, contentDescription = "알림")
+            Icon(Icons.Filled.Notifications, contentDescription = "알림")
         }
     }
 }
