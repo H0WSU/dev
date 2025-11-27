@@ -281,7 +281,7 @@ fun PetCard(    // 반려동물 리스트
 
     Card(
         modifier = Modifier
-            .width(300.dp)
+            .width(350.dp)
             .height(100.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF333333)),
@@ -326,7 +326,7 @@ fun PetCard(    // 반려동물 리스트
                         }
                     }
                 }
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(15.dp))
                 Column {
                     Text(pet.name, color = Color.White, style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(4.dp))
@@ -337,13 +337,20 @@ fun PetCard(    // 반려동물 리스트
                     )
                 }
             }
-            // "펫 정보 보기" 버튼은 카드 클릭으로 대체하거나, 필요 시 다시 구현
+            // "펫 정보 보기" 버튼
             TextButton(
                 onClick = { onViewDetail(petModel) },
-                colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(alpha = 0.8f)),
+                shape = RoundedCornerShape(9.dp),
+                colors = ButtonDefaults.textButtonColors(
+                    containerColor = Color.White,
+                    contentColor = Color.Black.copy(alpha = 0.8f) // 검은색에 약간의 투명도 적용
+                ),
                 modifier = Modifier.padding(end = 4.dp)
             ) {
-                Text("정보 보기", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    text = "펫 정보 보기",
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
     }
