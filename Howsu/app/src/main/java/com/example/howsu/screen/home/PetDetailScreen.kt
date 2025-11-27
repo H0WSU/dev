@@ -63,6 +63,7 @@ fun PetDetailScreen(
     val pet = uiState.pet
 
     Scaffold(
+        containerColor = Color.White,   // 배경색 통일
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("반려동물 정보 보기", fontWeight = FontWeight.SemiBold) },
