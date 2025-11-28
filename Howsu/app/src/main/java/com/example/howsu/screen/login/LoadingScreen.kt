@@ -66,5 +66,15 @@ fun LoadingScreen(navController: NavController, authViewModel: AuthViewModel = v
                 popUpTo(0) { inclusive = true }
             }
         }
+        com.google.firebase.messaging.FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (!task.isSuccessful) {
+                Log.w("FCM_TOKEN", "토큰 가져오기 실패", task.exception)
+                return@addOnCompleteListener
+            }
+            // 새로운 토큰 가져오기
+            val token = task.result
+
+            Log.d("FCM_TOKEN", "내 기기 토큰: $token")
+        }
     }
 }

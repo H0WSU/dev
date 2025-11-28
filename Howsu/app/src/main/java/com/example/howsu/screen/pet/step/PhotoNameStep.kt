@@ -1,5 +1,6 @@
 package com.example.howsu.screen.pet.step
 
+import android.R.attr.font
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -11,7 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.howsu.data.model.PetRegisterUiState
 import com.example.howsu.screen.pet.component.DoubleRingProfileImage
 
@@ -37,9 +40,11 @@ fun PhotoNameStep(
         )
 
         Text(
-            text = "아이의 이름을 입력해 주세요.",
+            text = "아이의 이름을 입력해 주세요",
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.DarkGray
+            color = Color.DarkGray,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Normal
         )
 
         OutlinedTextField(

@@ -52,6 +52,7 @@ fun SettingScreen(
     var showWithdrawDialog by remember { mutableStateOf(false) }
 
     Scaffold(
+        containerColor = Color.White,
         topBar = { SettingTopBar(onBackClick = { navController.popBackStack() }) }
     ) { paddingValues ->
         Column(

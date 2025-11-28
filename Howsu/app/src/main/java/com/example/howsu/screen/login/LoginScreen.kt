@@ -61,6 +61,8 @@ import com.example.howsu.R
 import com.example.howsu.screen.login.social.GoogleLoginButton
 import com.example.howsu.screen.login.social.KakaoLoginButton
 import com.example.howsu.screen.login.social.NaverLoginButton
+import com.example.howsu.screen.todo.ContentBlack
+import com.example.howsu.screen.todo.YellowBox
 import com.example.howsu.ui.theme.HowsuTheme
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
@@ -183,7 +185,7 @@ fun LoginScreen(
                 onClick = {
                     // ★ 9. 버튼 클릭 시 팝업창 오류 설정
                     if (email.isBlank() || password.isBlank()) {
-                        dialogError = "이메일과 비밀번호를 모두 입력해 주세요."
+                        dialogError = "이메일과 비밀번호를 모두 입력해 주세요"
                     } else {
                         vm.signInWithEmailPassword(email, password)
                     }
@@ -192,12 +194,12 @@ fun LoginScreen(
                     .fillMaxWidth()
                     .height(56.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Black,
-                    contentColor = Color.White
+                    containerColor = YellowBox, // ★ 색상 적용 (노랑)
+                    contentColor = ContentBlack // ★ 색상 적용 (검정)
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("로그인하기", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                Text("로그인하기", fontWeight = FontWeight.Medium, fontSize = 15.sp)
             }
             Spacer(modifier = Modifier.height(32.dp))
 

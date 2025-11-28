@@ -71,7 +71,6 @@ fun PetRegisterCompleteScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                InfoRow(label = "닉네임", value = uiState.nickName)
                 InfoRow(
                     label = "관계",
                     value = if (uiState.relation.isNotBlank()) uiState.relation else "미입력"
