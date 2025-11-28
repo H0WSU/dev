@@ -31,12 +31,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -89,7 +89,7 @@ fun EditPetScreen(
                         Icon(Icons.Filled.Save, contentDescription = "저장", tint = MaterialTheme.colorScheme.primary)
                     }*/
 
-                    TextButton(
+                    TextButton(   // 텍스트 버튼으로 수정
                         onClick = {
                             // TODO: 입력 유효성 검사
                             viewModel.savePetDetail()
@@ -139,7 +139,7 @@ fun EditPetScreen(
                     EditableDetailField(
                         label = "이름",
                         value = uiState.name,
-                        onValueChange = viewModel::updateName,
+                        onValueChange = viewModel::updateName,   // 이름 변경 위한 추가사항
                         modifier = Modifier.padding(horizontal = 24.dp)
                     )
                     Spacer(Modifier.height(32.dp))
@@ -178,7 +178,7 @@ fun EditPetScreen(
 
                     EditableBirthDateAgeSection(
                         birthDate = displayDate ?: "-",
-                        ageText = uiState.ageText, // AgeText는 계산된 값이므로 편집 불가
+                        ageText = uiState.ageText,
                         onClick = {
                             // TODO: DatePicker 다이얼로그 표시 또는 새 화면으로 이동하여 생년월일/추정 년월 수정
                         },
@@ -255,7 +255,7 @@ fun EditableDetailField(
         )
         Spacer(Modifier.height(4.dp))
         // TextField로 변경
-        OutlinedTextField(
+        TextField(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -374,7 +374,7 @@ fun EditableWeightField(
             )
         )
         Spacer(Modifier.height(4.dp))
-        OutlinedTextField(
+        TextField(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -389,7 +389,7 @@ fun EditableWeightField(
                 unfocusedContainerColor = Color.White,
             ),
             shape = RoundedCornerShape(8.dp),
-            label = { Text("예: 5.2") }
+            //label = { Text("예: 5.2") }
         )
     }
 }
