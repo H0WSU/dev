@@ -445,7 +445,7 @@ private fun CreateScheduleContent(
                 // ★ (신규) 버튼 높이(56) + 상하패딩(16+32) = 104dp + 여유 16dp
                 bottom = 120.dp
             ),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
         Spacer(modifier = Modifier.height(1.dp))
 
@@ -998,8 +998,7 @@ private fun PetIconCircle(
     Box(
         modifier = modifier
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.6f))
-            .border(1.dp, Color.White, CircleShape),
+            .background(Color.White.copy(alpha = 0.6f)),
         contentAlignment = Alignment.Center
     ) {
         if (!imageUrl.isNullOrBlank()) {

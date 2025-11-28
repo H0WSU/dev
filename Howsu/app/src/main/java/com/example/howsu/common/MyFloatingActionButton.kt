@@ -1,16 +1,26 @@
 package com.example.howsu.common
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -19,17 +29,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.howsu.R
 
-/**
- * 클릭 시 'TODO'와 '일정' 버튼으로 확장되는 스피드 다이얼 FAB
- * @param onTodoClick 'TODO' 버튼 클릭 시 실행될 람다
- * @param onScheduleClick '일정' 버튼 클릭 시 실행될 람다
- */
+// 색상 상수
+private val YellowCustom = Color(0xFFFFDF37)
+private val ContentBlack = Color(0xFF121212)
+
 @Composable
 fun MyFloatingActionButton(
     onTodoClick: () -> Unit,
@@ -37,92 +50,109 @@ fun MyFloatingActionButton(
     onFeedCreateClick: () -> Unit
 ) {
     var isMenuExpanded by remember { mutableStateOf(false) }
-
-    Column(
-        horizontalAlignment = Alignment.End,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        AnimatedVisibility(
-            visible = isMenuExpanded,
-            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
-            exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 })
+    val rotation by animateFloatAsState(if (isMenuExpanded) 45f else 0f)
+        // 2) FAB + 메뉴 — Dim 위에 overlay
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),     // 이 padding은 FAB에게만 적용됨
+            contentAlignment = Alignment.BottomEnd
         ) {
             Column(
                 horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                FloatingActionButton(
-                    onClick = {
-                        onTodoClick()
-                        isMenuExpanded = false
-                    },
-                    containerColor = Color(0xFFFFDF37).copy(alpha = 0.9f),
-                    shape = CircleShape,
-                    modifier = Modifier.size(56.dp)
+                AnimatedVisibility(
+                    visible = isMenuExpanded,
+                    enter = fadeIn(),
+                    exit = fadeOut()
                 ) {
-                    Text("TODO", color = Color(color = 0xFF121212), fontWeight = FontWeight.Bold)
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        FloatingActionMenuItem("투두", R.drawable.cat) {
+                            onTodoClick()
+                            isMenuExpanded = false
+                        }
+                        FloatingActionMenuItem("일정", R.drawable.bone) {
+                            onScheduleClick()
+                            isMenuExpanded = false
+                        }
+                        FloatingActionMenuItem("피드", R.drawable.dog) {
+                            onFeedCreateClick()
+                            isMenuExpanded = false
+                        }
+                    }
                 }
 
                 FloatingActionButton(
-                    onClick = {
-                        onScheduleClick()
-                        isMenuExpanded = false
-                    },
-                    containerColor = Color(0xFFFFDF37).copy(alpha = 0.9f),
+                    onClick = { isMenuExpanded = !isMenuExpanded },
+                    containerColor = YellowCustom,
                     shape = CircleShape,
-                    modifier = Modifier.size(56.dp)
+                    elevation = if (isMenuExpanded)
+                        FloatingActionButtonDefaults.elevation(0.dp)
+                    else
+                        FloatingActionButtonDefaults.elevation(),
+                    modifier = Modifier.rotate(rotation)
                 ) {
-                    Text("일정", color = Color(color = 0xFF121212), fontWeight = FontWeight.Bold)
-                }
-
-                // '피드 추가' 버튼
-                FloatingActionButton(
-                    onClick = {
-                        onFeedCreateClick() // 파라미터로 받은 onScheduleClick 실행
-                        isMenuExpanded = false // 메뉴 닫기
-                    },
-                    containerColor = Color(0xFFFFDF37),
-                    shape = CircleShape,
-                    modifier = Modifier.size(56.dp)
-                ) {
-                    Text(
-                        text = "피드",
-                        color = Color(color = 0xFF121212),
-                        fontWeight = FontWeight.Bold
-                    )
+                    Canvas(modifier = Modifier.size(24.dp)) {
+                        val strokeWidth = 1.5.dp.toPx()
+                        drawLine(
+                            color = ContentBlack,
+                            start = Offset(size.width * 0.2f, size.height / 2),
+                            end = Offset(size.width * 0.8f, size.height / 2),
+                            strokeWidth = strokeWidth
+                        )
+                        drawLine(
+                            color = ContentBlack,
+                            start = Offset(size.width / 2, size.height * 0.2f),
+                            end = Offset(size.width / 2, size.height * 0.8f),
+                            strokeWidth = strokeWidth
+                        )
+                    }
                 }
             }
         }
+    }
 
-        FloatingActionButton(
-            onClick = { isMenuExpanded = !isMenuExpanded },
-            containerColor = Color(0xFFFFDF37), // 노란색 배경
-            shape = CircleShape,
+
+// 4. 메뉴 아이템 컴포넌트 (텍스트 + 흰색 원형 버튼)
+@Composable
+private fun FloatingActionMenuItem(
+    text: String,
+    iconId: Int,
+    onClick: () -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.End,
+        modifier = Modifier.clickable(onClick = onClick)
+    ) {
+        // 텍스트 라벨
+        Text(
+            text = text,
+            color = ContentBlack,
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+
+        // 흰색 원형 버튼
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(Color.White)
+                .border(1.dp, YellowCustom, CircleShape),
+            contentAlignment = Alignment.Center
         ) {
-            // ★ 2. + 아이콘 직접 그리기 (Canvas)
-            Canvas(modifier = Modifier.size(24.dp)) {
-                // 선 두께랑 색상 설정
-                val strokeWidth = 1.5.dp.toPx() // 1.5dp 두께
-                val iconColor = Color(0xFF121212) // 검정색
-
-                // 가로 선 그리기
-                drawLine(
-                    color = iconColor,
-                    start = Offset(size.width * 0.2f, size.height / 2), // 왼쪽
-                    end = Offset(size.width * 0.8f, size.height / 2),   // 오른쪽
-                    strokeWidth = strokeWidth,
-                    cap = StrokeCap.Square
-                )
-
-                // 세로 선 그리기
-                drawLine(
-                    color = iconColor,
-                    start = Offset(size.width / 2, size.height * 0.2f), // 위쪽
-                    end = Offset(size.width / 2, size.height * 0.8f),   // 아래쪽
-                    strokeWidth = strokeWidth,
-                    cap = StrokeCap.Square
-                )
-            }
+            Icon(
+                painter = painterResource(id = iconId),
+                contentDescription = text,
+                modifier = Modifier.size(28.dp),
+                tint = Color.Unspecified
+            )
         }
     }
 }

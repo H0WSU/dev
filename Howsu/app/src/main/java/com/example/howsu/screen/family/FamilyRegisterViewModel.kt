@@ -65,7 +65,7 @@ class FamilyRegisterViewModel : ViewModel() {
         createdFamilyId = newId
 
         if (inputFamilyName.isBlank()) {
-            inputFamilyName = "${nickname}님의 집"
+            inputFamilyName = "${nickname}"
         }
 
         viewModelScope.launch {
