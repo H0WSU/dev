@@ -136,7 +136,7 @@ fun MypageScreen(
                     },
                     text = "가족 초대하기",
                     onClick = {
-                        // URL 인코딩 처리 (URL에 특수문자가 있어서 필수)
+                        // URL 인코딩 처리 (URL에 특수문자가 있어서)
                         val encodedUrl = if (myProfileUrl != null) {
                             java.net.URLEncoder.encode(myProfileUrl, java.nio.charset.StandardCharsets.UTF_8.toString())
                         } else {
