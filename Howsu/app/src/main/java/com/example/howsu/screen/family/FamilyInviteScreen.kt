@@ -126,7 +126,7 @@ fun FamilyInviteScreen(
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF5F5F5))
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFDF37))
                 ) {
                     Column(
                         modifier = Modifier
