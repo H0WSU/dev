@@ -34,11 +34,15 @@ class FamilyDetailScreenViewModel : ViewModel(){
     private val _familyId = MutableStateFlow("")
     val familyId = _familyId.asStateFlow()
 
+    //가족 이름 (FamilyName)
+    private val _familyName = MutableStateFlow("")
+    val familyName = _familyName.asStateFlow()
+
     // 본인 프로필 URL
     private val _familyProfileUrl = MutableStateFlow<String?>(null)
     val familyProfileUrl = _familyProfileUrl.asStateFlow()
 
-    // 전체 가족 구성원 목록 (정렬된 상태로 제공됨)
+    // 전체 가족 구성원 목록 (정렬 상태)
     private val _familyMembers = MutableStateFlow<List<DisplayFamilyMember>>(emptyList())
     val familyMembers = _familyMembers.asStateFlow()
 
@@ -54,7 +58,7 @@ class FamilyDetailScreenViewModel : ViewModel(){
         loadMyFamilyInfo()
     }
 
-    private fun loadMyFamilyInfo(){
+    /*private fun loadMyFamilyInfo(){
         val user = auth.currentUser
         if (user == null) return
 
@@ -100,8 +104,64 @@ class FamilyDetailScreenViewModel : ViewModel(){
                 Log.e("FamilyDetailScreenViewModel", "데이터 로드 실패", e)
             }
         }
+    }*/
+    private fun loadMyFamilyInfo(){
+        val user = auth.currentUser
+        if (user == null) return
+
+        viewModelScope.launch {
+            try{
+                val uid = user.uid
+                // 1. 현재 사용자 정보 로드 (currentFamilyId 획득)
+                val userDoc = db.collection("user").document(uid).get().await()
+                val myFamilyId = userDoc.getString("currentFamilyId")
+
+                if(!myFamilyId.isNullOrBlank()){
+                    _familyId.value = myFamilyId // familyId 설정
+
+                    // ⭐️ [추가] 1-1. Family 컬렉션에서 가족 이름 로드
+                    loadFamilyName(myFamilyId)
+
+                    // 2. 현재 사용자의 FamilyMember 정보 로드 (본인 카드 정보)
+                    // ... (기존 코드와 동일) ...
+                    val familyMemberQuery = db.collection("familyMembers")
+                        .whereEqualTo("userId", uid)
+                        .whereEqualTo("familyId", myFamilyId)
+                        .limit(1)
+                        .get().await()
+
+                    if(familyMemberQuery.documents.isNotEmpty()){
+                        val memberDoc = familyMemberQuery.documents.first()
+                        _nickName.value = memberDoc.getString("nickName") ?: "닉네임 설정 필요"
+                        _familyRelationship.value = memberDoc.getString("relationship") ?: "관계 설정 필요"
+                        _familyProfileUrl.value = memberDoc.getString("profileImageUrl")
+                    } else {
+                        Log.w("FamilyDetailScreenViewModel", "FamilyMember 정보가 없습니다.")
+                    }
+
+                    // 3. 전체 가족 구성원 정보 로드 및 정렬 호출
+                    loadFamilyMembers(myFamilyId)
+
+                }else{
+                    // ... (가족이 없는 경우 처리 기존 코드와 동일) ...
+                }
+            } catch (e: Exception){
+                Log.e("FamilyDetailScreenViewModel", "데이터 로드 실패", e)
+            }
+        }
     }
 
+    // ⭐️ [추가] familyId로 familyName을 로드하는 함수
+    private suspend fun loadFamilyName(familyId: String) {
+        try {
+            val familyDoc = db.collection("Family").document(familyId).get().await()
+            val name = familyDoc.getString("familyName") // Family 컬렉션에 familyName 필드가 있다고 가정
+            _familyName.value = name ?: "우리 가족"
+        } catch (e: Exception) {
+            Log.e("FamilyDetailScreenViewModel", "가족 이름 로드 실패", e)
+            _familyName.value = "우리 가족"
+        }
+    }
     private suspend fun loadFamilyMembers(familyId: String) {
         try {
             // familyMembers 컬렉션에서 familyId가 일치하는 모든 문서 조회

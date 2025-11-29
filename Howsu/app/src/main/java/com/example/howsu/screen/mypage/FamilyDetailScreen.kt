@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -39,6 +40,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,9 +50,10 @@ fun FamilyDetailScreen(
     navController: NavHostController,
     viewModel: FamilyDetailScreenViewModel = viewModel()
 ){
-    // ⭐️ familyId 관찰하여 사용하는 것이 좋습니다.
-    val familyId by viewModel.familyId.collectAsState()
+    val familyId by viewModel.familyId.collectAsState()     // 상태 관찰
     val familyMembers by viewModel.familyMembers.collectAsState()  // 상태 관찰
+    val familyName by viewModel.familyName.collectAsState()
+
     Scaffold(
         containerColor = Color.White,
         topBar = {
@@ -61,7 +65,28 @@ fun FamilyDetailScreen(
                     }
                 },
                 actions = {
-                    // 가족 초대 가능한 QR인식 창으로 넘어가는 버튼 만들것임
+                    // 가족 초대 QR 생성 화면으로 이동하는 버튼 추가
+                    IconButton(onClick = {
+                        val id = familyId // familyId 상태 값 사용
+
+                        if (id.isNotBlank()) {
+                            // 1. familyName을 URL 인코딩
+                            val encodedFamilyName = URLEncoder.encode(familyName, StandardCharsets.UTF_8.toString())
+
+                            // 2. 올바른 경로로 navigate (familyId는 이미 인코딩 불필요)
+                            // profileUrl은 임시로 null 대신 "null" 문자열로 전달 (NavHost의 정의에 따름)
+                            val route = "invite_family/$encodedFamilyName/$id?profileUrl=null&isFromMypage=true"
+
+                            navController.navigate(route)
+                        }
+                    }) {
+                        // QR 코드 스캐너 아이콘을 사용하여 '초대'의 의미를 전달
+                        Icon(
+                            Icons.Filled.QrCodeScanner, // QR 아이콘 사용
+                            contentDescription = "가족 초대",
+                            tint = Color.Black
+                        )
+                    }
                 }
             )
         }
