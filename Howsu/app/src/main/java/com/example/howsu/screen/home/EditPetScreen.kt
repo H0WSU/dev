@@ -78,17 +78,6 @@ fun EditPetScreen(
                 },
                 actions = {
                     // 저장 버튼
-                    /*IconButton(
-                        onClick = {
-                            // TODO: 입력 유효성 검사
-                            viewModel.savePetDetail()
-                            navController.popBackStack() // 저장 후 이전 화면으로 이동
-                        },
-                        enabled = !uiState.isLoading // 로딩 중이 아닐 때만 저장 가능
-                    ) {
-                        Icon(Icons.Filled.Save, contentDescription = "저장", tint = MaterialTheme.colorScheme.primary)
-                    }*/
-
                     TextButton(   // 텍스트 버튼으로 수정
                         onClick = {
                             // TODO: 입력 유효성 검사
