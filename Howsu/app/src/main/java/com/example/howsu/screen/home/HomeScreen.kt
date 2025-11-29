@@ -1,8 +1,6 @@
 package com.example.howsu.screen.home
 
-import android.annotation.SuppressLint
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -49,7 +47,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.lerp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
@@ -62,7 +59,6 @@ import com.example.howsu.screen.todo.CalendarWeekRow
 import com.example.howsu.screen.todo.TodoGroupCard
 import com.example.howsu.screen.todo.TodoViewModel
 import java.time.LocalDate
-import kotlin.math.absoluteValue
 
 @Composable
 fun HomeScreen(
@@ -203,7 +199,7 @@ fun HomeScreen(
     }
 }
 
-@SuppressLint("RestrictedApi")
+/*@SuppressLint("RestrictedApi")
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PetSection(
@@ -272,7 +268,6 @@ fun PetSection(
     }
 }
 
-// 1. <반려동물>
 // 1. <반려동물>
 @Composable
 fun PetCard(    // 반려동물 리스트
@@ -456,6 +451,234 @@ fun PetCard(    // 반려동물 리스트
             }
         }
     }
+}*/
+
+
+@Composable
+fun PetSection(
+    pets: List<PetUiModel>,
+    onPetClick: (PetUiModel) -> Unit
+) {
+    Column {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                "반려동물",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+            )
+            Spacer(Modifier.width(8.dp))
+            Surface(
+                shape = CircleShape,
+                color = Color.LightGray.copy(alpha = 0.5f)
+            ) {
+                Text(
+                    pets.size.toString(),
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+
+        if (pets.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("등록된 반려동물이 없어요 🐶", color = Color.Gray)
+            }
+        } else {
+            // PagerState 설정
+            val pagerState = rememberPagerState(pageCount = { pets.size })
+
+            // Pager 구현
+            HorizontalPager(
+                state = pagerState,
+                // 양옆의 카드가 살짝 보이거나 간격을 두고 싶다면 padding 조정
+                contentPadding = PaddingValues(horizontal = 20.dp),
+                pageSpacing = 10.dp, // 카드 간의 물리적 간격
+                modifier = Modifier.fillMaxWidth()
+            ) { page ->
+
+                // 현재 페이지가 전체 중 어디인지 파악해서 넘겨줌
+                PetCard(
+                    petModel = pets[page],
+                    page = page,
+                    totalCount = pets.size,
+                    onViewDetail = onPetClick
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PetCard(
+    petModel: PetUiModel,
+    page: Int,          // 현재 카드의 인덱스
+    totalCount: Int,    // 전체 카드 개수
+    onViewDetail: (PetUiModel) -> Unit
+) {
+    val pet = petModel.originalPet
+    val darkCardColor = Color(0xFF333333)
+    val cardHeight = 100.dp
+
+    // 그림자 설정
+    val shadowOffsetX = 22.dp  // 그림자가 옆으로 밀리는 정도
+    val shadowScaleStep = 0.08f // 뒤로 갈수록 작아지는 비율
+
+    // 내 뒤에 몇 장 남았는가? (오른쪽 그림자용, 최대 2개)
+    val rightShadowCount = (totalCount - 1 - page).coerceIn(0, 2)
+
+    // 내 앞에 몇 장 있었는가? (왼쪽 그림자용, 최대 2개)
+    val leftShadowCount = page.coerceIn(0, 2)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(cardHeight),
+        contentAlignment = Alignment.Center // 중앙 정렬
+    ) {
+        // ---------------------------------------------------------
+        // 1. 오른쪽 그림자 (다음 카드가 있을 때)
+        // ---------------------------------------------------------
+        // 뒤에 있는 것부터 그려야 하므로 역순 혹은 멀리 있는 것 먼저 그림
+        // i=2 (가장 먼 그림자) -> i=1 (가까운 그림자)
+        for (i in rightShadowCount downTo 1) {
+            ShadowCard(
+                baseColor = darkCardColor,
+                direction = 1, // 1: 오른쪽
+                index = i,
+                offsetX = shadowOffsetX,
+                scaleStep = shadowScaleStep,
+                cardHeight = cardHeight
+            )
+        }
+
+        // ---------------------------------------------------------
+        // 2. 왼쪽 그림자 (이전 카드가 있을 때)
+        // ---------------------------------------------------------
+        for (i in leftShadowCount downTo 1) {
+            ShadowCard(
+                baseColor = darkCardColor,
+                direction = -1, // -1: 왼쪽
+                index = i,
+                offsetX = shadowOffsetX,
+                scaleStep = shadowScaleStep,
+                cardHeight = cardHeight
+            )
+        }
+
+        // ---------------------------------------------------------
+        // 3. 메인 카드 (가장 위에 올라옴)
+        // ---------------------------------------------------------
+        Card(
+            modifier = Modifier.fillMaxSize(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = darkCardColor),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // 프로필 이미지
+                    Surface(
+                        modifier = Modifier
+                            .size(70.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.15f))
+                    ) {
+                        val imageUrl = pet.profileImageUrl
+                        if (imageUrl != null && imageUrl.isNotEmpty()) {
+                            AsyncImage(
+                                model = imageUrl,
+                                contentDescription = "Pet Profile",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                            )
+                        } else {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Pets,
+                                    contentDescription = "Default Pet",
+                                    modifier = Modifier.fillMaxSize(0.7f),
+                                    tint = Color.White.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.width(15.dp))
+
+                    // 텍스트 정보
+                    Column {
+                        Text(
+                            text = pet.name,
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "${petModel.ageText} | ${petModel.displayGender ?: "성별미상"}",
+                            color = Color.White.copy(alpha = 0.7f),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+
+                // 버튼
+                TextButton(
+                    onClick = { onViewDetail(petModel) },
+                    shape = RoundedCornerShape(9.dp),
+                    colors = ButtonDefaults.textButtonColors(
+                        containerColor = Color.White,
+                        contentColor = Color.Black.copy(alpha = 0.8f)
+                    ),
+                    modifier = Modifier.padding(end = 4.dp)
+                ) {
+                    Text("펫 정보 보기", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+    }
+}
+
+// 그림자 역할을 하는 카드 컴포저블
+@Composable
+private fun ShadowCard(
+    baseColor: Color,
+    direction: Int, // 1 for Right, -1 for Left
+    index: Int,     // 1번째 그림자, 2번째 그림자...
+    offsetX: Dp,
+    scaleStep: Float,
+    cardHeight: Dp
+) {
+    // 투명도: 뒤로 갈수록 흐려지게 (선택사항, 원치 않으면 제거 가능)
+    val alpha = 1f - (index * 0.2f)
+
+    // 크기: 뒤로 갈수록 작아지게
+    val scale = 1f - (index * scaleStep)
+
+    // 위치 이동: 방향 * 순서 * 간격
+    val xOffset = offsetX * index * direction
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(cardHeight)
+            .graphicsLayer {
+                translationX = xOffset.toPx() // X축 이동
+                scaleX = scale                // 가로 크기 축소
+                scaleY = scale                // 세로 크기 축소
+            }
+            .clip(RoundedCornerShape(16.dp))
+            .background(baseColor.copy(alpha = 0.5f)) // 반투명 배경색
+    )
 }
 
 // 그림자 효과를 위한 별도의 Box 컴포저블
