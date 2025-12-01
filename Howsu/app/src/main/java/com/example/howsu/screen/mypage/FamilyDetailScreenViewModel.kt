@@ -58,53 +58,6 @@ class FamilyDetailScreenViewModel : ViewModel(){
         loadMyFamilyInfo()
     }
 
-    /*private fun loadMyFamilyInfo(){
-        val user = auth.currentUser
-        if (user == null) return
-
-        viewModelScope.launch {
-            try{
-                val uid = user.uid
-                // 1. 현재 사용자 정보 로드 (currentFamilyId 획득)
-                val userDoc = db.collection("user").document(uid).get().await()
-                val myFamilyId = userDoc.getString("currentFamilyId")
-
-                if(!myFamilyId.isNullOrBlank()){
-                    _familyId.value = myFamilyId // familyId 설정
-
-                    // 2. 현재 사용자의 FamilyMember 정보 로드 (본인 카드 정보)
-                    val familyMemberQuery = db.collection("familyMembers")
-                        .whereEqualTo("userId", uid)
-                        .whereEqualTo("familyId", myFamilyId)
-                        .limit(1)
-                        .get().await()
-
-                    if(familyMemberQuery.documents.isNotEmpty()){
-                        val memberDoc = familyMemberQuery.documents.first()
-                        _nickName.value = memberDoc.getString("nickName") ?: "닉네임 설정 필요"
-                        _familyRelationship.value = memberDoc.getString("relationship") ?: "관계 설정 필요"
-                        _familyProfileUrl.value = memberDoc.getString("profileImageUrl")
-                    } else {
-                        Log.w("FamilyDetailScreenViewModel", "FamilyMember 정보가 없습니다.")
-                        // 기본값 설정...
-                    }
-
-                    // 3. 전체 가족 구성원 정보 로드 및 정렬 호출
-                    loadFamilyMembers(myFamilyId)
-
-                }else{
-                    // 가족이 없는 경우 처리
-                    _nickName.value = "가족 없음"
-                    _familyId.value = "-"
-                    _familyRelationship.value = "가족 없음"
-                    _familyProfileUrl.value = null
-                    _familyMembers.value = emptyList()
-                }
-            } catch (e: Exception){
-                Log.e("FamilyDetailScreenViewModel", "데이터 로드 실패", e)
-            }
-        }
-    }*/
     private fun loadMyFamilyInfo(){
         val user = auth.currentUser
         if (user == null) return
