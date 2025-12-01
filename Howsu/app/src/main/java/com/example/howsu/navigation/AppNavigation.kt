@@ -22,6 +22,7 @@ import com.example.howsu.screen.family.NicknameRegisterScreen
 import com.example.howsu.screen.family.SetRelationshipScreen
 import com.example.howsu.screen.feed.FeedHomeScreen
 import com.example.howsu.screen.feed.FeedDetailScreen
+import com.example.howsu.screen.feed.FeedSearchScreen
 import com.example.howsu.screen.feed.FeedViewModel
 import com.example.howsu.screen.feed.FeedWriteScreen
 import com.example.howsu.screen.home.HomeScreen

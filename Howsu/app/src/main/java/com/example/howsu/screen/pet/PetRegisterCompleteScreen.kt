@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import com.example.howsu.data.model.BirthdayInputType
 import com.example.howsu.data.model.PetRegisterUiState
 import com.example.howsu.screen.pet.component.DoubleRingProfileImage
+import com.example.howsu.screen.pet.component.PetProfileImageOnly
 
 @Composable
 fun PetRegisterCompleteScreen(
@@ -50,9 +51,9 @@ fun PetRegisterCompleteScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            DoubleRingProfileImage(
+            PetProfileImageOnly(
                 imageUrl = uiState.profilePetImageUrl,
-                onClick = onPickImage
+                size = 160.dp
             )
 
             Spacer(modifier = Modifier.height(16.dp))
