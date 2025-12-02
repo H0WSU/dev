@@ -26,15 +26,16 @@ import com.example.howsu.screen.feed.FeedSearchScreen
 import com.example.howsu.screen.feed.FeedViewModel
 import com.example.howsu.screen.feed.FeedWriteScreen
 import com.example.howsu.screen.home.HomeScreen
-import com.example.howsu.screen.home.Pet
-import com.example.howsu.screen.home.PetDetailScreen
 import com.example.howsu.screen.login.AuthViewModel
 import com.example.howsu.screen.login.JoinScreen
 import com.example.howsu.screen.login.LoadingScreen
 import com.example.howsu.screen.login.LoginScreen
 import com.example.howsu.screen.mypage.FAQScreen
+import com.example.howsu.screen.mypage.FamilyDetailScreen
 import com.example.howsu.screen.mypage.MypageScreen
 import com.example.howsu.screen.mypage.NotificationScreen
+import com.example.howsu.screen.pet.EditPetScreen
+import com.example.howsu.screen.pet.PetDetailScreen
 import com.example.howsu.screen.pet.PetRegisterCompleteScreen
 import com.example.howsu.screen.pet.PetRegisterScreen
 import com.example.howsu.screen.schedule.CreateScheduleScreen
@@ -58,7 +59,7 @@ fun AppNavigation() {
     // 5. NavHost가 화면을 관리
     NavHost(
         navController = navController,
-        startDestination = "loading"
+        startDestination = "loading"   // 시작 화면
     ) {
         composable(route = "loading") {
             LoadingScreen(navController = navController)
@@ -175,6 +176,31 @@ fun AppNavigation() {
             HomeScreen(navController = navController)
         }
 
+        // 펫 정보 보기
+        composable(
+            route = "pet_detail/{familyId}/{petId}",
+            arguments = listOf(
+                navArgument("familyId") { type = NavType.StringType },
+                navArgument("petId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            PetDetailScreen(navController = navController)
+        }
+
+        // 펫 정보 수정
+        composable(
+            route = "edit_pet/{familyId}/{petId}", // 경로 패턴 정의
+            arguments = listOf(
+                navArgument("familyId") { type = NavType.StringType },
+                navArgument("petId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            // EditPetScreen 컴포저블을 호출
+            // SavedStateHandle을 통해 familyId와 petId가 자동으로 ViewModel에 전달됩니다.
+            EditPetScreen(navController = navController)
+        }
+
+
         // --- (스케줄) ---
         composable(route = "schedule") {
             ScheduleScreen(navController = navController)
@@ -201,12 +227,6 @@ fun AppNavigation() {
         composable(route = "edit_todo/{documentId}") { backStackEntry ->
             val documentId = backStackEntry.arguments?.getString("documentId")
             CreateTodoScreen(navController = navController, documentId = documentId)
-        }
-
-        // 펫 상세
-        composable(route = "pet_detail/{petId}") { backStackEntry ->
-            val dummyPet = Pet(name = "자몽", age = 7, gender = "여아")
-            PetDetailScreen(navController = navController, pet = dummyPet)
         }
 
         // --- (피드) ---
@@ -236,6 +256,9 @@ fun AppNavigation() {
         }
         composable("faq") {    // 자주 묻는 질문
             FAQScreen(navController = navController)
+        }
+        composable("family_info") {    // 자주 묻는 질문
+            FamilyDetailScreen(navController = navController)
         }
 
 
