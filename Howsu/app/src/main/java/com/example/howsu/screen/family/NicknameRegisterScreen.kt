@@ -169,8 +169,8 @@ fun NicknameRegisterScreen(
                     focusedContainerColor = Color.White,
                     unfocusedContainerColor = Color.White,
                     focusedBorderColor = YellowBox,
-                    unfocusedBorderColor = Color(0xFFE0E0E0),
-                    cursorColor = Color.Black
+//                    unfocusedBorderColor = Color(0xFFE0E0E0),
+//                    cursorColor = Color.Black
                 )
             )
         }

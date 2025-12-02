@@ -102,6 +102,7 @@ fun FeedDetailScreen(
     }
 
     Scaffold(
+        containerColor = Color.White,
         topBar = {
             FeedHomeTopBar(
                 member = member!!,
@@ -113,7 +114,6 @@ fun FeedDetailScreen(
         },
         bottomBar = { MyBottomNavigationBar(navController = navController) }
     ) { padding ->
-
         FeedDetailContentBody(
             member = member!!,
             post = post,
@@ -279,6 +279,7 @@ private fun PostCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp),
+
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column(
