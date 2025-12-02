@@ -14,15 +14,13 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.howsu.Pet.PetRegisterViewModel
-import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.screen.family.FamilyInviteScreen
 import com.example.howsu.screen.family.FamilyJoinCompleteScreen
 import com.example.howsu.screen.family.FamilyRegisterIntroScreen
 import com.example.howsu.screen.family.NicknameRegisterScreen
 import com.example.howsu.screen.family.SetRelationshipScreen
-import com.example.howsu.screen.feed.FeedHomeScreen
 import com.example.howsu.screen.feed.FeedDetailScreen
-import com.example.howsu.screen.feed.FeedSearchScreen
+import com.example.howsu.screen.feed.FeedHomeScreen
 import com.example.howsu.screen.feed.FeedViewModel
 import com.example.howsu.screen.feed.FeedWriteScreen
 import com.example.howsu.screen.home.HomeScreen
@@ -30,6 +28,7 @@ import com.example.howsu.screen.login.AuthViewModel
 import com.example.howsu.screen.login.JoinScreen
 import com.example.howsu.screen.login.LoadingScreen
 import com.example.howsu.screen.login.LoginScreen
+import com.example.howsu.screen.mypage.EditProfileScreen
 import com.example.howsu.screen.mypage.FAQScreen
 import com.example.howsu.screen.mypage.FamilyDetailScreen
 import com.example.howsu.screen.mypage.MypageScreen
@@ -171,7 +170,7 @@ fun AppNavigation() {
         }
 
 
-        // --- (마이페이지) ---
+        // home
         composable(route = "home") {
             HomeScreen(navController = navController)
         }
@@ -257,8 +256,11 @@ fun AppNavigation() {
         composable("faq") {    // 자주 묻는 질문
             FAQScreen(navController = navController)
         }
-        composable("family_info") {    // 자주 묻는 질문
+        composable("family_info") {    // 가족 정보
             FamilyDetailScreen(navController = navController)
+        }
+        composable("edit_profile") {   // 프로필 편집
+            EditProfileScreen(navController = navController)
         }
 
 
