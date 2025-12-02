@@ -480,7 +480,7 @@ fun FamilyMemberItem(
 ) {
 
     val borderStroke = if(isCurrentUser){
-        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+        BorderStroke(2.dp, YellowBox)
     } else {
         null
     }
@@ -492,7 +492,7 @@ fun FamilyMemberItem(
                 .let{ modifier ->
                     if(borderStroke != null){
                         modifier.border(border = borderStroke, shape = CircleShape)
-                    } else{
+                    } else {
                         modifier
                     }
                 },
@@ -509,7 +509,7 @@ fun FamilyMemberItem(
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            text = member.nickName.ifEmpty { "이름없음" },
+            text = member.relationship.ifEmpty { "역할없음" },   // relationship으로
             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Normal)
         )
     }
