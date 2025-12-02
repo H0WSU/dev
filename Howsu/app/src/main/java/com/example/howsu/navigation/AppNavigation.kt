@@ -20,11 +20,7 @@ import com.example.howsu.screen.family.FamilyRegisterIntroScreen
 import com.example.howsu.screen.family.NicknameRegisterScreen
 import com.example.howsu.screen.family.SetRelationshipScreen
 import com.example.howsu.screen.feed.FeedDetailScreen
-<<<<<<< HEAD
 import com.example.howsu.screen.feed.FeedHomeScreen
-=======
-import com.example.howsu.screen.feed.FeedSearchScreen
->>>>>>> 6d061753ec5763726292d0d5d49a5f0b0fcee344
 import com.example.howsu.screen.feed.FeedViewModel
 import com.example.howsu.screen.feed.FeedWriteScreen
 import com.example.howsu.screen.home.HomeScreen

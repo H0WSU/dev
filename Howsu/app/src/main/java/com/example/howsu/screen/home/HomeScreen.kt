@@ -411,13 +411,13 @@ private fun ShadowCard(
     // 깊이(index)에 따라 투명도를 명확하게 다르게 설정
     // 숫자가 클수록 더 진하게(불투명하게) 보임
     val distinctAlpha = when(index) {
-        1 -> 0.1f  // 메인 카드 바로 뒤: 비교적 진함
-        2 -> 0.000001f  // 가장 뒤: 연함
+        1 -> 0.5f  // 메인 카드 바로 뒤: 비교적 진함
+        2 -> 0.2f  // 가장 뒤: 연함
         else -> 0.2f
     }
 
     // 크기: 뒤로 갈수록 작아지게
-    val scale = 0.99f - (index * scaleStep)
+    val scale = 0.95f - (index * scaleStep)
 
     // 위치 이동: 방향 * 순서 * 간격
     val xOffset = offsetX * index * direction
