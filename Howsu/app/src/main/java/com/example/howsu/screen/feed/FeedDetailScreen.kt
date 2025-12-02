@@ -1,9 +1,16 @@
 package com.example.howsu.screen.feed
 
+import android.R.attr.text
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,19 +20,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.example.howsu.common.MyBottomNavigationBar
-import com.example.howsu.common.MyFloatingActionButton
+import com.example.howsu.common.FeedHomeTopBar
 import com.example.howsu.data.model.Comment
 import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.data.model.FeedPost
-import com.example.howsu.common.FeedHomeTopBar
+import com.example.howsu.screen.todo.ContentBlack
+import com.example.howsu.screen.todo.YellowBox
 import com.example.howsu.ui.theme.HowsuTheme
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
 
 @Composable
 fun FeedDetailScreen(
@@ -37,6 +45,7 @@ fun FeedDetailScreen(
     val comments by viewModel.comments.collectAsState()
     val likedPostIds by viewModel.likedPostIds.collectAsState()
     val isLiked = likedPostIds.contains(postId)
+    val likedCommentIds by viewModel.likedCommentIds.collectAsState()
 
     var commentText by remember { mutableStateOf("") }
 
@@ -52,6 +61,7 @@ fun FeedDetailScreen(
     LaunchedEffect(postId) {
         viewModel.fetchComments(postId)
         viewModel.loadLikeStateForPost(postId)
+        viewModel.loadCommentLikeState(postId)
     }
 
     if (post == null || member == null) {
@@ -92,6 +102,7 @@ fun FeedDetailScreen(
     }
 
     Scaffold(
+        containerColor = Color.White,
         topBar = {
             FeedHomeTopBar(
                 member = member!!,
@@ -103,7 +114,6 @@ fun FeedDetailScreen(
         },
         bottomBar = { MyBottomNavigationBar(navController = navController) }
     ) { padding ->
-
         FeedDetailContentBody(
             member = member!!,
             post = post,
@@ -132,6 +142,10 @@ fun FeedDetailScreen(
             onClickDelete = { c ->
                 viewModel.deleteComment(postId, c.id)
             },
+            likedCommentIds = likedCommentIds,
+            onClickCommentLike = { c ->
+                viewModel.toggleCommentLike(postId, c.id)
+            },
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
@@ -153,6 +167,8 @@ fun FeedDetailContentBody(
     onClickReply: (Comment) -> Unit,
     onClickEdit: (Comment) -> Unit,
     onClickDelete: (Comment) -> Unit,
+    likedCommentIds: Set<String>,
+    onClickCommentLike: (Comment) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
@@ -164,7 +180,7 @@ fun FeedDetailContentBody(
         )
 
         Text(
-            text = "댓글",
+            text = "댓글 ${post.commentCount}",
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold
@@ -184,9 +200,11 @@ fun FeedDetailContentBody(
                     comment = root,
                     allComments = comments,
                     depth = 0,
+                    likedCommentIds = likedCommentIds,
                     onClickReply = onClickReply,
                     onClickEdit = onClickEdit,
-                    onClickDelete = onClickDelete
+                    onClickDelete = onClickDelete,
+                    onClickCommentLike = onClickCommentLike
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -212,20 +230,37 @@ fun FeedDetailContentBody(
                 OutlinedTextField(
                     value = commentText,
                     onValueChange = onCommentTextChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("댓글을 입력해 주세요") },
-                    maxLines = 3
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 45.dp),
+                    placeholder = {
+                        Text(
+                            text = "댓글을 입력해 주세요",
+                            fontSize = 12.sp
+                        )
+                    },
+                    singleLine = true,
+                    maxLines = 1,
+                    shape = RoundedCornerShape(12.dp)
                 )
             }
 
             Spacer(modifier = Modifier.width(8.dp))
-            Button(onClick = onSubmitComment) {
-                Text("등록")
+
+            Button(
+                onClick = onSubmitComment,
+                modifier = Modifier.height(50.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = YellowBox,
+                    contentColor = ContentBlack
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("등록", fontWeight = FontWeight.Medium, fontSize = 15.sp)
             }
         }
     }
 }
-
 
 @Composable
 private fun PostCard(
@@ -244,6 +279,7 @@ private fun PostCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp),
+
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column(
@@ -252,7 +288,6 @@ private fun PostCard(
                 .padding(16.dp)
         ) {
 
-            /* 해시태그 */
             if (post.hashtags.isNotEmpty()) {
                 Text(
                     text = post.hashtags.joinToString(" ") { "#$it" },
@@ -262,7 +297,6 @@ private fun PostCard(
                 Spacer(modifier = Modifier.height(6.dp))
             }
 
-            /* 제목 */
             Text(
                 text = post.title,
                 style = MaterialTheme.typography.titleMedium,
@@ -270,28 +304,23 @@ private fun PostCard(
             )
             Spacer(modifier = Modifier.height(6.dp))
 
-            /* 내용 */
             Text(
                 text = post.content,
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(modifier = Modifier.height(12.dp))
 
-
-            /* 좋아요 / 댓글 / 날짜 / 좋아요 버튼 */
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-
-                // ♥ 좋아요 수
                 Text(
                     text = if (isLiked) "♥ ${post.likeCount}" else "♡ ${post.likeCount}",
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable { onClickLike() }
                 )
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // 💬 댓글 수
                 Text(
                     text = "💬 ${post.commentCount}",
                     fontWeight = FontWeight.SemiBold
@@ -299,22 +328,11 @@ private fun PostCard(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // 작성일
                 Text(
                     text = dateText,
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray
                 )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // 좋아요 버튼
-                TextButton(onClick = onClickLike) {
-                    Text(
-                        text = if (isLiked) "좋아요 취소" else "좋아요",
-                        color = if (isLiked) Color.Red else Color.Black
-                    )
-                }
             }
         }
     }
@@ -323,6 +341,8 @@ private fun PostCard(
 @Composable
 private fun CommentItem(
     comment: Comment,
+    isLiked: Boolean,
+    onClickLike: () -> Unit,
     onClickReply: () -> Unit,
     onClickEdit: () -> Unit,
     onClickDelete: () -> Unit
@@ -334,6 +354,8 @@ private fun CommentItem(
         timeFormat.format(Date(comment.createdAt))
     }
 
+    var menuExpanded by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White)
@@ -343,7 +365,10 @@ private fun CommentItem(
                 .fillMaxWidth()
                 .padding(12.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 // 프로필
                 if (!comment.userProfileImage.isNullOrBlank()) {
                     AsyncImage(
@@ -375,65 +400,128 @@ private fun CommentItem(
                         color = Color.Gray
                     )
                 }
+
+                // ★ 가운데 빈 공간 → 오른쪽 끝으로 밀기
+                Spacer(modifier = Modifier.weight(1f))
+
+                // 오른쪽 상단 점 세 개
+                Box {
+                    IconButton(onClick = { menuExpanded = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "더 보기"
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("수정") },
+                            onClick = {
+                                menuExpanded = false
+                                onClickEdit()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("삭제", color = Color.Red) },
+                            onClick = {
+                                menuExpanded = false
+                                onClickDelete()
+                            }
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(6.dp))
             Text(text = comment.content, style = MaterialTheme.typography.bodyMedium)
-
             Spacer(modifier = Modifier.height(4.dp))
 
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Text(
+                    text = if (isLiked) "♥ ${comment.likeCount}" else "♡ ${comment.likeCount}",
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable { onClickLike() }
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
                 TextButton(onClick = onClickReply) {
                     Text("답글")
-                }
-                TextButton(onClick = onClickEdit) {
-                    Text("수정")
-                }
-                TextButton(onClick = onClickDelete) {
-                    Text("삭제", color = Color.Red)
                 }
             }
         }
     }
 }
+
 
 @Composable
 private fun CommentThread(
     comment: Comment,
     allComments: List<Comment>,
     depth: Int,
+    likedCommentIds: Set<String>,
     onClickReply: (Comment) -> Unit,
     onClickEdit: (Comment) -> Unit,
-    onClickDelete: (Comment) -> Unit
+    onClickDelete: (Comment) -> Unit,
+    onClickCommentLike: (Comment) -> Unit
 ) {
-    Column(
+    // 현재 댓글 한 줄 렌더링
+    val startPadding = if (depth == 0) 0.dp else 16.dp
+
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = (depth * 16).dp) // 깊이에 따라 들여쓰기
+            .padding(start = startPadding),
+        verticalAlignment = Alignment.Top
     ) {
+        // 대댓글이면 화살표 표시
+        if (depth > 0) {
+            Text(
+                text = "↳",
+                color = Color.DarkGray,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .padding(end = 8.dp, top = 8.dp)
+            )
+        }
+
+        // 댓글 카드
         CommentItem(
             comment = comment,
+            isLiked = likedCommentIds.contains(comment.id),
+            onClickLike = { onClickCommentLike(comment) },
             onClickReply = { onClickReply(comment) },
             onClickEdit = { onClickEdit(comment) },
             onClickDelete = { onClickDelete(comment) }
         )
+    }
 
-        val children = allComments.filter { it.parentCommentId == comment.id }
-        children.forEach { child ->
-            Spacer(modifier = Modifier.height(4.dp))
-            CommentThread(
-                comment = child,
-                allComments = allComments,
-                depth = depth + 1,
-                onClickReply = onClickReply,
-                onClickEdit = onClickEdit,
-                onClickDelete = onClickDelete
-            )
-        }
+    // 자식 댓글들(대댓글들) 렌더링
+    val children = allComments.filter { it.parentCommentId == comment.id }
+    children.forEach { child ->
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // ★ 깊이는 1로 고정해서 "대댓글"로만 표시
+        CommentThread(
+            comment = child,
+            allComments = allComments,
+            depth = 1,
+            likedCommentIds = likedCommentIds,
+            onClickReply = onClickReply,
+            onClickEdit = onClickEdit,
+            onClickDelete = onClickDelete,
+            onClickCommentLike = onClickCommentLike
+        )
     }
 }
+
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
@@ -459,7 +547,6 @@ fun FeedDetailContentBodyPreview() {
         createdAt = System.currentTimeMillis()
     )
 
-    // c1 = 최상위 댓글, c2 = c1의 대댓글, c3 = c2의 대댓글 (깊이 2)
     val c1 = Comment(
         id = "c1",
         postId = 1L,
@@ -504,6 +591,8 @@ fun FeedDetailContentBodyPreview() {
             onClickReply = {},
             onClickEdit = {},
             onClickDelete = {},
+            likedCommentIds = setOf("c1"),
+            onClickCommentLike = {},
             modifier = Modifier.fillMaxSize()
         )
     }

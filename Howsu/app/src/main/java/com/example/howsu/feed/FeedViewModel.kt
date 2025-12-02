@@ -47,6 +47,11 @@ class FeedViewModel : ViewModel() {
     private val _likedPostIds = MutableStateFlow<Set<Long>>(emptySet())
     val likedPostIds: StateFlow<Set<Long>> = _likedPostIds.asStateFlow()
 
+    // 내가 댓글에 좋아요 누른 댓글 ID들
+    private val _likedCommentIds = MutableStateFlow<Set<String>>(emptySet())
+    val likedCommentIds: StateFlow<Set<String>> = _likedCommentIds.asStateFlow()
+
+
     /* -------------------------------------------------------------
        1) 내 프로필(FamilyMember) 불러오기
        ------------------------------------------------------------- */
@@ -303,6 +308,91 @@ class FeedViewModel : ViewModel() {
             }
         }
     }
+
+
+    /**
+     * 댓글 좋아요 토글
+     * feeds/{postId}/comments/{commentId}/likes/{uid} 구조로 저장
+     */
+    fun toggleCommentLike(postId: Long, commentId: String) {
+        val uid = auth.currentUser?.uid ?: return
+
+        val commentRef = db.collection("feeds")
+            .document(postId.toString())
+            .collection("comments")
+            .document(commentId)
+
+        val likeRef = commentRef
+            .collection("likes")
+            .document(uid)
+
+        viewModelScope.launch {
+            try {
+                val snap = likeRef.get().await()
+
+                if (snap.exists()) {
+                    // 좋아요 취소
+                    likeRef.delete().await()
+                    _likedCommentIds.value = _likedCommentIds.value - commentId
+                } else {
+                    // 좋아요 추가
+                    likeRef.set(mapOf("isLike" to true)).await()
+                    _likedCommentIds.value = _likedCommentIds.value + commentId
+                }
+
+                // 좋아요 개수 다시 계산
+                val likesSnap = commentRef.collection("likes").get().await()
+                val count = likesSnap.size()
+
+                // 댓글 문서에 likeCount 업데이트
+                commentRef.update("likeCount", count).await()
+
+                // 로컬 _comments 에도 반영
+                _comments.value = _comments.value.map { c ->
+                    if (c.id == commentId) c.copy(likeCount = count) else c
+                }
+            } catch (e: Exception) {
+                Log.e("FeedViewModel", "toggleCommentLike 실패", e)
+            }
+        }
+    }
+
+    /**
+     * 해당 게시글의 댓글들 중, 내가 좋아요 누른 댓글 ID들 로딩
+     */
+    fun loadCommentLikeState(postId: Long) {
+        val uid = auth.currentUser?.uid ?: return
+
+        viewModelScope.launch {
+            try {
+                val commentsSnap = db.collection("feeds")
+                    .document(postId.toString())
+                    .collection("comments")
+                    .get()
+                    .await()
+
+                val likedIds = mutableSetOf<String>()
+
+                for (doc in commentsSnap.documents) {
+                    val likeDoc = doc.reference
+                        .collection("likes")
+                        .document(uid)
+                        .get()
+                        .await()
+
+                    if (likeDoc.exists()) {
+                        likedIds += doc.id
+                    }
+                }
+
+                _likedCommentIds.value = likedIds.toSet()
+            } catch (e: Exception) {
+                Log.e("FeedViewModel", "loadCommentLikeState 실패", e)
+            }
+        }
+    }
+
+
 
     /**
      * 댓글(대댓글 포함) 전부 불러오기
