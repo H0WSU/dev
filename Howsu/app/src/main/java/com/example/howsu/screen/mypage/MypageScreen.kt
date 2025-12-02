@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
@@ -32,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -61,8 +63,14 @@ fun Profile(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .border(
+                width = 1.dp, // 테두리 두께, 원하는 대로 조절
+                color = Color.LightGray, // 테두리 색상, 원하는 색상으로 변경 가능
+                shape = RoundedCornerShape(15.dp) // 둥근 모서리 모양 지정
+            ),
         shape = MaterialTheme.shapes.medium,
+        color = Color.White
     ) {
         Row(
             modifier = Modifier
@@ -104,12 +112,10 @@ fun Profile(
                 Text(
                     text = username,  // 닉네임
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     text = email,  // 이메일
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -154,6 +160,9 @@ fun MypageScreen(
                         Icon(Icons.Filled.Settings, contentDescription = "설정")
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White
+                )
             )
         },
         bottomBar = {MyBottomNavigationBar(navController = navController)},
