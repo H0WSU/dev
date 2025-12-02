@@ -84,7 +84,7 @@ class HomeScreenViewModel : ViewModel() {
     }
 
     /* -------------------------------------------------------------
-      1) 내 프로필(FamilyMember) 불러오기
+      1) 내 프로필(FamilyMember) 불러오기 - (현재 HomeScreen에서 사용 중)
       ------------------------------------------------------------- */
     fun fetchMyProfile() {
         val uid = auth.currentUser?.uid ?: run {
@@ -114,6 +114,7 @@ class HomeScreenViewModel : ViewModel() {
             }
         }
     }
+
     private suspend fun fetchFamilyData(familyId: String, myUid: String, myName: String) {
         try {
             // A. 가족 정보 가져오기 (객체로 변환)
@@ -132,6 +133,10 @@ class HomeScreenViewModel : ViewModel() {
             val myMemberInfo = members.find { it.userId == myUid }
                 ?: FamilyMember(nickName = myName, userId = myUid)
 
+            // ⭐ 수정: member 객체에 현재 familyId를 명확히 할당 ⭐
+            val myMemberInfoWithFamilyId = myMemberInfo.copy(familyId = familyId)
+
+
             val sortedMenbers = members.sortedWith(   // 사용자 본인을 가장 앞에 보여줌
                 compareByDescending { it.userId == myUid }
             )
@@ -143,12 +148,10 @@ class HomeScreenViewModel : ViewModel() {
                 .await()
 
             val petsList = petsSnapshot.documents.mapNotNull { doc ->
-                val pet = doc.toObject(Pet::class.java)
+                // ⭐ 수정: 문서 ID (petId)를 Pet 객체에 할당하여 넘겨줍니다. ⭐
+                val pet = doc.toObject(Pet::class.java)?.copy(petId = doc.id)
 
                 pet?.let {
-                    // 💡 최종 수정: Pet 데이터 클래스에 familyId 필드가 없으므로,
-                    //    Pet 객체를 확장하는 로직(petWithFamilyId)을 제거하고 순수하게 사용합니다.
-                    //    familyId는 HomeScreen에서 uiState.member.familyId를 통해 접근합니다.
                     val age = calculatePetAge(it)
                     val gender = translateGender(it.gender)
 
@@ -160,8 +163,8 @@ class HomeScreenViewModel : ViewModel() {
             _uiState.update {
                 it.copy(
                     isLoading = false,
-                    family = familyObj,   // 가족 객체 저장
-                    member = myMemberInfo,// 내 멤버 객체 저장
+                    family = familyObj,
+                    member = myMemberInfoWithFamilyId, // ⭐ 수정된 멤버 객체 사용 ⭐
                     pets = petsList,
                     familyMembers = sortedMenbers
                 )

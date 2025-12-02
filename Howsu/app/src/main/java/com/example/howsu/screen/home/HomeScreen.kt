@@ -1,5 +1,6 @@
 package com.example.howsu.screen.home
 
+import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -131,13 +132,13 @@ fun HomeScreen(
                         PetSection(
                             pets = uiState.pets,
                             onPetClick = { petUi ->
-                                val familyId = uiState.member.familyId
-                                val petId = petUi.originalPet.petId
+                                val familyId = uiState.member.familyId.takeIf { it.isNotEmpty() }
+                                val petId = petUi.originalPet.petId.takeIf { !it.isNullOrEmpty() }
 
-                                // 널 검사 및 네비게이션
-                                if (familyId.isNotEmpty() && !petId.isNullOrEmpty()) {
-                                    // petId를 사용하여 경로 구성
+                                if (familyId != null && petId != null) {
                                     navController.navigate("pet_detail/$familyId/$petId")
+                                } else {
+                                    Log.e("HomeScreen", "펫 상세 이동 실패: familyId=$familyId, petId=$petId")
                                 }
                             }
                         )

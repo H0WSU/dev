@@ -66,12 +66,14 @@ import com.example.howsu.screen.home.EditPetViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditPetScreen(
+    familyId: String,
+    petId: String,
     navController: NavHostController,
     viewModel: EditPetViewModel = viewModel() // Edit ViewModel 주입
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    // ⭐ 1. 이미지 선택기 정의 ⭐
+    // 1. 이미지 선택기 정의
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent() // 갤러리에서 콘텐츠를 가져오는 계약
     ) { uri: Uri? ->
@@ -87,25 +89,30 @@ fun EditPetScreen(
             CenterAlignedTopAppBar(
                 title = { Text("펫 정보 편집", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "취소")
+                    IconButton(onClick = {
+                        // 편집 중이면 취소, 아니면 뒤로 가기
+                        if (uiState.isEditing) viewModel.toggledEditMode(false) else navController.popBackStack()
+                    }) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "취소/뒤로 가기")
                     }
                 },
                 actions = {
-                    // 저장 버튼
-                    TextButton(
-                        onClick = {
-                            viewModel.savePetProfile()
-                            // 저장 후 이전 화면으로 이동은 ViewModel 성공 콜백에서 처리하는 것이 더 안전하지만,
-                            // 여기서는 간단하게 저장 호출 후 이동합니다.
-                            // navController.popBackStack()
-                        },
-                        enabled = !uiState.isLoading // 로딩 중이 아닐 때만 저장 가능
-                    ) {
-                        Text(
-                            text = "저장",
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                    if (uiState.isEditing) {
+                        // 편집 모드: 저장 및 취소 버튼
+                        TextButton(onClick = { viewModel.cancelEditing() }) {
+                            Text("취소")
+                        }
+                        TextButton(
+                            onClick = { viewModel.savePetProfile() },
+                            enabled = !uiState.isLoading
+                        ) {
+                            Text("저장", style = MaterialTheme.typography.bodySmall)
+                        }
+                    } else {
+                        // 보기 모드: 편집 버튼
+                        IconButton(onClick = { viewModel.toggledEditMode(true) }) {
+                            Icon(Icons.Filled.Edit, contentDescription = "편집 모드 활성화")
+                        }
                     }
                 }
             )
@@ -136,7 +143,7 @@ fun EditPetScreen(
                         profileImageUrl = uiState.petprofileImageUrl,
                         newProfileImageUri = uiState.newPetprofileImageUri,
                         onImageClick = {
-                            // ⭐ 이미지 선택기 실행 ⭐
+                            // 이미지 선택기 실행
                             imagePickerLauncher.launch("image/*")
                         }
                     )
@@ -149,6 +156,7 @@ fun EditPetScreen(
                         label = "이름",
                         value = uiState.petname,
                         onValueChange = viewModel::updateName,
+                        isEditing = uiState.isEditing, // ⭐ isEditing 전달 ⭐
                         modifier = Modifier.padding(horizontal = 24.dp)
                     )
                     Spacer(Modifier.height(32.dp))
@@ -215,7 +223,7 @@ fun EditablePetProfileImageSection(
     newProfileImageUri: Uri?,
     onImageClick: () -> Unit
 ) {
-    // ⭐ 2. 새 URI가 있으면 로컬 이미지 사용, 없으면 기존 URL 사용 ⭐
+    // 2. 새 URI가 있으면 로컬 이미지 사용, 없으면 기존 URL 사용
     val imageSource = if (newProfileImageUri != null) newProfileImageUri else profileImageUrl
 
     Box(
@@ -233,18 +241,8 @@ fun EditablePetProfileImageSection(
             contentDescription = "펫 프로필 사진",
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,
-            /*error = {
-                // 이미지가 없거나 로드 실패 시 기본 아이콘
-                Icon(
-                    imageVector = Icons.Default.Pets,
-                    contentDescription = null,
-                    modifier = Modifier.size(60.dp),
-                    tint = Color.Gray
-                )
-            }
-            */
         )
-        // ⭐ 수정: 이미지 URL이 없거나 비어있을 때 Icon을 표시 ⭐
+        // 수정: 이미지 URL이 없거나 비어있을 때 Icon을 표시
         if (profileImageUrl.isNullOrBlank()) {
             Icon(
                 imageVector = Icons.Filled.Pets,
@@ -281,6 +279,7 @@ fun EditableDetailField(
     label: String,
     value: String,
     onValueChange: (String) -> Unit,
+    isEditing: Boolean,
     modifier: Modifier = Modifier,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default
 ) {
@@ -298,6 +297,7 @@ fun EditableDetailField(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth().height(56.dp),
+            enabled = isEditing,
             singleLine = true,
             textStyle = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
             colors = OutlinedTextFieldDefaults.colors(

@@ -177,28 +177,16 @@ fun AppNavigation() {
 
         // 펫 정보 보기 & 수정
         composable(
-            route = "edit_pet/{familyId}/{petId}",
+            route = "pet_detail/{familyId}/{petId}",
             arguments = listOf(
                 navArgument("familyId") { type = NavType.StringType },
                 navArgument("petId") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            EditPetScreen(navController = navController)
+            val familyId = backStackEntry.arguments?.getString("familyId") ?: ""
+            val petId = backStackEntry.arguments?.getString("petId") ?: ""
+            EditPetScreen(familyId = familyId, petId = petId, navController = navController)
         }
-
-        // 펫 정보 수정
-        /*composable(
-            route = "edit_pet/{familyId}/{petId}", // 경로 패턴 정의
-            arguments = listOf(
-                navArgument("familyId") { type = NavType.StringType },
-                navArgument("petId") { type = NavType.StringType }
-            )
-        ) { backStackEntry ->
-            // EditPetScreen 컴포저블을 호출
-            // SavedStateHandle을 통해 familyId와 petId가 자동으로 ViewModel에 전달됩니다.
-            EditPetScreen(navController = navController)
-        }*/
-
 
         // --- (스케줄) ---
         composable(route = "schedule") {
