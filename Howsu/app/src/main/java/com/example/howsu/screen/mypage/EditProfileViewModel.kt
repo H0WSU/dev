@@ -225,16 +225,6 @@ class EditProfileViewModel: ViewModel() {
                     // 가족이 없는 경우 이름/이미지만 저장 성공
                     updateSuccessState(newName, newImageUrl, newRelationship)
                 }
-                /*// 저장 성공 시, 원본 데이터 업데이트 및 UI 상태 초기화
-                originalUser = originalUser?.copy(name = newName, profileImageUrl = newImageUrl)
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        isEditing = false,
-                        profileImageUrl = newImageUrl,
-                        newProfileImageUri = null // 임시 URI 제거
-                    )
-                }*/
             }
             .addOnFailureListener { exception ->
                 handleFailure("프로필 정보 저장 실패: ${exception.message}")

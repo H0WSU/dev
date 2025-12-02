@@ -1,5 +1,8 @@
 package com.example.howsu.screen.pet
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -65,6 +68,14 @@ fun EditPetScreen(
     viewModel: EditPetViewModel = viewModel() // Edit ViewModel 주입
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // 이미지 선택기
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent() // 갤러리에서 콘텐츠를 가져오는 계약
+    ) { uri: Uri? ->
+        // 2. 결과 처리: URI가 있으면 ViewModel에 업데이트
+        viewModel.updateProfileImageUri(uri)
+    }
 
     Scaffold(
         containerColor = Color.White,
