@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Comment
+import androidx.compose.material.icons.filled.Comment
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
@@ -314,20 +316,46 @@ private fun PostCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = if (isLiked) "♥ ${post.likeCount}" else "♡ ${post.likeCount}",
-                    fontWeight = FontWeight.SemiBold,
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.clickable { onClickLike() }
-                )
+                ) {
+                    Icon(
+                        imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                        contentDescription = "좋아요",
+                        tint = if (isLiked) Color.Red else Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "${post.likeCount}",
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.Black
+                    )
+                }
+
                 Spacer(modifier = Modifier.width(12.dp))
 
-                Text(
-                    text = "💬 ${post.commentCount}",
-                    fontWeight = FontWeight.SemiBold
-                )
+                // 댓글
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Comment,
+                        contentDescription = "댓글",
+                        modifier = Modifier.size(18.dp),
+                        tint = Color.Black
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "${post.commentCount}",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
 
                 Spacer(modifier = Modifier.weight(1f))
 
+                // 날짜
                 Text(
                     text = dateText,
                     style = MaterialTheme.typography.bodySmall,
