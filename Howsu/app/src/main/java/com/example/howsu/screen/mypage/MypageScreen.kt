@@ -1,6 +1,6 @@
 package com.example.howsu.screen.mypage
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,7 +32,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -40,14 +39,87 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
+import coil.compose.AsyncImage
 import com.example.howsu.common.MyBottomNavigationBar
 import com.example.howsu.common.MyFloatingActionButton
 
+
+// ----------------------------------------------------
+// 프로필 영역
+// ----------------------------------------------------
+@Composable
+fun Profile(
+    profileImageUrl: String? = null,
+    username: String,
+    email: String,
+    onEditClick: () -> Unit,
+){
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ){
+            Box(
+                modifier = Modifier
+                    .size(60.dp)
+                    .clip(CircleShape)
+                    .border(
+                        width = 2.dp, // 테두리 두께
+                        color = Color.Gray,
+                        shape = CircleShape // 원형 테두리
+                    )
+            ){
+                // 프로필 이미지 로드 로직
+                AsyncImage(
+                    model = profileImageUrl, // 로드할 이미지 URL
+                    contentDescription = "프로필 이미지",
+                    modifier = Modifier.fillMaxSize(),
+                    // 이미지가 원형 Box에 꽉 차도록 설정
+                    contentScale = ContentScale.Crop,
+
+                )
+                if (profileImageUrl.isNullOrBlank()) {
+                    Icon(
+                        imageVector = Icons.Filled.People,
+                        contentDescription = "기본 프로필",
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = username,  // 닉네임
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = email,  // 이메일
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            // 수정 버튼
+            IconButton(onClick = onEditClick) {
+                Icon(Icons.Filled.Create, contentDescription = "내 정보 수정")
+            }
+        }
+    }
+}
 
 // ----------------------------------------------------
 // mypage 전체 화면
@@ -62,6 +134,8 @@ fun MypageScreen(
     val myFamilyId by viewModel.familyId.collectAsState()
 
     // 뷰모델에서 프로필 URL 관찰
+    val userName by viewModel.userName.collectAsState()
+    val userEmail by viewModel.userEmail.collectAsState()
     val myProfileUrl by viewModel.myProfileUrl.collectAsState()
 
     Scaffold(
@@ -77,12 +151,9 @@ fun MypageScreen(
                 },
                 actions = {
                     IconButton(onClick = { navController.navigate("profile")}) {
-                        Icon(Icons.Filled.Settings, contentDescription = "내 정보 수정")
+                        Icon(Icons.Filled.Settings, contentDescription = "설정")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
             )
         },
         bottomBar = {MyBottomNavigationBar(navController = navController)},
@@ -106,8 +177,9 @@ fun MypageScreen(
                 .padding(paddingValues),
         ) {
             Profile(
-                username = "이구역의짱",
-                email = "abc123@gmail.com",
+                username = userName,
+                email = userEmail,
+                profileImageUrl = myProfileUrl, // Profile 함수 수정이 필요함
                 onEditClick = { navController.navigate("edit_profile") }
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -176,60 +248,6 @@ fun MypageScreen(
     }
 }
 
-// ----------------------------------------------------
-// 프로필 영역
-// ----------------------------------------------------
-@Composable
-fun Profile(
-    //profileImageUrl: String,
-    username: String,
-    email: String,
-    onEditClick: () -> Unit,
-){
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ){
-            Box(
-                modifier = Modifier
-                    .size(60.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer)
-            ){
-                // 이미지
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = username,  // 닉네임
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = email,  // 이메일
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            // 수정 버튼
-            IconButton(onClick = onEditClick) {
-                Icon(Icons.Filled.Create, contentDescription = "내 정보 수정")
-            }
-        }
-    }
-}
 
 // ----------------------------------------------------
 // 본문 영역
@@ -258,21 +276,6 @@ fun ContentItem(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = "세부 내용으로 이동",
             tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-// ----------------------------------------------------
-// Preview 함수
-// ----------------------------------------------------
-
-@Preview(showBackground = true)
-@Composable
-fun MypageScreenPreview() {
-    val navController = rememberNavController()
-    MaterialTheme {
-        MypageScreen(
-            navController = navController,
         )
     }
 }
