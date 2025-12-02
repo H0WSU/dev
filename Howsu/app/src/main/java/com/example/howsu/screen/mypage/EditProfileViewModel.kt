@@ -24,6 +24,7 @@ data class ProfileUiState(
     val email: String = "", // 이메일
     val profileImageUrl: String? = null,
     val newProfileImageUri: Uri? = null, // 새 이미지의 로컬 URI
+
     val isLoading: Boolean = false, // 로딩 중
     val error: String? = null, // 에러 메시지
     val isEditing: Boolean = false, // 현재 편집 모드인지 확인
@@ -56,39 +57,31 @@ class EditProfileViewModel: ViewModel() {
         loadUserProfile()
     }
 
-    // < 상태 관리 함수 >
+    // ----------------------------------------------------
+    // 데이터 업데이트 함수
+    // ----------------------------------------------------
 
-    /**
-     * 사용자가 새 프로필 이미지를 갤러리/파일에서 선택 시 호출
-     */
+    //사용자가 새 프로필 이미지를 갤러리/파일에서 선택 시 호출
     fun updateProfileImageUri(uri: Uri?){
         _uiState.update { it.copy(newProfileImageUri = uri) }
     }
 
-    /**
-     * 편집 모드 on & off
-     */
+    // 편집 모드 on & off
     fun toggledEditMode(enable: Boolean) {
         _uiState.update { it.copy(isEditing = enable) }
     }
 
-    /**
-     * 사용자 이름 입력 필드 값 업데이트 (임시 상태)
-     */
+    // 사용자 이름 입력 필드 값 업데이트 (임시 상태)
     fun updateName(newName: String) {
         _uiState.update { it.copy(name = newName) }
     }
 
-    /**
-     * 반려동물과의 관계 입력 필드 값 업데이트
-     */
+    // 반려동물과의 관계 입력 필드 값 업데이트
     fun updateRelationship(newRelationship: String) {
         _uiState.update { it.copy(relationship = newRelationship) }
     }
 
-    /**
-     * 편집 취소: 모든 입력값을 원본 데이터로 되돌리고 편집 모드 해제
-     */
+    // 편집 취소: 모든 입력값을 원본 데이터로 되돌리고 편집 모드 해제
     fun cancelEditing() {
         if (originalUser != null) {
             _uiState.update { currentState ->
@@ -109,9 +102,7 @@ class EditProfileViewModel: ViewModel() {
 
     // < 데이터 로드/업데이트 및 예외 처리 함수 >
 
-    /**
-     * Firebase에서 사용자 정보를 로드합니다.
-     */
+    // Firebase에서 사용자 정보를 로드함
     fun loadUserProfile() {
         val currentUser = auth.currentUser
         val currentUid = auth.currentUser?.uid ?: return
@@ -148,9 +139,7 @@ class EditProfileViewModel: ViewModel() {
             }
     }
 
-    /**
-     * 모든 에러 처리를 담당하고 UI 상태를 업데이트합니다.
-     */
+    // 모든 에러 처리를 담당하고 UI 상태를 업데이트함
     private fun handleFailure(errorMessage: String) {
         _uiState.update {
             it.copy(
@@ -159,9 +148,7 @@ class EditProfileViewModel: ViewModel() {
             )
         }
     }
-    /**
-     * 현재 가족 ID를 기반으로 사용자의 관계(relationship)를 로드합니다.
-     */
+    // 현재 가족 ID를 기반으로 사용자의 관계(relationship)를 로드
     private fun loadRelationship(uid: String, familyId: String?) {
         if (familyId.isNullOrBlank()) {
             _uiState.update { it.copy(relationship = "가족에 소속되지 않음", originalRelationship = "가족에 소속되지 않음", isRelationLoading = false) }
@@ -191,9 +178,7 @@ class EditProfileViewModel: ViewModel() {
             }
     }
 
-    /**
-     * Firestore에 이름 및 이미지 URL + 관계 저장
-     */
+    // Firestore에 이름 및 이미지 URL + 관계 저장
     private fun saveProfileToFirestore(
         uid: String,
         familyId: String?,
@@ -231,9 +216,7 @@ class EditProfileViewModel: ViewModel() {
             }
     }
 
-    /**
-     * Firebase Storage에 이미지를 업로드하고 Firestore 저장을 호출합니다.
-     */
+    // Firebase Storage에 이미지를 업로드하고 Firestore 저장을 호출함
     private fun uploadImageAndSaveProfile(uid: String, imageUri: Uri, newName: String) {
         val state = _uiState.value // 현재 상태 가져오기
         val currentFamilyId = state.currentFamilyId
@@ -279,9 +262,8 @@ class EditProfileViewModel: ViewModel() {
             )
         }
     }
-    /**
-     * 최종 저장 로직 (이미지 유무에 따라 분기)
-     */
+
+    // 최종 저장 로직 (이미지 유무에 따라 분기)
     fun saveProfile(){
         val currentUid = auth.currentUser?.uid
         val state = _uiState.value

@@ -132,10 +132,12 @@ fun HomeScreen(
                             pets = uiState.pets,
                             onPetClick = { petUi ->
                                 val familyId = uiState.member.familyId
-                                val petName = petUi.originalPet.name
+                                val petId = petUi.originalPet.petId
 
-                                if (familyId.isNotEmpty() && petName.isNotEmpty()) {
-                                    navController.navigate("pet_detail/$familyId/$petName")
+                                // 널 검사 및 네비게이션
+                                if (familyId.isNotEmpty() && !petId.isNullOrEmpty()) {
+                                    // petId를 사용하여 경로 구성
+                                    navController.navigate("pet_detail/$familyId/$petId")
                                 }
                             }
                         )

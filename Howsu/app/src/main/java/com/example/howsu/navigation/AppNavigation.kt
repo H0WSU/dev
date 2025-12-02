@@ -34,7 +34,7 @@ import com.example.howsu.screen.mypage.FamilyDetailScreen
 import com.example.howsu.screen.mypage.MypageScreen
 import com.example.howsu.screen.mypage.NotificationScreen
 import com.example.howsu.screen.pet.EditPetScreen
-import com.example.howsu.screen.pet.PetDetailScreen
+//import com.example.howsu.screen.pet.PetDetailScreen
 import com.example.howsu.screen.pet.PetRegisterCompleteScreen
 import com.example.howsu.screen.pet.PetRegisterScreen
 import com.example.howsu.screen.schedule.CreateScheduleScreen
@@ -175,19 +175,19 @@ fun AppNavigation() {
             HomeScreen(navController = navController)
         }
 
-        // 펫 정보 보기
+        // 펫 정보 보기 & 수정
         composable(
-            route = "pet_detail/{familyId}/{petId}",
+            route = "edit_pet/{familyId}/{petId}",
             arguments = listOf(
                 navArgument("familyId") { type = NavType.StringType },
                 navArgument("petId") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            PetDetailScreen(navController = navController)
+            EditPetScreen(navController = navController)
         }
 
         // 펫 정보 수정
-        composable(
+        /*composable(
             route = "edit_pet/{familyId}/{petId}", // 경로 패턴 정의
             arguments = listOf(
                 navArgument("familyId") { type = NavType.StringType },
@@ -197,7 +197,7 @@ fun AppNavigation() {
             // EditPetScreen 컴포저블을 호출
             // SavedStateHandle을 통해 familyId와 petId가 자동으로 ViewModel에 전달됩니다.
             EditPetScreen(navController = navController)
-        }
+        }*/
 
 
         // --- (스케줄) ---

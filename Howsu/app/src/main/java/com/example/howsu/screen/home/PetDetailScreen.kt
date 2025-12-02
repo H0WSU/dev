@@ -1,4 +1,4 @@
-package com.example.howsu.screen.pet // 패키지명 확인 필요
+/*package com.example.howsu.screen.pet // 패키지명 확인 필요
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -397,4 +397,4 @@ fun BirthDateAgeSection(birthDate: String, ageText: String, modifier: Modifier =
             }
         }
     }
-}
+}*/

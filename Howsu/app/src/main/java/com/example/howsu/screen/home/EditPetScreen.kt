@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,13 +48,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import com.example.howsu.data.model.Pet
+import coil.compose.AsyncImage
 import com.example.howsu.screen.home.EditPetViewModel
 
 
@@ -69,12 +71,14 @@ fun EditPetScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    // 이미지 선택기
+    // ⭐ 1. 이미지 선택기 정의 ⭐
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent() // 갤러리에서 콘텐츠를 가져오는 계약
     ) { uri: Uri? ->
         // 2. 결과 처리: URI가 있으면 ViewModel에 업데이트
-        viewModel.updateProfileImageUri(uri)
+        if (uri != null) {
+            viewModel.updatePetProfileImgaeUri(uri)
+        }
     }
 
     Scaffold(
@@ -89,11 +93,12 @@ fun EditPetScreen(
                 },
                 actions = {
                     // 저장 버튼
-                    TextButton(   // 텍스트 버튼으로 수정
+                    TextButton(
                         onClick = {
-                            // TODO: 입력 유효성 검사
-                            viewModel.savePetDetail()
-                            navController.popBackStack() // 저장 후 이전 화면으로 이동
+                            viewModel.savePetProfile()
+                            // 저장 후 이전 화면으로 이동은 ViewModel 성공 콜백에서 처리하는 것이 더 안전하지만,
+                            // 여기서는 간단하게 저장 호출 후 이동합니다.
+                            // navController.popBackStack()
                         },
                         enabled = !uiState.isLoading // 로딩 중이 아닐 때만 저장 가능
                     ) {
@@ -127,10 +132,14 @@ fun EditPetScreen(
                 // 1. 프로필 이미지 섹션 (편집 가능)
                 item {
                     Spacer(Modifier.height(32.dp))
-                    EditablePetProfileImageSection(pet = uiState.pet) {
-                        // TODO: 이미지 선택 로직 실행 (갤러리/카메라)
-                        // 수정 필요
-                    }
+                    EditablePetProfileImageSection(
+                        profileImageUrl = uiState.petprofileImageUrl,
+                        newProfileImageUri = uiState.newPetprofileImageUri,
+                        onImageClick = {
+                            // ⭐ 이미지 선택기 실행 ⭐
+                            imagePickerLauncher.launch("image/*")
+                        }
+                    )
                     Spacer(Modifier.height(32.dp))
                 }
 
@@ -138,8 +147,8 @@ fun EditPetScreen(
                 item {
                     EditableDetailField(
                         label = "이름",
-                        value = uiState.name,
-                        onValueChange = viewModel::updateName,   // 이름 변경 위한 추가사항
+                        value = uiState.petname,
+                        onValueChange = viewModel::updateName,
                         modifier = Modifier.padding(horizontal = 24.dp)
                     )
                     Spacer(Modifier.height(32.dp))
@@ -157,10 +166,9 @@ fun EditPetScreen(
                     Spacer(Modifier.height(32.dp))
                 }
 
-                // 4. 체중 필드 (편집 가능 - 클릭 시 다이얼로그)
+                // 4. 체중 필드 (편집 가능)
                 item {
                     EditableWeightField(
-                        // Float 형태의 weight를 String으로 변환
                         value = uiState.weight,
                         onValueChange = viewModel::updateWeight,
                         modifier = Modifier.padding(horizontal = 24.dp)
@@ -171,16 +179,22 @@ fun EditPetScreen(
                 // 5. 생년월일/나이 필드 (편집 가능 - 클릭 시 다이얼로그/DatePicker)
                 item {
                     val displayDate = if (!uiState.birthdayExact.isNullOrEmpty()) {
-                        uiState.birthdayExact
+                        // ⭐ Non-null 처리: null이 아님이 보장되므로, !! 또는 requireNotNull() 사용 가능
+                        uiState.birthdayExact!!
+                    } else if (!uiState.birthdayYearApprox.isNullOrEmpty()) {
+                        // String 타입
+                        "${uiState.birthdayYearApprox}년 ${uiState.birthdayMonthApprox.orEmpty()}월 (추정)"
                     } else {
-                        "${uiState.birthdayYearApprox}년 ${uiState.birthdayMonthApprox}월 (추정)"
+                        // ⭐ 수정: String 타입을 명시적으로 반환 ⭐
+                        "-"
                     }
 
                     EditableBirthDateAgeSection(
-                        birthDate = displayDate ?: "-",
+                        birthDate = displayDate,
                         ageText = uiState.ageText,
                         onClick = {
                             // TODO: DatePicker 다이얼로그 표시 또는 새 화면으로 이동하여 생년월일/추정 년월 수정
+                            // viewModel.updateBirthdayExact(LocalDate.of(2020, 1, 1)) // 예시 호출
                         },
                         modifier = Modifier.padding(horizontal = 24.dp)
                     )
@@ -196,7 +210,14 @@ fun EditPetScreen(
 // ----------------------------------------------------
 
 @Composable
-fun EditablePetProfileImageSection(pet: Pet?, onImageClick: () -> Unit) {
+fun EditablePetProfileImageSection(
+    profileImageUrl: String?,
+    newProfileImageUri: Uri?,
+    onImageClick: () -> Unit
+) {
+    // ⭐ 2. 새 URI가 있으면 로컬 이미지 사용, 없으면 기존 URL 사용 ⭐
+    val imageSource = if (newProfileImageUri != null) newProfileImageUri else profileImageUrl
+
     Box(
         modifier = Modifier
             .size(150.dp)
@@ -206,36 +227,54 @@ fun EditablePetProfileImageSection(pet: Pet?, onImageClick: () -> Unit) {
             .clickable(onClick = onImageClick), // 이미지 변경 클릭 이벤트 추가
         contentAlignment = Alignment.Center
     ) {
-        // ... (PetProfileImageSection과 동일한 이미지/아이콘 로직)
-        Icon(
-            imageVector = Icons.Default.Pets,
-            contentDescription = null,
-            modifier = Modifier.size(60.dp),
-            tint = Color.Gray
+        // 이미지 로직
+        AsyncImage(
+            model = imageSource,
+            contentDescription = "펫 프로필 사진",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+            /*error = {
+                // 이미지가 없거나 로드 실패 시 기본 아이콘
+                Icon(
+                    imageVector = Icons.Default.Pets,
+                    contentDescription = null,
+                    modifier = Modifier.size(60.dp),
+                    tint = Color.Gray
+                )
+            }
+            */
         )
+        // ⭐ 수정: 이미지 URL이 없거나 비어있을 때 Icon을 표시 ⭐
+        if (profileImageUrl.isNullOrBlank()) {
+            Icon(
+                imageVector = Icons.Filled.Pets,
+                contentDescription = "기본 프로필",
+                modifier = Modifier.align(Alignment.Center)
+            )
+        }
+    }
 
-        // 갤러리 아이콘
+        // 갤러리 아이콘 (편집 버튼)
         Surface(
+            onClick = onImageClick,
             shape = CircleShape,
-            color = Color.White.copy(alpha = 0.8f),
+            color = MaterialTheme.colorScheme.primary, // Primary 색상
             modifier = Modifier
                 .size(40.dp)
-                .align(Alignment.BottomEnd)
-                .padding(4.dp),
+                //.align(Alignment.BottomEnd)
+                .offset(x = 5.dp, y = 5.dp), // 프로필 테두리에 살짝 걸치도록 조정
             shadowElevation = 4.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
-                // R.drawable.ic_menu_gallery 대신 기본 아이콘 사용 가능
                 Icon(
                     imageVector = Icons.Default.Edit,
                     contentDescription = "Edit Profile",
                     modifier = Modifier.size(20.dp),
-                    tint = Color.DarkGray
+                    tint = Color.White // 흰색 아이콘
                 )
             }
         }
     }
-}
 
 @Composable
 fun EditableDetailField(
@@ -440,4 +479,3 @@ fun EditableBirthDateAgeSection(birthDate: String, ageText: String, onClick: () 
         }
     }
 }
-

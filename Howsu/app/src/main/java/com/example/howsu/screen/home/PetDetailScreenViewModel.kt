@@ -1,4 +1,4 @@
-package com.example.howsu.screen.home
+/*package com.example.howsu.screen.home
 
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
@@ -119,4 +119,4 @@ class PetDetailViewModel(
             else -> "성별미상"
         }
     }
-}
+}*/
