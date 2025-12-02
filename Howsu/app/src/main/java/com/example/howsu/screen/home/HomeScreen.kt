@@ -244,7 +244,7 @@ fun PetSection(
                 state = pagerState,
                 // 양옆의 카드가 살짝 보이거나 간격을 두고 싶다면 padding 조정
                 contentPadding = PaddingValues(horizontal = 20.dp),
-                pageSpacing = 35.dp, // 카드 간의 물리적 간격
+                pageSpacing = 50.dp, // 카드 간의 물리적 간격
                 modifier = Modifier.fillMaxWidth()
             ) { page ->
 
@@ -273,7 +273,7 @@ fun PetCard(
 
     // 그림자 설정
     val shadowOffsetX = 20.dp  // 그림자가 옆으로 밀리는 정도
-    val shadowScaleStep = 0.05f // 뒤로 갈수록 작아지는 비율
+    val shadowScaleStep = 0.06f // 뒤로 갈수록 작아지는 비율
 
     // 내 뒤에 몇 장 남았는가? (오른쪽 그림자용, 최대 2개)
     val rightShadowCount = (totalCount - 1 - page).coerceIn(0, 2)
@@ -405,19 +405,15 @@ private fun ShadowCard(
     scaleStep: Float,
     cardHeight: Dp
 ) {
-    // 투명도: 뒤로 갈수록 흐려지게 (선택사항, 원치 않으면 제거 가능)
-    //val alpha = 1f - (index * 1f)
-
     // 깊이(index)에 따라 투명도를 명확하게 다르게 설정
     // 숫자가 클수록 더 진하게(불투명하게) 보임
     val distinctAlpha = when(index) {
         1 -> 0.5f  // 메인 카드 바로 뒤: 비교적 진함
-        2 -> 0.2f  // 가장 뒤: 연함
+        2 -> 0.3f  // 가장 뒤: 연함
         else -> 0.2f
     }
-
     // 크기: 뒤로 갈수록 작아지게
-    val scale = 0.95f - (index * scaleStep)
+    val scale = 1f - (index * scaleStep)
 
     // 위치 이동: 방향 * 순서 * 간격
     val xOffset = offsetX * index * direction
@@ -432,7 +428,6 @@ private fun ShadowCard(
                 scaleY = scale                // 세로 크기 축소
             }
             .clip(RoundedCornerShape(16.dp))
-            .background(baseColor.copy(alpha = 0.5f)) // 반투명 배경색
             .background(baseColor.copy(alpha = distinctAlpha)) // 그림자 색 수정
     )
 }
