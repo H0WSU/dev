@@ -14,13 +14,14 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.howsu.Pet.PetRegisterViewModel
+import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.screen.family.FamilyInviteScreen
 import com.example.howsu.screen.family.FamilyJoinCompleteScreen
 import com.example.howsu.screen.family.FamilyRegisterIntroScreen
 import com.example.howsu.screen.family.NicknameRegisterScreen
 import com.example.howsu.screen.family.SetRelationshipScreen
-import com.example.howsu.screen.feed.FeedDetailScreen
 import com.example.howsu.screen.feed.FeedHomeScreen
+import com.example.howsu.screen.feed.FeedDetailScreen
 import com.example.howsu.screen.feed.FeedSearchScreen
 import com.example.howsu.screen.feed.FeedViewModel
 import com.example.howsu.screen.feed.FeedWriteScreen

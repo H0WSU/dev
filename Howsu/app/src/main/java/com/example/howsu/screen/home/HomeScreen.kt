@@ -56,8 +56,10 @@ import com.example.howsu.common.MyBottomNavigationBar
 import com.example.howsu.common.MyFloatingActionButton
 import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.screen.todo.CalendarWeekRow
+import com.example.howsu.screen.todo.ContentBlack
 import com.example.howsu.screen.todo.TodoGroupCard
 import com.example.howsu.screen.todo.TodoViewModel
+import com.example.howsu.screen.todo.YellowBox
 import java.time.LocalDate
 
 @Composable
@@ -199,261 +201,6 @@ fun HomeScreen(
     }
 }
 
-/*@SuppressLint("RestrictedApi")
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun PetSection(
-    pets: List<PetUiModel>,
-    onPetClick: (PetUiModel) -> Unit
-) {
-    Column {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                "반려동물",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
-            )
-            Spacer(Modifier.width(8.dp))
-            Surface(
-                shape = CircleShape,
-                color = Color.LightGray.copy(alpha = 0.5f)
-            ) {
-                Text(
-                    pets.size.toString(),
-                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                )
-            }
-        }
-        Spacer(Modifier.height(16.dp))
-
-        if (pets.isEmpty()) {
-            Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
-                Text("등록된 반려동물이 없어요 🐶", color = Color.Gray)
-            }
-        } else {
-            val pagerState = rememberPagerState(pageCount = { pets.size })
-
-            HorizontalPager(
-                state = pagerState,
-                contentPadding = PaddingValues(end = 20.dp), // 오른쪽 여백 조정
-                pageSpacing = 0.dp,                          // 페이지 간격 제거
-                modifier = Modifier.fillMaxWidth()
-            ) { page ->
-                // 애니메이션 효과
-                val pageOffset = (
-                        (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
-                        ).absoluteValue
-
-                val scale = lerp(0.85f, 1f, 1f - pageOffset.coerceIn(0f, 1f))
-                val alpha = lerp(0.5f, 1f, 1f - pageOffset.coerceIn(0f, 1f))
-
-                Box(
-                    modifier = Modifier
-                        .graphicsLayer {
-                            scaleX = scale
-                            scaleY = scale
-                            this.alpha = alpha
-                        }
-                ) {
-                    PetCard(
-                        petModel = pets[page],
-                        page = page,
-                        pageOffset = pageOffset,
-                        pageCount = pets.size, // 전체 카운트 전달
-                        onViewDetail = onPetClick
-                    )
-                }
-            }
-        }
-    }
-}
-
-// 1. <반려동물>
-@Composable
-fun PetCard(    // 반려동물 리스트
-    petModel: PetUiModel,
-    page: Int,                      // 현재 페이지 인덱스
-    pageOffset: Float,              // 0.0일 때 정중앙
-    pageCount: Int,                 // 전체 페이지 수
-    onViewDetail: (PetUiModel) -> Unit
-) {
-    val pet = petModel.originalPet
-
-    // ➡️ 그림자 설정 값
-    val cardSpacing = 16.dp // 그림자 카드가 뒤로 물러나는 정도
-    val shadowColor = Color.Black.copy(alpha = 0.5f) // 그림자 색상 투명도 (대비 강화를 위해 0.5f 설정)
-    val darkCardColor = Color(0xFF333333)
-    val cardHeight = 100.dp
-
-    // ➡️ ShadowBox의 크기를 줄여 메인 카드 뒤에서 보이게 하는 패딩
-    val shrinkPadding = 12.dp // 메인 카드보다 좌우 12dp씩 작아집니다.
-    val shadowPadding = 4.dp  // 그림자 카드끼리의 미세한 간격
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(cardHeight)
-    ) {
-        // --- 1. 그림자 Background Boxes ---
-
-        // 1-1. 오른쪽(다음 카드) 그림자 로직
-        val hasNextCard = page < pageCount - 1
-        val numRightShadows = (pageCount - 1 - page).coerceIn(0, 2) // 남은 카드 수 (최대 2개)
-
-        // 카드가 오른쪽으로 이동 중이 아닐 때 (다음 카드를 보고 있을 때) 그림자 표시
-        if (hasNextCard && pageOffset >= 0f) {
-
-            // 오른쪽 그림자 2 (가장 먼 다음 카드)
-            if (numRightShadows >= 2) {
-                ShadowBox(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .graphicsLayer {
-                            translationX = lerp(0f, -(cardSpacing * 2).toPx(), pageOffset.coerceAtMost(1f))
-                        }
-                        // ➡️ 수정: horizontal을 제거하고, left/top/bottom은 shrinkPadding으로, end는 shadowPadding으로 설정
-                        .padding(
-                            start = shrinkPadding,   // 왼쪽 패딩으로 너비 축소
-                            top = 0.dp, bottom = 0.dp, // 필요하다면 vertical 패딩을 설정
-                            end = shadowPadding * 2 // 그림자 카드가 물러날 간격
-                        ),
-                    height = cardHeight,
-                    color = shadowColor.copy(alpha = shadowColor.alpha * 0.7f)
-                )
-            }
-
-            // 오른쪽 그림자 1 (가장 가까운 다음 카드)
-            if (numRightShadows >= 1) {
-                ShadowBox(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .graphicsLayer {
-                            translationX = lerp(0f, -cardSpacing.toPx(), pageOffset.coerceAtMost(1f))
-                        }
-                        // ➡️ 수정: start 패딩은 너비 축소 역할, end 패딩은 그림자 간격 역할을 담당
-                        .padding(start = shrinkPadding, end = shadowPadding),
-                    height = cardHeight,
-                    color = shadowColor
-                )
-            }
-        }
-
-        // 1-2. 왼쪽(이전 카드) 그림자 로직
-        val hasPrevCard = page > 0
-        val numLeftShadows = (page).coerceIn(0, 2) // 지나온 카드 수 (최대 2개)
-
-        // 카드가 왼쪽으로 이동 중일 때 (이전 카드를 보고 있을 때) 그림자 표시
-        if (hasPrevCard && pageOffset > 0f) {
-
-            // 왼쪽 그림자 2 (가장 먼 이전 카드)
-            if (numLeftShadows >= 2) {
-                ShadowBox(
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .graphicsLayer {
-                            translationX = lerp(0f, (cardSpacing * 2).toPx(), pageOffset.coerceAtMost(1f))
-                        }
-                        // ➡️ 수정: horizontal을 제거하고, end는 shrinkPadding으로, start는 shadowPadding으로 설정
-                        .padding(
-                            end = shrinkPadding,      // 오른쪽 패딩으로 너비 축소
-                            top = 0.dp, bottom = 0.dp,
-                            start = shadowPadding * 2 // 그림자 카드가 물러날 간격
-                        ),
-                    height = cardHeight,
-                    color = shadowColor.copy(alpha = shadowColor.alpha * 0.7f)
-                )
-            }
-
-            // 왼쪽 그림자 1 (가장 가까운 이전 카드)
-            if (numLeftShadows >= 1) {
-                ShadowBox(
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .graphicsLayer {
-                            translationX = lerp(0f, cardSpacing.toPx(), pageOffset.coerceAtMost(1f))
-                        }
-                        // ➡️ 수정: end 패딩은 너비 축소 역할, start 패딩은 그림자 간격 역할을 담당
-                        .padding(end = shrinkPadding, start = shadowPadding),
-                    height = cardHeight,
-                    color = shadowColor
-                )
-            }
-        }
-
-
-        // --- 2. 메인 PetCard (가장 위에 위치) ---
-        Card(
-            modifier = Modifier
-                .matchParentSize(), // 부모 Box 크기에 맞춤
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = darkCardColor),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        modifier = Modifier
-                            .size(70.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.15f))
-                    ) {
-                        val imageUrl = pet.profileImageUrl
-
-                        if(imageUrl != null && imageUrl.isNotEmpty()){
-                            AsyncImage(
-                                model = imageUrl,
-                                contentDescription = "Pet Profile Image",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop,
-                            )
-                        } else {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.Pets,
-                                    contentDescription = "Pet Icon(Default)",
-                                    modifier = Modifier.fillMaxSize(0.7f),
-                                    tint = Color.White.copy(alpha = 0.7f)
-                                )
-                            }
-                        }
-                    }
-                    Spacer(Modifier.width(15.dp))
-                    Column {
-                        Text(pet.name, color = Color.White, style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "${petModel.ageText} | ${petModel.displayGender ?: "성별미상"}",
-                            color = Color.White.copy(alpha = 0.7f),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-                TextButton(
-                    onClick = { onViewDetail(petModel) },
-                    shape = RoundedCornerShape(9.dp),
-                    colors = ButtonDefaults.textButtonColors(
-                        containerColor = Color.White,
-                        contentColor = Color.Black.copy(alpha = 0.8f)
-                    ),
-                    modifier = Modifier.padding(end = 4.dp)
-                ) {
-                    Text(
-                        text = "펫 정보 보기",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        }
-    }
-}*/
-
-
 @Composable
 fun PetSection(
     pets: List<PetUiModel>,
@@ -497,7 +244,7 @@ fun PetSection(
                 state = pagerState,
                 // 양옆의 카드가 살짝 보이거나 간격을 두고 싶다면 padding 조정
                 contentPadding = PaddingValues(horizontal = 20.dp),
-                pageSpacing = 10.dp, // 카드 간의 물리적 간격
+                pageSpacing = 50.dp, // 카드 간의 물리적 간격
                 modifier = Modifier.fillMaxWidth()
             ) { page ->
 
@@ -521,12 +268,12 @@ fun PetCard(
     onViewDetail: (PetUiModel) -> Unit
 ) {
     val pet = petModel.originalPet
-    val darkCardColor = Color(0xFF333333)
-    val cardHeight = 100.dp
+    val darkCardColor = YellowBox
+    val cardHeight = 120.dp
 
     // 그림자 설정
-    val shadowOffsetX = 22.dp  // 그림자가 옆으로 밀리는 정도
-    val shadowScaleStep = 0.08f // 뒤로 갈수록 작아지는 비율
+    val shadowOffsetX = 20.dp  // 그림자가 옆으로 밀리는 정도
+    val shadowScaleStep = 0.06f // 뒤로 갈수록 작아지는 비율
 
     // 내 뒤에 몇 장 남았는가? (오른쪽 그림자용, 최대 2개)
     val rightShadowCount = (totalCount - 1 - page).coerceIn(0, 2)
@@ -619,14 +366,14 @@ fun PetCard(
                     Column {
                         Text(
                             text = pet.name,
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleMedium
+                            color = ContentBlack,
+                            fontWeight = FontWeight.Bold
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
                             text = "${petModel.ageText} | ${petModel.displayGender ?: "성별미상"}",
-                            color = Color.White.copy(alpha = 0.7f),
-                            style = MaterialTheme.typography.bodyMedium
+                            color = ContentBlack.copy(alpha = 0.7f),
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
@@ -637,11 +384,11 @@ fun PetCard(
                     shape = RoundedCornerShape(9.dp),
                     colors = ButtonDefaults.textButtonColors(
                         containerColor = Color.White,
-                        contentColor = Color.Black.copy(alpha = 0.8f)
+                        contentColor = ContentBlack
                     ),
                     modifier = Modifier.padding(end = 4.dp)
                 ) {
-                    Text("펫 정보 보기", style = MaterialTheme.typography.bodySmall)
+                    Text("펫 정보 보기", fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -658,9 +405,13 @@ private fun ShadowCard(
     scaleStep: Float,
     cardHeight: Dp
 ) {
-    // 투명도: 뒤로 갈수록 흐려지게 (선택사항, 원치 않으면 제거 가능)
-    val alpha = 1f - (index * 0.2f)
-
+    // 깊이(index)에 따라 투명도를 명확하게 다르게 설정
+    // 숫자가 클수록 더 진하게(불투명하게) 보임
+    val distinctAlpha = when(index) {
+        1 -> 0.5f  // 메인 카드 바로 뒤: 비교적 진함
+        2 -> 0.3f  // 가장 뒤: 연함
+        else -> 0.2f
+    }
     // 크기: 뒤로 갈수록 작아지게
     val scale = 1f - (index * scaleStep)
 
@@ -677,7 +428,7 @@ private fun ShadowCard(
                 scaleY = scale                // 세로 크기 축소
             }
             .clip(RoundedCornerShape(16.dp))
-            .background(baseColor.copy(alpha = 0.5f)) // 반투명 배경색
+            .background(baseColor.copy(alpha = distinctAlpha)) // 그림자 색 수정
     )
 }
 
@@ -729,7 +480,7 @@ fun FamilyMemberItem(
 ) {
 
     val borderStroke = if(isCurrentUser){
-        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+        BorderStroke(2.dp, YellowBox)
     } else {
         null
     }
@@ -741,7 +492,7 @@ fun FamilyMemberItem(
                 .let{ modifier ->
                     if(borderStroke != null){
                         modifier.border(border = borderStroke, shape = CircleShape)
-                    } else{
+                    } else {
                         modifier
                     }
                 },
@@ -758,7 +509,7 @@ fun FamilyMemberItem(
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            text = member.nickName.ifEmpty { "이름없음" },
+            text = member.relationship.ifEmpty { "역할없음" },   // relationship으로
             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Normal)
         )
     }
