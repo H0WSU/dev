@@ -1,6 +1,9 @@
 package com.example.howsu.screen.mypage
 
 // Dummy Icon for example purposes
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.outlined.ModeEdit
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -33,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
@@ -41,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
+import com.example.howsu.screen.todo.YellowBox
 
 
 @Composable
@@ -48,6 +54,15 @@ fun EditProfileScreen(
     navController: NavHostController,
     viewModel: EditProfileViewModel = viewModel()
 ) {
+
+    // 이미지 선택기
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent() // 갤러리에서 콘텐츠를 가져오는 계약
+    ) { uri: Uri? ->
+        // 2. 결과 처리: URI가 있으면 ViewModel에 업데이트
+        viewModel.updateProfileImageUri(uri)
+    }
+
     // UI 상태를 관찰
     val uiState by viewModel.uiState.collectAsState()
 
@@ -83,9 +98,11 @@ fun EditProfileScreen(
             // 1. 프로필 이미지 영역
             ProfileImageArea(
                 profileImageUrl = uiState.profileImageUrl,
+                newProfileImageUri = uiState.newProfileImageUri,
                 isEditing = uiState.isEditing,
                 onImageClick = {
                     // [TODO] 이미지 선택기 (Launcher for result) 호출 로직
+                    imagePickerLauncher.launch("image/*")
                     // 선택 후 viewModel.updateProfileImageUri(selectedUri) 호출
                 }
             )
@@ -97,7 +114,7 @@ fun EditProfileScreen(
                 uiState = uiState,
                 onNameChange = viewModel::updateName,
                 // [TODO] 관계 변경 함수 추가 (만약 관계도 ViewModel 상태에 있다면)
-                // onRelationChange = viewModel::updateRelation
+                onRelationChange = viewModel::updateRelationship
             )
         }
     }
@@ -153,37 +170,46 @@ fun EditProfileTopBar(
 @Composable
 fun ProfileImageArea(
     profileImageUrl: String?,
+    newProfileImageUri: Uri?, // 로컬 URI를 추가로 받음
     isEditing: Boolean,
     onImageClick: () -> Unit
 ) {
+    val imageSource = if (newProfileImageUri != null) newProfileImageUri else profileImageUrl
+
     Box(
         modifier = Modifier.size(200.dp),   // 프로필 크기 수정 1
         contentAlignment = Alignment.BottomEnd
     ) {
         // 프로필 이미지 표시
         AsyncImage(
-            model = profileImageUrl,
+            model = imageSource,
             contentDescription = "프로필 사진",
             modifier = Modifier
                 .size(200.dp)   // 프로필 크기 수정 2
                 .clip(CircleShape)
                 .background(Color.LightGray),
             contentScale = ContentScale.Crop,
-            // Placeholder/Error 이미지 처리는 Coil 설정에 따라 달라집니다.
+
         )
 
         // 편집 모드일 때만 이미지 변경 아이콘 표시
         if (isEditing) {
             Surface(
                 onClick = onImageClick,
-                modifier = Modifier.size(36.dp).offset(x = 4.dp, y = 4.dp).clip(CircleShape),
-                color = MaterialTheme.colorScheme.primary
+                modifier = Modifier
+                    .size(40.dp) // 크기를 약간 키워 시인성 확보
+                    .offset(x = (-4).dp, y = (-4).dp) // 위치를 오른쪽 아래로 옮겨 프로필 테두리에 걸치도록 조정
+                    .clip(CircleShape)
+                    // Surface에 그림자(Elevation) 추가하여 떠있는 느낌 부여
+                    .shadow(4.dp, shape = CircleShape),
+                color = YellowBox  // 아이콘 색
+
             ) {
                 Icon(
-                    Icons.Default.Edit,
+                    Icons.Outlined.ModeEdit,
                     contentDescription = "사진 변경",
-                    tint = Color.White,
-                    modifier = Modifier.padding(8.dp)
+                    // Icon 색상을 흰색으로 지정하여 배경색과 대비
+                    modifier = Modifier.padding(10.dp) // 아이콘 크기 조정
                 )
             }
         }
@@ -197,7 +223,7 @@ fun ProfileImageArea(
 fun UserInfoFields(
     uiState: ProfileUiState,
     onNameChange: (String) -> Unit,
-    // onRelationChange: (String) -> Unit // 관계 변경 핸들러
+    onRelationChange: (String) -> Unit // 관계 변경 핸들러
 ) {
     // 1. 아이디 (읽기 전용)
     ProfileField(
@@ -231,16 +257,37 @@ fun UserInfoFields(
 
     // 3. 반려동물과의 관계 (드롭다운)
     // family id 랑 family relationship 가져와야할듯
-    Text(text = "반려동물과의 관계", style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth())
+    Text(
+        text = "반려동물과의 관계",
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.fillMaxWidth()
+    )
+
+    Spacer(modifier = Modifier.height(8.dp))
 
     TextField(
-        value = "언니", // 현재 uiState.relation 값 사용 필요
+        value = if (uiState.isRelationLoading) "로딩 중..." else uiState.relationship,
+        onValueChange = onRelationChange,
+        // 가족 ID가 있을 때만 편집 가능
+        enabled = uiState.isEditing && !uiState.currentFamilyId.isNullOrBlank(),
+        readOnly = !uiState.isEditing || uiState.currentFamilyId.isNullOrBlank(),
+        trailingIcon = {
+            if(uiState.isRelationLoading) {
+                CircularProgressIndicator(
+                    Modifier.size(24.dp),
+                    strokeWidth = 2.dp
+                )
+            } else if (uiState.isEditing && !uiState.currentFamilyId.isNullOrBlank()) {
+                Icon(Icons.Default.Edit, contentDescription = "관계 선택")
+            }
+        },
+        /*value = "언니", // 현재 uiState.relation 값 사용 필요
         onValueChange = {}, // 관계 변경 로직 연결
         enabled = uiState.isEditing, // 편집 모드일 때만 활성화
         readOnly = !uiState.isEditing,
         trailingIcon = { Icon(
             Icons.Default.Edit,
-            contentDescription = "관계 선택") },
+            contentDescription = "관계 선택") },*/
         modifier = Modifier.fillMaxWidth()
     )
 

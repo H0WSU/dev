@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QuestionAnswer
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Task
@@ -99,7 +100,7 @@ fun Profile(
                 )
                 if (profileImageUrl.isNullOrBlank()) {
                     Icon(
-                        imageVector = Icons.Filled.People,
+                        imageVector = Icons.Filled.Person,
                         contentDescription = "기본 프로필",
                         modifier = Modifier.align(Alignment.Center)
                     )
@@ -188,7 +189,7 @@ fun MypageScreen(
             Profile(
                 username = userName,
                 email = userEmail,
-                profileImageUrl = myProfileUrl, // Profile 함수 수정이 필요함
+                profileImageUrl = myProfileUrl,
                 onEditClick = { navController.navigate("edit_profile") }
             )
             Spacer(modifier = Modifier.height(8.dp))
