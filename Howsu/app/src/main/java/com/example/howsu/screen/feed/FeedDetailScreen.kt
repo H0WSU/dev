@@ -1,6 +1,6 @@
 package com.example.howsu.screen.feed
 
-import android.R.attr.text
+import com.example.howsu.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -8,10 +8,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Comment
-import androidx.compose.material.icons.filled.Comment
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -290,6 +287,41 @@ private fun PostCard(
                 .padding(16.dp)
         ) {
 
+            // 🔹 프로필 + 닉네임 + 날짜 (상단 영역)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (!post.authorProfileImage.isNullOrBlank()) {
+                    AsyncImage(
+                        model = post.authorProfileImage,
+                        contentDescription = "프로필",
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(MaterialTheme.shapes.small)
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(Color.LightGray, shape = MaterialTheme.shapes.small)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Column {
+                    Text(
+                        text = post.authorName,
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White        // 배경이 어두운 카드라면 흰색/연한색으로
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             if (post.hashtags.isNotEmpty()) {
                 Text(
                     text = post.hashtags.joinToString(" ") { "#$it" },
@@ -321,17 +353,25 @@ private fun PostCard(
                     modifier = Modifier.clickable { onClickLike() }
                 ) {
                     Icon(
-                        imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                        painter = painterResource(
+                            id = if (isLiked) R.drawable.yellow_heart else R.drawable.empty_heart
+                        ),
                         contentDescription = "좋아요",
-                        tint = if (isLiked) Color.Red else Color.White,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(16.dp),
+                        tint = Color.Unspecified
                     )
+
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "${post.likeCount}",
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.Black
-                    )
+
+                    if (post.likeCount > 0) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "${post.likeCount}",
+                            color = Color.DarkGray,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -341,16 +381,21 @@ private fun PostCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Comment,
+                        painter = painterResource(id = R.drawable.comment),
                         contentDescription = "댓글",
-                        modifier = Modifier.size(18.dp),
-                        tint = Color.Black
+                        modifier = Modifier.size(16.dp),
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "${post.commentCount}",
-                        fontWeight = FontWeight.SemiBold
-                    )
+
+                    if (post.commentCount > 0) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "${post.commentCount}",
+                            color = Color.DarkGray,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.weight(1f))
@@ -393,6 +438,7 @@ private fun CommentItem(
                 .fillMaxWidth()
                 .padding(12.dp)
         ) {
+            // 상단: 프로필 + 이름 + (좋아요 / 답글 / 더보기)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -422,65 +468,112 @@ private fun CommentItem(
                         fontWeight = FontWeight.SemiBold,
                         style = MaterialTheme.typography.bodySmall
                     )
-                    Text(
-                        text = timeText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.Gray
-                    )
                 }
 
-                // ★ 가운데 빈 공간 → 오른쪽 끝으로 밀기
                 Spacer(modifier = Modifier.weight(1f))
 
-                // 오른쪽 상단 점 세 개
-                Box {
-                    IconButton(onClick = { menuExpanded = true }) {
+                // 오른쪽: 하트 / 댓글 / 점3개
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // 좋아요
+                    IconButton(onClick = onClickLike) {
                         Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "더 보기"
+                            painter = painterResource(id = R.drawable.yellow_heart),
+                            contentDescription = "좋아요",
+                            modifier = Modifier.size(16.dp),
+                            // 벡터라면 tint로 상태 표현, 비트맵이면 빼도 됩니다.
+                            tint = if (isLiked) Color.Unspecified else Color.LightGray
                         )
                     }
 
-                    DropdownMenu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("수정") },
-                            onClick = {
-                                menuExpanded = false
-                                onClickEdit()
-                            }
+                    // 대댓글
+                    IconButton(onClick = onClickReply) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.comment),
+                            contentDescription = "답글",
+                            modifier = Modifier.size(16.dp),
+                            tint = Color.Unspecified
                         )
-                        DropdownMenuItem(
-                            text = { Text("삭제", color = Color.Red) },
-                            onClick = {
-                                menuExpanded = false
-                                onClickDelete()
-                            }
-                        )
+                    }
+
+                    // 더보기 메뉴
+                    Box {
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "더 보기"
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("수정") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onClickEdit()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("삭제", color = Color.Red) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onClickDelete()
+                                }
+                            )
+                        }
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(6.dp))
+
+            // 내용
             Text(text = comment.content, style = MaterialTheme.typography.bodyMedium)
+
             Spacer(modifier = Modifier.height(4.dp))
 
+            // 하단: 시간 + (필요하면 여기에도 답글 등)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (isLiked) "♥ ${comment.likeCount}" else "♡ ${comment.likeCount}",
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clickable { onClickLike() }
+                    text = timeText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.Gray
                 )
 
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
-                TextButton(onClick = onClickReply) {
-                    Text("답글")
+                if (comment.likeCount > 0) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.yellow_heart),
+                        contentDescription = "좋아요",
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                if (comment.likeCount > 0) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "${comment.likeCount}",
+                        color = Color.DarkGray,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp
+                    )
+                }
+
+                // ★ depth == 0 일 때만 답글 버튼 보이기
+                if (comment.parentCommentId == null) {
+                    TextButton(onClick = onClickReply) {
+                        Text("답글", fontSize = 12.sp)
+                    }
                 }
             }
         }
