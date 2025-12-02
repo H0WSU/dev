@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,18 +36,20 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -142,9 +145,12 @@ fun EditPetScreen(
                     EditablePetProfileImageSection(
                         profileImageUrl = uiState.petprofileImageUrl,
                         newProfileImageUri = uiState.newPetprofileImageUri,
+                        isEditing = uiState.isEditing, // ⭐ isEditing 전달 ⭐
                         onImageClick = {
-                            // 이미지 선택기 실행
-                            imagePickerLauncher.launch("image/*")
+                            // isEditing일 때만 실행
+                            if (uiState.isEditing) {
+                                imagePickerLauncher.launch("image/*")
+                            }
                         }
                     )
                     Spacer(Modifier.height(32.dp))
@@ -169,6 +175,7 @@ fun EditPetScreen(
                         isNeutered = uiState.isNeutered,
                         onGenderSelect = viewModel::updateGender,
                         onNeuteredToggle = viewModel::toggleNeutered,
+                        isEditing = uiState.isEditing, // ⭐ isEditing 전달 ⭐
                         modifier = Modifier.padding(horizontal = 24.dp)
                     )
                     Spacer(Modifier.height(32.dp))
@@ -179,6 +186,7 @@ fun EditPetScreen(
                     EditableWeightField(
                         value = uiState.weight,
                         onValueChange = viewModel::updateWeight,
+                        isEditing = uiState.isEditing, // ⭐ isEditing 전달 ⭐
                         modifier = Modifier.padding(horizontal = 24.dp)
                     )
                     Spacer(Modifier.height(32.dp))
@@ -187,22 +195,20 @@ fun EditPetScreen(
                 // 5. 생년월일/나이 필드 (편집 가능 - 클릭 시 다이얼로그/DatePicker)
                 item {
                     val displayDate = if (!uiState.birthdayExact.isNullOrEmpty()) {
-                        // ⭐ Non-null 처리: null이 아님이 보장되므로, !! 또는 requireNotNull() 사용 가능
                         uiState.birthdayExact!!
                     } else if (!uiState.birthdayYearApprox.isNullOrEmpty()) {
-                        // String 타입
                         "${uiState.birthdayYearApprox}년 ${uiState.birthdayMonthApprox.orEmpty()}월 (추정)"
                     } else {
-                        // ⭐ 수정: String 타입을 명시적으로 반환 ⭐
                         "-"
                     }
 
                     EditableBirthDateAgeSection(
                         birthDate = displayDate,
                         ageText = uiState.ageText,
+                        isEditing = uiState.isEditing, // ⭐ isEditing 전달 ⭐
                         onClick = {
-                            // TODO: DatePicker 다이얼로그 표시 또는 새 화면으로 이동하여 생년월일/추정 년월 수정
-                            // viewModel.updateBirthdayExact(LocalDate.of(2020, 1, 1)) // 예시 호출
+                            // isEditing일 때만 DatePicker 호출
+                            // TODO: DatePicker 다이얼로그 표시 로직
                         },
                         modifier = Modifier.padding(horizontal = 24.dp)
                     )
@@ -221,65 +227,83 @@ fun EditPetScreen(
 fun EditablePetProfileImageSection(
     profileImageUrl: String?,
     newProfileImageUri: Uri?,
+    isEditing: Boolean,
     onImageClick: () -> Unit
 ) {
-    // 2. 새 URI가 있으면 로컬 이미지 사용, 없으면 기존 URL 사용
     val imageSource = if (newProfileImageUri != null) newProfileImageUri else profileImageUrl
+    val interactionSource = remember { MutableInteractionSource() }
 
     Box(
         modifier = Modifier
-            .size(150.dp)
-            .clip(CircleShape)
-            .background(Color.LightGray.copy(alpha = 0.3f))
-            .border(2.dp, Color.LightGray.copy(alpha = 0.5f), CircleShape)
-            .clickable(onClick = onImageClick), // 이미지 변경 클릭 이벤트 추가
+            .size(150.dp),
         contentAlignment = Alignment.Center
     ) {
-        // 이미지 로직
-        AsyncImage(
-            model = imageSource,
-            contentDescription = "펫 프로필 사진",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-        )
-        // 수정: 이미지 URL이 없거나 비어있을 때 Icon을 표시
-        if (profileImageUrl.isNullOrBlank()) {
-            Icon(
-                imageVector = Icons.Filled.Pets,
-                contentDescription = "기본 프로필",
-                modifier = Modifier.align(Alignment.Center)
-            )
-        }
-    }
-
-        // 갤러리 아이콘 (편집 버튼)
-        Surface(
-            onClick = onImageClick,
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.primary, // Primary 색상
+        // 이미지와 테두리를 포함하는 Box
+        Box(
             modifier = Modifier
-                .size(40.dp)
-                //.align(Alignment.BottomEnd)
-                .offset(x = 5.dp, y = 5.dp), // 프로필 테두리에 살짝 걸치도록 조정
-            shadowElevation = 4.dp
+                .size(150.dp)
+                .clip(CircleShape)
+                .background(Color.LightGray.copy(alpha = 0.3f))
+                .border(2.dp, Color.LightGray.copy(alpha = 0.5f), CircleShape)
+                // ⭐ isEditing일 때만 클릭 가능하도록 수정 ⭐
+                .clickable(
+                    enabled = isEditing,
+                    onClick = onImageClick,
+                    interactionSource = interactionSource,
+                    indication = null
+                ),
+            contentAlignment = Alignment.Center
         ) {
-            Box(contentAlignment = Alignment.Center) {
+            // 이미지 로직
+            AsyncImage(
+                model = imageSource,
+                contentDescription = "펫 프로필 사진",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+            // 수정: 이미지 URL이 없거나 비어있을 때 Icon을 표시
+            if (imageSource == null || (imageSource is String && imageSource.isNullOrBlank())) {
                 Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = "Edit Profile",
-                    modifier = Modifier.size(20.dp),
-                    tint = Color.White // 흰색 아이콘
+                    imageVector = Icons.Filled.Pets,
+                    contentDescription = "기본 프로필",
+                    modifier = Modifier.align(Alignment.Center)
                 )
             }
         }
+
+
+        // 갤러리 아이콘 (편집 버튼): isEditing일 때만 표시
+        if (isEditing) {
+            Surface(
+                onClick = onImageClick,
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary, // Primary 색상
+                modifier = Modifier
+                    .size(40.dp)
+                    .align(Alignment.BottomEnd) // Box의 BottomEnd에 고정
+                    .offset(x = 5.dp, y = 5.dp) // 프로필 테두리에 살짝 걸치도록 조정
+                    .shadow(4.dp, shape = CircleShape),
+                shadowElevation = 4.dp
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit Profile",
+                        modifier = Modifier.size(20.dp),
+                        tint = Color.White // 흰색 아이콘
+                    )
+                }
+            }
+        }
     }
+}
 
 @Composable
 fun EditableDetailField(
     label: String,
     value: String,
     onValueChange: (String) -> Unit,
-    isEditing: Boolean,
+    isEditing: Boolean, // ⭐ isEditing 인자 추가 ⭐
     modifier: Modifier = Modifier,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default
 ) {
@@ -297,14 +321,18 @@ fun EditableDetailField(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth().height(56.dp),
-            enabled = isEditing,
+            enabled = isEditing, // ⭐ 편집 모드일 때만 활성화 ⭐
+            readOnly = !isEditing, // ⭐ 보기 모드일 때 읽기 전용 ⭐
             singleLine = true,
             textStyle = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = Color.LightGray.copy(alpha = 0.7f),
+            colors = TextFieldDefaults.colors(
+                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                unfocusedIndicatorColor = Color.LightGray.copy(alpha = 0.7f),
+                disabledIndicatorColor = Color.LightGray.copy(alpha = 0.7f), // 비활성화 시 밑줄 색상 유지
                 focusedContainerColor = Color.White,
                 unfocusedContainerColor = Color.White,
+                disabledContainerColor = Color.White, // 비활성화 시 배경색 유지
+                disabledTextColor = MaterialTheme.colorScheme.onSurface, // 비활성화 시 글자색 유지
             ),
             shape = RoundedCornerShape(8.dp),
             keyboardOptions = keyboardOptions
@@ -314,10 +342,11 @@ fun EditableDetailField(
 
 @Composable
 fun EditableGenderSelectionSection(
-    selectedGender: String, // "남아" 또는 "여아"
+    selectedGender: String,
     isNeutered: Boolean,
     onGenderSelect: (String) -> Unit,
     onNeuteredToggle: () -> Unit,
+    isEditing: Boolean, // ⭐ isEditing 인자 추가 ⭐
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -329,31 +358,33 @@ fun EditableGenderSelectionSection(
             )
         )
         Spacer(Modifier.height(16.dp))
+        // 1. 성별 버튼 그룹
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 클릭 이벤트 추가된 GenderButton
+            // 성별 버튼은 isEditing일 때만 클릭 가능해야 합니다.
             EditableGenderButton(
                 label = "여아",
                 isSelected = selectedGender == "여아",
-                onClick = { onGenderSelect("여아") },
+                onClick = { if (isEditing) onGenderSelect("여아") }, // ⭐ isEditing 검사 ⭐
                 modifier = Modifier.weight(1f)
             )
             EditableGenderButton(
                 label = "남아",
                 isSelected = selectedGender == "남아",
-                onClick = { onGenderSelect("남아") },
+                onClick = { if (isEditing) onGenderSelect("남아") }, // ⭐ isEditing 검사 ⭐
                 modifier = Modifier.weight(1f)
             )
         }
         Spacer(Modifier.height(8.dp))
-        // 중성화 여부 토글
+        // 2. 중성화 여부 토글
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .clip(RoundedCornerShape(4.dp))
-                .clickable(onClick = onNeuteredToggle)
+                // ⭐ isEditing일 때만 클릭 가능하도록 수정 ⭐
+                .clickable(enabled = isEditing, onClick = onNeuteredToggle)
                 .padding(4.dp)
         ) {
             Box(
@@ -389,7 +420,8 @@ fun EditableGenderButton(
         modifier = modifier
             .height(50.dp)
             .border(1.dp, borderColor, RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick), // 클릭 이벤트 활성화
+            // 클릭 이벤트는 상위 함수에서 isEditing 검사, 여기서는 onClick 호출
+            .clickable(onClick = onClick),
         shadowElevation = 0.dp
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -402,50 +434,48 @@ fun EditableGenderButton(
 fun EditableWeightField(
     value: String,
     onValueChange: (String) -> Unit,
+    isEditing: Boolean, // ⭐ isEditing 인자 추가 ⭐
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            "체중",
-            style = MaterialTheme.typography.titleSmall.copy(
-                fontWeight = FontWeight.SemiBold,
-                color = Color.DarkGray
-            )
-        )
+        Text("체중", /* ... */)
         Spacer(Modifier.height(4.dp))
         TextField(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth().height(56.dp),
+            enabled = isEditing, // ⭐ 편집 모드일 때만 활성화 ⭐
+            readOnly = !isEditing, // ⭐ 보기 모드일 때 읽기 전용 ⭐
             singleLine = true,
             textStyle = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
             trailingIcon = { Text("kg", color = Color.DarkGray, style = MaterialTheme.typography.bodyLarge) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = Color.LightGray.copy(alpha = 0.7f),
+            colors = TextFieldDefaults.colors(
+                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                unfocusedIndicatorColor = Color.LightGray.copy(alpha = 0.7f),
+                disabledIndicatorColor = Color.LightGray.copy(alpha = 0.7f),
                 focusedContainerColor = Color.White,
                 unfocusedContainerColor = Color.White,
+                disabledContainerColor = Color.White,
+                disabledTextColor = MaterialTheme.colorScheme.onSurface,
             ),
             shape = RoundedCornerShape(8.dp),
-            //label = { Text("예: 5.2") }
         )
     }
 }
 
 @Composable
-fun EditableBirthDateAgeSection(birthDate: String, ageText: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun EditableBirthDateAgeSection(
+    birthDate: String,
+    ageText: String,
+    isEditing: Boolean, // ⭐ isEditing 인자 추가 ⭐
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(modifier = modifier.fillMaxWidth()) {
-        Text(
-            "생년월일/나이",
-            style = MaterialTheme.typography.titleSmall.copy(
-                fontWeight = FontWeight.SemiBold,
-                color = Color.DarkGray
-            )
-        )
+        Text("생년월일/나이", /* ... */)
         Spacer(Modifier.height(16.dp))
 
-        // 클릭 이벤트 추가
         Card(
             shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(containerColor = Color.LightGray.copy(alpha = 0.2f)),
@@ -453,7 +483,8 @@ fun EditableBirthDateAgeSection(birthDate: String, ageText: String, onClick: () 
             modifier = Modifier
                 .fillMaxWidth()
                 .height(70.dp)
-                .clickable(onClick = onClick) // 클릭 이벤트 활성화
+                // ⭐ isEditing일 때만 클릭 가능하도록 수정 ⭐
+                .clickable(enabled = isEditing, onClick = onClick)
         ) {
             Row(
                 modifier = Modifier
