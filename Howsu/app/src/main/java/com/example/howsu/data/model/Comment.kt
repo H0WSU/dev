@@ -11,5 +11,6 @@ data class Comment(
     val userProfileImage: String? = null,
 
     val content: String = "",
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val likeCount: Int = 0
 )

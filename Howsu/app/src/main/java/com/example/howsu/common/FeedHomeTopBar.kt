@@ -83,9 +83,5 @@ fun FeedHomeTopBar(
         IconButton(onClick = { /* 추후 검색 기능 */ }) {
             Icon(Icons.Default.Search, contentDescription = "검색")
         }
-
-        IconButton(onClick = { /* 추후 메뉴 기능 */ }) {
-            Icon(Icons.Default.Menu, contentDescription = "메뉴")
-        }
     }
 }

@@ -18,7 +18,8 @@ import androidx.compose.ui.unit.sp
 fun ImageSourceBottomSheet(
     onDismiss: () -> Unit,
     onPickGallery: () -> Unit,
-    onTakePhoto: () -> Unit
+    onTakePhoto: () -> Unit,
+    onTakeVideo: (() -> Unit)? = null
 ) {
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
@@ -62,6 +63,15 @@ fun ImageSourceBottomSheet(
                 text = "카메라로 촬영",
                 onClick = onTakePhoto
             )
+
+            // 동영상 촬영 (필요할 때만 보이게)
+            if (onTakeVideo != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                SheetOption(
+                    text = "동영상 촬영",
+                    onClick = onTakeVideo
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
         }

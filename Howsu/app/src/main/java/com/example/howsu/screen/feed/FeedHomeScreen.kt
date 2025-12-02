@@ -22,13 +22,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
 import com.example.howsu.common.MyBottomNavigationBar
 import com.example.howsu.common.MyFloatingActionButton
 import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.data.model.FeedFilter
 import com.example.howsu.common.FeedHomeTopBar
+import com.example.howsu.data.model.FeedPost
+import com.example.howsu.ui.theme.HowsuTheme
 
 @Composable
 fun FeedHomeScreen(
@@ -164,3 +168,99 @@ private fun FilterTab(
     )
 }
 
+@Preview(showBackground = true, widthDp = 360, heightDp = 800)
+@Composable
+fun FeedHomeScreenPreview() {
+    val dummyMember = FamilyMember(
+        userId = "u1",
+        familyId = "f1",
+        nickName = "이구역의짱",
+        relationship = "집사",
+        profileImageUrl = null
+    )
+
+    val dummyPosts = listOf(
+        FeedPost(
+            id = 1L,
+            authorId = "u1",
+            authorName = "이구역의짱",
+            title = "자몽이 오늘 산책 다녀옴",
+            content = "날씨가 좋아서 그런지 신나게 뛰어다녔어요!",
+            hashtags = listOf("산책", "일상"),
+            likeCount = 3,
+            commentCount = 2
+        ),
+        FeedPost(
+            id = 2L,
+            authorId = "u2",
+            authorName = "자몽아기야",
+            title = "사료 바꿔야 할까?",
+            content = "요즘 사료를 남기는 것 같아서 고민 중...",
+            hashtags = listOf("사료", "고민"),
+            likeCount = 1,
+            commentCount = 0
+        )
+    )
+
+    val navController = rememberNavController()
+
+    HowsuTheme {
+        Scaffold(
+            topBar = {
+                FeedHomeTopBar(
+                    member = dummyMember,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+            },
+            bottomBar = {
+                MyBottomNavigationBar(navController = navController)
+            },
+            floatingActionButton = {
+                MyFloatingActionButton(
+                    onTodoClick = { },
+                    onScheduleClick = { },
+                    onFeedCreateClick = { }
+                )
+            },
+            containerColor = Color.White
+        ) { paddingValues ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // 탭 (전체/글/사진/동영상) – 프리뷰에선 선택 고정
+                    FilterTabRow(
+                        selectedFilter = FeedFilter.ALL,
+                        onFilterSelected = { /* no-op */ }
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .padding(top = 4.dp)
+                    ) {
+                        items(dummyPosts, key = { it.id }) { post ->
+                            FeedItem(
+                                post = post,
+                                onClick = { /* no-op */ },
+                                onDeleteClick = { /* no-op */ }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -25,7 +26,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -50,6 +50,7 @@ import com.example.howsu.data.model.FeedPost
 import com.example.howsu.screen.pet.component.ImageSourceBottomSheet
 import com.example.howsu.screen.todo.ContentBlack
 import com.example.howsu.screen.todo.YellowBox
+import com.example.howsu.ui.theme.HowsuTheme
 import java.io.File
 
 /* -------------------------------------------
@@ -127,8 +128,6 @@ fun FeedWriteBottomBar(
     }
 }
 
-
-
 /* -------------------------------------------
    Screen 본문
    ------------------------------------------- */
@@ -165,6 +164,7 @@ fun FeedWriteScreen(
 
     val context = LocalContext.current
 
+    // 갤러리/파일 앱 선택 후, 사진/동영상 여러 개 받아오는 런처
     val mediaChooserLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -172,7 +172,6 @@ fun FeedWriteScreen(
 
         val data = result.data ?: return@rememberLauncherForActivityResult
 
-        // 최대 5개 제한 예시
         val currentCount = imageUris.size + videoUris.size
         var remain = 5 - currentCount
         if (remain <= 0) return@rememberLauncherForActivityResult
@@ -193,16 +192,13 @@ fun FeedWriteScreen(
             }
         }
 
-        // 여러 장 선택된 경우 (clipData)
         val clip = data.clipData
         if (clip != null) {
             for (i in 0 until clip.itemCount) {
-                val uri = clip.getItemAt(i).uri
-                handleUri(uri)
+                handleUri(clip.getItemAt(i).uri)
                 if (remain <= 0) break
             }
         } else {
-            // 한 장만 선택된 경우
             data.data?.let { handleUri(it) }
         }
     }
@@ -213,8 +209,7 @@ fun FeedWriteScreen(
     // 카메라 촬영용 임시 Uri
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
 
-
-    // 카메라 사진 촬영 런처
+    // 1) 사진 촬영 런처
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
@@ -226,23 +221,49 @@ fun FeedWriteScreen(
         }
     }
 
-    // 실제 카메라 실행 함수
+    // 사진 촬영 시작
     fun startCamera() {
         val uri = createFeedImageUri(context)
         cameraImageUri = uri
         cameraLauncher.launch(uri)
     }
 
-    // 카메라 권한 요청 런처
-    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+// 2) 동영상 촬영 런처 (기본 카메라 앱 호출)
+    val videoCaptureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
+        val uri = result.data?.data ?: return@rememberLauncherForActivityResult
+
+        val currentCount = imageUris.size + videoUris.size
+        if (currentCount < 5) {
+            videoUris.add(uri.toString())
+        }
+    }
+
+    // 동영상 촬영 시작
+    fun startVideoCapture() {
+        val intent = Intent(MediaStore.ACTION_VIDEO_CAPTURE)
+        videoCaptureLauncher.launch(intent)
+    }
+
+    // 3) 권한 런처: 사진용 / 동영상용 따로
+    val photoPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
             startCamera()
-        } else {
-            // 필요하면 스낵바/다이얼로그로 "카메라 권한이 필요해요" 안내 가능
         }
     }
+
+    val videoPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            startVideoCapture()
+        }
+    }
+
 
     val canUpload = title.isNotBlank() && content.isNotBlank()
     val isEditMode = editPost != null
@@ -329,9 +350,7 @@ fun FeedWriteScreen(
                         BorderStroke(1.dp, Color(0xFFE5E5E5)),
                         RoundedCornerShape(16.dp)
                     )
-                    .clickable {
-                        showImageSourceDialog = true
-                    },
+                    .clickable { showImageSourceDialog = true },
                 contentAlignment = Alignment.Center
             ) {
                 Text("+", fontSize = 28.sp, color = Color.Gray)
@@ -343,6 +362,7 @@ fun FeedWriteScreen(
             Spacer(Modifier.height(24.dp))
 
             // 해시태그
+
             Text("해시태그", fontSize = 14.sp, fontWeight = FontWeight.Medium)
             Spacer(Modifier.height(6.dp))
             OutlinedTextField(
@@ -393,33 +413,49 @@ fun FeedWriteScreen(
             onFinishWrite()
         }
 
-        // 🔻 여기: 바텀시트 (디자인은 네가 쓰고 있는 ImageSourceBottomSheet 그대로)
+        // 바텀시트: 앨범/카메라 선택
         if (showImageSourceDialog) {
             ImageSourceBottomSheet(
                 onDismiss = { showImageSourceDialog = false },
                 onPickGallery = {
                     showImageSourceDialog = false
 
-                    // 1) 이미지 + 동영상 모두 허용, 여러 개 선택 요청
-                    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                        addCategory(Intent.CATEGORY_OPENABLE)
+                    // 이미지 + 동영상, 여러 개 선택 가능
+                    val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
                         type = "*/*"
-                        putExtra(
-                            Intent.EXTRA_MIME_TYPES,
-                            arrayOf("image/*", "video/*")
-                        )
+                        putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
                         putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
                     }
-
-                    // 2) "사용할 애플리케이션" 선택창 강제
-                    val chooser = Intent.createChooser(intent, "사진/동영상 선택")
-
-                    // 3) 런처 실행
-                    mediaChooserLauncher.launch(chooser)
+                    // 여기서는 createChooser 안 쓰고, OS가 알아서 앱 선택 화면을 띄우게 둠
+                    mediaChooserLauncher.launch(intent)
                 },
                 onTakePhoto = {
                     showImageSourceDialog = false
-                    // 여기에는 기존 카메라 권한 + 촬영 로직(startCamera / permissionLauncher) 그대로 사용
+
+                    val granted = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.CAMERA
+                    ) == PackageManager.PERMISSION_GRANTED
+
+                    if (granted) {
+                        startCamera()
+                    } else {
+                        photoPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    }
+                },
+                onTakeVideo = {
+                    showImageSourceDialog = false
+
+                    val granted = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.CAMERA
+                    ) == PackageManager.PERMISSION_GRANTED
+
+                    if (granted) {
+                        startVideoCapture()
+                    } else {
+                        videoPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    }
                 }
             )
         }
@@ -477,7 +513,7 @@ fun SelectedMediaRow(
             }
         }
 
-        // 동영상 썸네일 (현재는 이미지처럼 표시, 필요하면 재생 아이콘 추가 가능)
+        // 동영상 썸네일
         videoUris.forEach { uri ->
             Box(
                 modifier = Modifier
@@ -505,6 +541,146 @@ fun SelectedMediaRow(
                     )
                 }
             }
+        }
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 800)
+@Composable
+fun FeedWriteScreenPreview() {
+    HowsuTheme {
+        // 실제 기능 없이, UI 레이아웃만 그대로 재현하는 프리뷰용 화면
+        val titleMax = 30
+        val contentMax = 300
+
+        var title by remember { mutableStateOf("자몽이 산책 일기") }
+        var content by remember {
+            mutableStateOf(
+                "오늘 자몽이랑 동네 한 바퀴 산책하고 왔어요.\n" +
+                        "날씨가 좋아서 그런지 엄청 신나게 뛰어다녔어요!"
+            )
+        }
+        var hashtagInput by remember { mutableStateOf("#일상 #산책") }
+
+        val imageUris = remember { mutableStateListOf<String>() }
+        val videoUris = remember { mutableStateListOf<String>() }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+        ) {
+
+            // 상단바 (닫기 버튼은 동작 없음)
+            FeedWriteTopBar(onCloseClick = {})
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 8.dp)
+            ) {
+                // 제목
+                Text("제목", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Spacer(Modifier.height(6.dp))
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { if (it.length <= titleMax) title = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("제목을 입력해 주세요", fontSize = 14.sp) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp)
+                )
+                Text(
+                    text = "${title.length}/$titleMax",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    textAlign = TextAlign.End,
+                    fontSize = 11.sp,
+                    color = Color.Gray
+                )
+
+                Spacer(Modifier.height(20.dp))
+
+                // 내용
+                Text("내용", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Spacer(Modifier.height(6.dp))
+                OutlinedTextField(
+                    value = content,
+                    onValueChange = { if (it.length <= contentMax) content = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp),
+                    placeholder = { Text("내용을 입력해 주세요", fontSize = 14.sp) },
+                    shape = RoundedCornerShape(14.dp)
+                )
+                Text(
+                    text = "${content.length}/$contentMax",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    textAlign = TextAlign.End,
+                    fontSize = 11.sp,
+                    color = Color.Gray
+                )
+
+                Spacer(Modifier.height(24.dp))
+
+                // 사진/동영상 추가 영역 (플러스 박스 + 썸네일 영역)
+                val mediaCount = imageUris.size + videoUris.size
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("사진/동영상 추가", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    Text("$mediaCount/5", fontSize = 12.sp, color = Color.Gray)
+                }
+                Spacer(Modifier.height(8.dp))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(140.dp)
+                        .border(
+                            BorderStroke(1.dp, Color(0xFFE5E5E5)),
+                            RoundedCornerShape(16.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("+", fontSize = 28.sp, color = Color.Gray)
+                }
+
+                // 선택된 사진/동영상 프리뷰 (여기서는 비워둠)
+                SelectedMediaRow(
+                    imageUris = imageUris,
+                    videoUris = videoUris
+                )
+
+                Spacer(Modifier.height(24.dp))
+
+                // 해시태그
+                Text("해시태그", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Spacer(Modifier.height(6.dp))
+                OutlinedTextField(
+                    value = hashtagInput,
+                    onValueChange = { hashtagInput = it },
+                    placeholder = { Text("예) #일상 #산책", fontSize = 14.sp, color = Color.Gray) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp)
+                )
+
+                Spacer(Modifier.height(24.dp))
+            }
+
+            // 하단 업로드 버튼 (동작 없음)
+            FeedWriteBottomBar(
+                enabled = title.isNotBlank() && content.isNotBlank(),
+                isEditMode = false,
+                onClick = {}
+            )
         }
     }
 }

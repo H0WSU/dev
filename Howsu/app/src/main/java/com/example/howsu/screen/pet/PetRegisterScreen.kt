@@ -56,18 +56,15 @@ fun PetRegisterScreen(
 
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
 
-    // 갤러리 런처
+    // 갤러리 런처 (사진 1장만 선택)
     val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
-
-        val data = result.data
-        val uri = data?.data
-        if (uri != null) {
-            viewModel.updatePetProfileImage(uri.toString())
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            viewModel.updatePetProfileImage(it.toString())
         }
     }
+
 
     // 카메라 런처
     val cameraLauncher = rememberLauncherForActivityResult(
@@ -246,18 +243,8 @@ fun PetRegisterScreen(
             onDismiss = { showImageSourceDialog = false },
             onPickGallery = {
                 showImageSourceDialog = false
-
-                // 1) 이미지 전용 인텐트 생성
-                val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-                    type = "image/*"                      // 사진만
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                }
-
-                // 2) "사용할 애플리케이션" 선택창 강제
-                val chooser = Intent.createChooser(intent, "사진 선택")
-
-                // 3) 런처 실행
-                galleryLauncher.launch(chooser)
+                // GetContent 런처에 MIME 타입만 넘겨주면 됨
+                galleryLauncher.launch("image/*")
             },
             onTakePhoto = {
                 showImageSourceDialog = false
@@ -275,6 +262,7 @@ fun PetRegisterScreen(
             }
         )
     }
+
 
     /* ------------------------- X 눌렀을 때 나가기 경고 -------------------- */
     if (showExitDialog) {

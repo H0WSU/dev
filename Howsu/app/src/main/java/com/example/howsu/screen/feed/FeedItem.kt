@@ -26,6 +26,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -43,7 +44,7 @@ fun FeedItem(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .clickable { onClick() },
-        colors = CardDefaults.cardColors(
+            colors = CardDefaults.cardColors(
             containerColor = Color.White
         )
     ) {
@@ -83,7 +84,7 @@ fun FeedItem(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            //썸네일 영역
+            // 썸네일 영역
             if (post.imageUris.isNotEmpty() || post.videoUris.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -124,11 +125,19 @@ fun FeedItem(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // 좋아요 / 댓글 카운트 + 수정/삭제 버튼
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Text(
+                    text = "♥ ${post.likeCount}  💬 ${post.commentCount}",
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
+
                 Spacer(modifier = Modifier.weight(1f))
+
                 TextButton(onClick = onClick) {
                     Text("수정", fontSize = 12.sp)
                 }
@@ -138,4 +147,32 @@ fun FeedItem(
             }
         }
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun FeedItemPreview() {
+
+    val samplePost = FeedPost(
+        authorId = "user123",
+        authorName = "홍길동",
+        authorProfileImage = "https://picsum.photos/50/50",
+        title = "오늘 강아지랑 산책 다녀왔어요!",
+        content = "날씨가 좋아서 공원에서 한참 놀다 왔어요. 강아지가 너무 신나 해서 보기만 해도 기분이 좋아지더라고요.",
+        imageUris = listOf(
+            "https://picsum.photos/200/200",
+            "https://picsum.photos/200/300"
+        ),
+        videoUris = emptyList(),
+        hashtags = listOf("산책", "강아지", "행복"),
+        likeCount = 12,
+        commentCount = 3,
+        createdAt = System.currentTimeMillis()
+    )
+
+    FeedItem(
+        post = samplePost,
+        onClick = {},
+        onDeleteClick = {}
+    )
 }
