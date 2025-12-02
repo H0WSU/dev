@@ -101,7 +101,6 @@ fun EditProfileScreen(
                 newProfileImageUri = uiState.newProfileImageUri,
                 isEditing = uiState.isEditing,
                 onImageClick = {
-                    // [TODO] 이미지 선택기 (Launcher for result) 호출 로직
                     imagePickerLauncher.launch("image/*")
                     // 선택 후 viewModel.updateProfileImageUri(selectedUri) 호출
                 }
@@ -113,7 +112,6 @@ fun EditProfileScreen(
             UserInfoFields(
                 uiState = uiState,
                 onNameChange = viewModel::updateName,
-                // [TODO] 관계 변경 함수 추가 (만약 관계도 ViewModel 상태에 있다면)
                 onRelationChange = viewModel::updateRelationship
             )
         }
@@ -124,9 +122,7 @@ fun EditProfileScreen(
 // Compose Components
 // ----------------------------------------------------------------------
 
-/**
- * 상단 바 (TopBar)
- */
+// 상단 바 (TopBar)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileTopBar(
@@ -164,9 +160,7 @@ fun EditProfileTopBar(
     )
 }
 
-/**
- * 프로필 이미지 영역
- */
+// 프로필 이미지 영역
 @Composable
 fun ProfileImageArea(
     profileImageUrl: String?,
@@ -216,9 +210,7 @@ fun ProfileImageArea(
     }
 }
 
-/**
- * 사용자 정보 필드 (닉네임, 관계 등)
- */
+// 사용자 정보 필드 (닉네임, 관계 등)
 @Composable
 fun UserInfoFields(
     uiState: ProfileUiState,
@@ -281,22 +273,13 @@ fun UserInfoFields(
                 Icon(Icons.Default.Edit, contentDescription = "관계 선택")
             }
         },
-        /*value = "언니", // 현재 uiState.relation 값 사용 필요
-        onValueChange = {}, // 관계 변경 로직 연결
-        enabled = uiState.isEditing, // 편집 모드일 때만 활성화
-        readOnly = !uiState.isEditing,
-        trailingIcon = { Icon(
-            Icons.Default.Edit,
-            contentDescription = "관계 선택") },*/
         modifier = Modifier.fillMaxWidth()
     )
 
 
 }
 
-/**
- * 재사용 가능한 프로필 필드 컴포넌트
- */
+// 재사용 가능한 프로필 필드 컴포넌트
 @Composable
 fun ProfileField(
     label: String,
@@ -327,7 +310,6 @@ fun ProfileField(
                 unfocusedContainerColor = Color.Transparent,
                 disabledContainerColor = Color.Transparent,
             ),
-            //contentPadding = PaddingValues(0.dp) // 모든 패딩을 0으로 설정
         )
     }
 }

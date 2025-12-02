@@ -60,6 +60,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.example.howsu.screen.home.EditPetViewModel
+import com.example.howsu.screen.todo.YellowBox
 
 
 // ----------------------------------------------------
@@ -145,7 +146,7 @@ fun EditPetScreen(
                     EditablePetProfileImageSection(
                         profileImageUrl = uiState.petprofileImageUrl,
                         newProfileImageUri = uiState.newPetprofileImageUri,
-                        isEditing = uiState.isEditing, // ⭐ isEditing 전달 ⭐
+                        isEditing = uiState.isEditing, // isEditing 전달
                         onImageClick = {
                             // isEditing일 때만 실행
                             if (uiState.isEditing) {
@@ -162,7 +163,7 @@ fun EditPetScreen(
                         label = "이름",
                         value = uiState.petname,
                         onValueChange = viewModel::updateName,
-                        isEditing = uiState.isEditing, // ⭐ isEditing 전달 ⭐
+                        isEditing = uiState.isEditing, // isEditing 전달
                         modifier = Modifier.padding(horizontal = 24.dp)
                     )
                     Spacer(Modifier.height(32.dp))
@@ -175,7 +176,7 @@ fun EditPetScreen(
                         isNeutered = uiState.isNeutered,
                         onGenderSelect = viewModel::updateGender,
                         onNeuteredToggle = viewModel::toggleNeutered,
-                        isEditing = uiState.isEditing, // ⭐ isEditing 전달 ⭐
+                        isEditing = uiState.isEditing, // isEditing 전달
                         modifier = Modifier.padding(horizontal = 24.dp)
                     )
                     Spacer(Modifier.height(32.dp))
@@ -186,7 +187,7 @@ fun EditPetScreen(
                     EditableWeightField(
                         value = uiState.weight,
                         onValueChange = viewModel::updateWeight,
-                        isEditing = uiState.isEditing, // ⭐ isEditing 전달 ⭐
+                        isEditing = uiState.isEditing, //  isEditing 전달
                         modifier = Modifier.padding(horizontal = 24.dp)
                     )
                     Spacer(Modifier.height(32.dp))
@@ -205,7 +206,7 @@ fun EditPetScreen(
                     EditableBirthDateAgeSection(
                         birthDate = displayDate,
                         ageText = uiState.ageText,
-                        isEditing = uiState.isEditing, // ⭐ isEditing 전달 ⭐
+                        isEditing = uiState.isEditing, // isEditing 전달
                         onClick = {
                             // isEditing일 때만 DatePicker 호출
                             // TODO: DatePicker 다이얼로그 표시 로직
@@ -235,17 +236,17 @@ fun EditablePetProfileImageSection(
 
     Box(
         modifier = Modifier
-            .size(150.dp),
+            .size(200.dp),
         contentAlignment = Alignment.Center
     ) {
         // 이미지와 테두리를 포함하는 Box
         Box(
             modifier = Modifier
-                .size(150.dp)
+                .size(200.dp)
                 .clip(CircleShape)
                 .background(Color.LightGray.copy(alpha = 0.3f))
                 .border(2.dp, Color.LightGray.copy(alpha = 0.5f), CircleShape)
-                // ⭐ isEditing일 때만 클릭 가능하도록 수정 ⭐
+                // isEditing일 때만 클릭 가능하도록 수정
                 .clickable(
                     enabled = isEditing,
                     onClick = onImageClick,
@@ -277,20 +278,18 @@ fun EditablePetProfileImageSection(
             Surface(
                 onClick = onImageClick,
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary, // Primary 색상
+                color = YellowBox,
                 modifier = Modifier
                     .size(40.dp)
                     .align(Alignment.BottomEnd) // Box의 BottomEnd에 고정
-                    .offset(x = 5.dp, y = 5.dp) // 프로필 테두리에 살짝 걸치도록 조정
+                    .offset(x = (-4).dp, y = (-4).dp) // 프로필 테두리에 살짝 걸치도록 조정
                     .shadow(4.dp, shape = CircleShape),
-                shadowElevation = 4.dp
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit Profile",
-                        modifier = Modifier.size(20.dp),
-                        tint = Color.White // 흰색 아이콘
+                        contentDescription = "사진 변경",
+                        modifier = Modifier.size(10.dp),
                     )
                 }
             }
