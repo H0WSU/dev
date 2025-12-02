@@ -302,7 +302,7 @@ fun EditableDetailField(
     label: String,
     value: String,
     onValueChange: (String) -> Unit,
-    isEditing: Boolean, // ⭐ isEditing 인자 추가 ⭐
+    isEditing: Boolean, // isEditing 인자 추가
     modifier: Modifier = Modifier,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default
 ) {
@@ -320,8 +320,8 @@ fun EditableDetailField(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth().height(56.dp),
-            enabled = isEditing, // ⭐ 편집 모드일 때만 활성화 ⭐
-            readOnly = !isEditing, // ⭐ 보기 모드일 때 읽기 전용 ⭐
+            enabled = isEditing, // 편집 모드일 때만 활성화
+            readOnly = !isEditing, // 보기 모드일 때 읽기 전용
             singleLine = true,
             textStyle = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
             colors = TextFieldDefaults.colors(
@@ -345,7 +345,7 @@ fun EditableGenderSelectionSection(
     isNeutered: Boolean,
     onGenderSelect: (String) -> Unit,
     onNeuteredToggle: () -> Unit,
-    isEditing: Boolean, // ⭐ isEditing 인자 추가 ⭐
+    isEditing: Boolean, // isEditing 인자 추가
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -366,13 +366,13 @@ fun EditableGenderSelectionSection(
             EditableGenderButton(
                 label = "여아",
                 isSelected = selectedGender == "여아",
-                onClick = { if (isEditing) onGenderSelect("여아") }, // ⭐ isEditing 검사 ⭐
+                onClick = { if (isEditing) onGenderSelect("여아") }, // isEditing 검사
                 modifier = Modifier.weight(1f)
             )
             EditableGenderButton(
                 label = "남아",
                 isSelected = selectedGender == "남아",
-                onClick = { if (isEditing) onGenderSelect("남아") }, // ⭐ isEditing 검사 ⭐
+                onClick = { if (isEditing) onGenderSelect("남아") }, // isEditing 검사
                 modifier = Modifier.weight(1f)
             )
         }
@@ -382,21 +382,21 @@ fun EditableGenderSelectionSection(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .clip(RoundedCornerShape(4.dp))
-                // ⭐ isEditing일 때만 클릭 가능하도록 수정 ⭐
+                // isEditing일 때만 클릭 가능하도록 수정
                 .clickable(enabled = isEditing, onClick = onNeuteredToggle)
                 .padding(4.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(6.dp)
+                    .size(10.dp)
                     .clip(CircleShape)
-                    .background(if(isNeutered) MaterialTheme.colorScheme.primary else Color.LightGray)
+                    .background(if(isNeutered) YellowBox else Color.LightGray)
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(15.dp))
             Text(
                 "중성화했어요",
-                style = MaterialTheme.typography.bodySmall,
-                color = if(isNeutered) MaterialTheme.colorScheme.primary else Color.Gray
+                style = MaterialTheme.typography.bodyMedium,
+                color = if(isNeutered) Color.Black else Color.Gray
             )
         }
     }
@@ -409,9 +409,9 @@ fun EditableGenderButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val containerColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.White
-    val contentColor = if (isSelected) Color.White else Color.Black
-    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.LightGray.copy(alpha = 0.5f)
+    val containerColor = if (isSelected) YellowBox else Color.White
+    val contentColor = Color.Black
+    val borderColor = Color.Gray.copy(alpha = 0.5f)
 
     Surface(
         shape = RoundedCornerShape(8.dp),
@@ -433,7 +433,7 @@ fun EditableGenderButton(
 fun EditableWeightField(
     value: String,
     onValueChange: (String) -> Unit,
-    isEditing: Boolean, // ⭐ isEditing 인자 추가 ⭐
+    isEditing: Boolean, // isEditing 인자 추가
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -443,8 +443,8 @@ fun EditableWeightField(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth().height(56.dp),
-            enabled = isEditing, // ⭐ 편집 모드일 때만 활성화 ⭐
-            readOnly = !isEditing, // ⭐ 보기 모드일 때 읽기 전용 ⭐
+            enabled = isEditing, // 편집 모드일 때만 활성화
+            readOnly = !isEditing, // 보기 모드일 때 읽기 전용
             singleLine = true,
             textStyle = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
             trailingIcon = { Text("kg", color = Color.DarkGray, style = MaterialTheme.typography.bodyLarge) },
@@ -467,7 +467,7 @@ fun EditableWeightField(
 fun EditableBirthDateAgeSection(
     birthDate: String,
     ageText: String,
-    isEditing: Boolean, // ⭐ isEditing 인자 추가 ⭐
+    isEditing: Boolean, // isEditing 인자 추가
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -482,7 +482,7 @@ fun EditableBirthDateAgeSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(70.dp)
-                // ⭐ isEditing일 때만 클릭 가능하도록 수정 ⭐
+                // isEditing일 때만 클릭 가능하도록 수정
                 .clickable(enabled = isEditing, onClick = onClick)
         ) {
             Row(
