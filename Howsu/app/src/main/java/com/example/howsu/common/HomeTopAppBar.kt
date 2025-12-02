@@ -1,7 +1,6 @@
 package com.example.howsu.common
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -50,7 +49,6 @@ fun HomeTopAppBar(
                 modifier = Modifier
                     .size(42.dp)
                     .clip(CircleShape)
-                    .border(1.dp, Color.LightGray, CircleShape)
             )
         } else {
             Box(

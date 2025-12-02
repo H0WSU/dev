@@ -35,6 +35,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -74,11 +75,27 @@ fun HomeScreen(
     val selectedDate by todoViewModel.selectedDate.collectAsState()
     val currentWeekStart by todoViewModel.currentWeekStart.collectAsState()
 
+    // 내 프로필 정보 로딩
+    LaunchedEffect(Unit) {
+        viewModel.fetchMyProfile()
+    }
+
+    val myInfo by viewModel.currentMember.collectAsState()
+
+    // 로딩 중일 때 사용할 임시 데이터
+    val displayMember = myInfo ?: FamilyMember(
+        userId = "",
+        familyId = "",
+        nickName = "",
+        relationship = "",
+        profileImageUrl = null
+    )
+
     Scaffold(
         containerColor = Color.White,
         topBar = {
             HomeTopAppBar(
-                member = uiState.member,
+                member = displayMember,
                 family = uiState.family,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 40.dp)
             )

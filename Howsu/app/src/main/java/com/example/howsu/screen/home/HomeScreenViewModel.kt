@@ -43,6 +43,10 @@ class HomeScreenViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState(isLoading = true))
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
+    // 현재 로그인중인 FamilyMember (프로필, 닉네임)
+    private val _currentMember = MutableStateFlow<FamilyMember?>(null)
+    val currentMember: StateFlow<FamilyMember?> = _currentMember.asStateFlow()
+
     init {
         fetchHomeData()
     }
@@ -79,6 +83,37 @@ class HomeScreenViewModel : ViewModel() {
         }
     }
 
+    /* -------------------------------------------------------------
+      1) 내 프로필(FamilyMember) 불러오기
+      ------------------------------------------------------------- */
+    fun fetchMyProfile() {
+        val uid = auth.currentUser?.uid ?: run {
+            _currentMember.value = null
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val userDoc = db.collection("users").document(uid).get().await()
+
+                if (userDoc.exists()) {
+                    val nickname = userDoc.getString("name") ?: "알 수 없음"
+                    val profileUrl = userDoc.getString("profileImageUrl")
+
+                    val me = FamilyMember(
+                        userId = uid,
+                        familyId = "",
+                        nickName = nickname,
+                        profileImageUrl = profileUrl,
+                        relationship = "나"
+                    )
+                    _currentMember.value = me
+                }
+            } catch (e: Exception) {
+                Log.e("FeedViewModel", "fetchMyProfile 실패", e)
+            }
+        }
+    }
     private suspend fun fetchFamilyData(familyId: String, myUid: String, myName: String) {
         try {
             // A. 가족 정보 가져오기 (객체로 변환)
