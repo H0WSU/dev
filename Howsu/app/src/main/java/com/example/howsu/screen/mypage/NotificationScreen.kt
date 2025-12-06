@@ -11,9 +11,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -21,7 +22,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -93,22 +93,23 @@ fun NotificationScreen(
     Scaffold(
         containerColor = Color.White,
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 title = {
                     Text(
                         text = "공지사항",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
                     )
                 },
-                actions = {
+                navigationIcon = {
                     IconButton(onClick = { navController.popBackStack()}){  // 전 페이지로 이동
-                        Icon(Icons.Default.Close, contentDescription = "닫기")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "되돌아가기")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.White
-                )
+                ),
+                modifier = Modifier.padding(10.dp)
             )
         },
         bottomBar = {MyBottomNavigationBar(navController = navController)}

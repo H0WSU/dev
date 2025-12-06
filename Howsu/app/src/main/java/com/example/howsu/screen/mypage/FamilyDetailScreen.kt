@@ -59,10 +59,14 @@ fun FamilyDetailScreen(
         containerColor = Color.White,
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("가족 정보 확인하기", fontWeight = FontWeight.SemiBold) },
+                title = { Text(
+                    text = "가족 정보 확인하기",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                ) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "취소")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "되돌아가기")
                     }
                 },
                 actions = {
@@ -91,7 +95,8 @@ fun FamilyDetailScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.White
-                )
+                ),
+                modifier = Modifier.padding(10.dp)
             )
         }
     ){ paddingValues ->
