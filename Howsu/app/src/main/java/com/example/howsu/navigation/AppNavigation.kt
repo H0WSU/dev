@@ -1,5 +1,6 @@
 package com.example.howsu.navigation
 
+//import com.example.howsu.screen.pet.PetDetailScreen
 import android.annotation.SuppressLint
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -28,13 +29,13 @@ import com.example.howsu.screen.login.AuthViewModel
 import com.example.howsu.screen.login.JoinScreen
 import com.example.howsu.screen.login.LoadingScreen
 import com.example.howsu.screen.login.LoginScreen
+import com.example.howsu.screen.mypage.ContactScreen
 import com.example.howsu.screen.mypage.EditProfileScreen
 import com.example.howsu.screen.mypage.FAQScreen
 import com.example.howsu.screen.mypage.FamilyDetailScreen
 import com.example.howsu.screen.mypage.MypageScreen
 import com.example.howsu.screen.mypage.NotificationScreen
 import com.example.howsu.screen.pet.EditPetScreen
-//import com.example.howsu.screen.pet.PetDetailScreen
 import com.example.howsu.screen.pet.PetRegisterCompleteScreen
 import com.example.howsu.screen.pet.PetRegisterScreen
 import com.example.howsu.screen.schedule.CreateScheduleScreen
@@ -238,17 +239,20 @@ fun AppNavigation() {
         composable("mypage") {
             MypageScreen(navController = navController)
         }
+        composable("edit_profile") {   // 프로필 편집
+            EditProfileScreen(navController = navController)
+        }
+        composable("family_info") {    // 가족 정보
+            FamilyDetailScreen(navController = navController)
+        }
         composable("notice") {   // 공지사항
             NotificationScreen(navController = navController)
         }
         composable("faq") {    // 자주 묻는 질문
             FAQScreen(navController = navController)
         }
-        composable("family_info") {    // 가족 정보
-            FamilyDetailScreen(navController = navController)
-        }
-        composable("edit_profile") {   // 프로필 편집
-            EditProfileScreen(navController = navController)
+        composable("contact") {    // 문의하기
+            ContactScreen(navController = navController)
         }
 
 
