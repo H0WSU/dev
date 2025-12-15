@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,7 +33,7 @@ class FamilyDetailScreenViewModel : ViewModel(){
     private val _currentUserId = MutableStateFlow("")
     val currentUserId = _currentUserId.asStateFlow()
 
-    // 본인 닉네임, 관계 (본인 FamilyMember 정보)
+    // 본인 닉네임, 관계 (본인 FamilyMember 정보 또는 User 기본 정보)
     private val _nickName = MutableStateFlow("")
     val nickName = _nickName.asStateFlow()
     private val _familyRelationship = MutableStateFlow("")
@@ -42,7 +43,7 @@ class FamilyDetailScreenViewModel : ViewModel(){
     private val _familyId = MutableStateFlow("")
     val familyId = _familyId.asStateFlow()
 
-    //가족 이름 (FamilyName)
+    // 가족 이름 (FamilyName)
     private val _familyName = MutableStateFlow("")
     val familyName = _familyName.asStateFlow()
 
@@ -63,13 +64,16 @@ class FamilyDetailScreenViewModel : ViewModel(){
     private val auth = Firebase.auth
 
     init {
-        // ⭐️ 현재 사용자 UID 초기화
         auth.currentUser?.let {
             _currentUserId.value = it.uid
         }
         loadMyFamilyInfo()
     }
 
+    /**
+     * 지정된 ID의 가족에 현재 사용자를 가입시킵니다.
+     * @param targetFamilyId 가입을 시도할 가족의 ID (초대 코드)
+     */
     fun joinFamily(targetFamilyId: String){
         val user = auth.currentUser
         if(user == null || targetFamilyId.isBlank()){
@@ -77,15 +81,15 @@ class FamilyDetailScreenViewModel : ViewModel(){
             return
         }
         if (_familyId.value == targetFamilyId){
-            _joinStatus.value = JoinStatus.Error("이미 가족에 소속되어 있습니다.")
+            _joinStatus.value = JoinStatus.Error("이미 현재 가족에 소속되어 있습니다.")
             return
         }
 
         val currentNickName = _nickName.value
         val currentRelationship = _familyRelationship.value
 
-        if(currentNickName.isBlank() || currentRelationship.isBlank()){
-            _joinStatus.value = JoinStatus.Error("닉네임 또는 관게 정보가 설정되어있지 않습니다.")
+        if(currentNickName.isBlank() || currentRelationship.isBlank() || currentNickName == "사용자" || currentRelationship == "나"){
+            _joinStatus.value = JoinStatus.Error("닉네임 또는 관계 정보가 설정되어있지 않습니다. 마이페이지에서 설정을 확인해주세요.")
             return
         }
 
@@ -95,24 +99,33 @@ class FamilyDetailScreenViewModel : ViewModel(){
         viewModelScope.launch {
             try{
                 val uid = user.uid
-                val batch = db.batch()  // 트랜잭션 대신 Batch Write를 사용하여 원자성 보장
+                val batch = db.batch()
 
-                val newMemberDocRef = db.collection("familyMembers").document()
+                // 1. FamilyMembers 컬렉션에 새 문서 추가 (families/{familyId}/members/{uid} 구조)
+                // ⭐️ FamilyRegisterViewModel 구조에 맞춰 하위 컬렉션에 set
+                val newMemberDocRef = db.collection("families").document(targetFamilyId)
+                    .collection("members").document(uid)
+
                 val newFamilyMember = mapOf(
                     "userId" to uid,
                     "familyId" to targetFamilyId,
-                    "nickName" to currentNickName,       // ⭐️ 뷰모델의 현재 값 사용
-                    "relationship" to currentRelationship, // ⭐️ 뷰모델의 현재 값 사용
+                    "nickName" to currentNickName,
+                    "relationship" to currentRelationship,
                     "profileImageUrl" to _familyProfileUrl.value,
-                    "isManager" to false
+                    "isManager" to false // 새로 가입하는 멤버는 방장이 아님
                 )
                 batch.set(newMemberDocRef, newFamilyMember)
 
-                // 2. User 컬렉션의 currentFamilyId 업데이트
-                val userDocRef = db.collection("user").document(uid)
+                // 2. User 컬렉션의 currentFamilyId 업데이트 (컬렉션 이름은 users)
+                val userDocRef = db.collection("users").document(uid)
                 batch.update(userDocRef, "currentFamilyId", targetFamilyId)
 
-                // 3. Batch 실행
+                // 3. Family 컬렉션의 memberIds 리스트에 uid 추가 (컬렉션 이름은 families)
+                // ⭐️ "Family" -> "families"
+                val familyDocRef = db.collection("families").document(targetFamilyId)
+                batch.update(familyDocRef, "memberIds", FieldValue.arrayUnion(uid))
+
+                // 4. Batch 실행
                 batch.commit().await()
 
                 _joinStatus.value = JoinStatus.Success
@@ -122,12 +135,16 @@ class FamilyDetailScreenViewModel : ViewModel(){
                 Log.e("FamilyDetailScreenViewModel", "가족 가입 실패", e)
                 _joinStatus.value = JoinStatus.Error("가족 가입에 실패했습니다: ${e.message}")
             }
-            }
         }
+    }
+
     fun resetJoinStatus(){
         _joinStatus.value = JoinStatus.Idle
     }
 
+    /**
+     * 현재 사용자의 가족 소속 정보를 로드하고 관련 상태를 업데이트합니다.
+     */
     private fun loadMyFamilyInfo(){
         val user = auth.currentUser
         if (user == null) return
@@ -135,38 +152,51 @@ class FamilyDetailScreenViewModel : ViewModel(){
         viewModelScope.launch {
             try{
                 val uid = user.uid
-                // 1. 현재 사용자 정보 로드 (currentFamilyId 획득)
-                val userDoc = db.collection("user").document(uid).get().await()
+                // 1. 현재 사용자 정보 로드 (currentFamilyId, name, profileImageUrl 획득)
+                val userDoc = db.collection("users").document(uid).get().await()
+
+                if (!userDoc.exists()) {
+                    Log.e("FamilyDetailScreenViewModel", "User document not found for UID: $uid")
+                    return@launch
+                }
+
                 val myFamilyId = userDoc.getString("currentFamilyId")
+
+                // 가족이 없어도 User의 기본 정보를 가져와서 초기값으로 사용
+                _nickName.value = userDoc.getString("name") ?: userDoc.getString("email") ?: "사용자"
+                _familyRelationship.value = "나"
+                _familyProfileUrl.value = userDoc.getString("profileImageUrl")
 
                 if(!myFamilyId.isNullOrBlank()){
                     _familyId.value = myFamilyId // familyId 설정
 
-                    // ⭐️ [추가] 1-1. Family 컬렉션에서 가족 이름 로드
+                    // 1-1. Family 컬렉션에서 가족 이름 로드 (컬렉션 이름은 families)
                     loadFamilyName(myFamilyId)
 
-                    // 2. 현재 사용자의 FamilyMember 정보 로드 (본인 카드 정보)
-                    // ... (기존 코드와 동일) ...
-                    val familyMemberQuery = db.collection("familyMembers")
-                        .whereEqualTo("userId", uid)
-                        .whereEqualTo("familyId", myFamilyId)
-                        .limit(1)
-                        .get().await()
+                    // 2. 현재 사용자의 FamilyMember 정보 로드 (가족 내에서의 닉네임, 관계)
+                    // ⭐️ 경로 수정: families/{myFamilyId}/members/{uid}
+                    val familyMemberQuerySnapshot = db.collection("families").document(myFamilyId)
+                        .collection("members").document(uid).get().await()
 
-                    if(familyMemberQuery.documents.isNotEmpty()){
-                        val memberDoc = familyMemberQuery.documents.first()
-                        _nickName.value = memberDoc.getString("nickName") ?: "닉네임 설정 필요"
+                    if(familyMemberQuerySnapshot.exists()){
+                        val memberDoc = familyMemberQuerySnapshot
+
+                        // ⭐️ 가족에 소속된 경우 FamilyMember 문서의 닉네임/관계로 덮어쓰기
+                        _nickName.value = memberDoc.getString("nickName") ?: _nickName.value
                         _familyRelationship.value = memberDoc.getString("relationship") ?: "관계 설정 필요"
                         _familyProfileUrl.value = memberDoc.getString("profileImageUrl")
                     } else {
-                        Log.w("FamilyDetailScreenViewModel", "FamilyMember 정보가 없습니다.")
+                        Log.w("FamilyDetailScreenViewModel", "FamilyMember 정보가 없습니다. (데이터 불일치 가능성)")
                     }
 
-                    // 3. 전체 가족 구성원 정보 로드 및 정렬 호출
+                    // 3. 전체 가족 구성원 정보 로드
                     loadFamilyMembers(myFamilyId)
 
                 }else{
-                    // ... (가족이 없는 경우 처리 기존 코드와 동일) ...
+                    _familyId.value = ""
+                    _familyName.value = ""
+                    _familyMembers.value = emptyList()
+                    Log.i("FamilyDetailScreenViewModel", "현재 소속된 가족이 없습니다.")
                 }
             } catch (e: Exception){
                 Log.e("FamilyDetailScreenViewModel", "데이터 로드 실패", e)
@@ -174,29 +204,36 @@ class FamilyDetailScreenViewModel : ViewModel(){
         }
     }
 
-    // ⭐️ [추가] familyId로 familyName을 로드하는 함수
+    /**
+     * familyId로 familyName을 Family 컬렉션에서 로드합니다. (컬렉션 이름은 families)
+     */
     private suspend fun loadFamilyName(familyId: String) {
         try {
-            val familyDoc = db.collection("Family").document(familyId).get().await()
-            val name = familyDoc.getString("familyName") // Family 컬렉션에 familyName 필드가 있다고 가정
+            // ⭐️ "Family" -> "families"
+            val familyDoc = db.collection("families").document(familyId).get().await()
+            val name = familyDoc.getString("familyName")
             _familyName.value = name ?: "우리 가족"
         } catch (e: Exception) {
             Log.e("FamilyDetailScreenViewModel", "가족 이름 로드 실패", e)
             _familyName.value = "우리 가족"
         }
     }
+
+    /**
+     * familyId에 해당하는 모든 가족 구성원의 목록을 로드하고 현재 사용자를 맨 앞에 정렬합니다.
+     */
     private suspend fun loadFamilyMembers(familyId: String) {
         try {
-            // familyMembers 컬렉션에서 familyId가 일치하는 모든 문서 조회
-            val familyMembersSnapshot = db.collection("familyMembers")
-                .whereEqualTo("familyId", familyId)
+            // ⭐️ 경로 수정: families/{familyId}/members
+            val familyMembersSnapshot = db.collection("families").document(familyId)
+                .collection("members")
                 .get()
                 .await()
 
             val displayMembers = mutableListOf<DisplayFamilyMember>()
 
-            // User 컬렉션 조회 없이 FamilyMember 정보만 사용
             for (memberDoc in familyMembersSnapshot.documents) {
+                // 이 하위 컬렉션의 문서 ID가 곧 userId일 가능성이 높지만, 문서에 저장된 필드 사용
                 val userId = memberDoc.getString("userId")
                 val nickName = memberDoc.getString("nickName")
                 val relationship = memberDoc.getString("relationship")
@@ -214,7 +251,7 @@ class FamilyDetailScreenViewModel : ViewModel(){
                 }
             }
 
-            // ⭐️ 현재 사용자를 리스트의 맨 앞으로 이동시켜 정렬
+            // 현재 사용자를 리스트의 맨 앞으로 이동시켜 정렬
             val sortedMembers = displayMembers.sortedWith(
                 compareByDescending { it.userId == _currentUserId.value }
             )

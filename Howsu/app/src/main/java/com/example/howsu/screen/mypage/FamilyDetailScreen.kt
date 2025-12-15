@@ -70,11 +70,10 @@ fun FamilyDetailScreen(
     val familyId by viewModel.familyId.collectAsState()
     val familyMembers by viewModel.familyMembers.collectAsState()
     val familyName by viewModel.familyName.collectAsState()
-    val joinStatus by viewModel.joinStatus.collectAsState() // ⭐️ 가족 가입 상태 관찰
+    val joinStatus by viewModel.joinStatus.collectAsState()
 
     // 가입 상태
     var inputFamilyCode by remember { mutableStateOf("") }
-    //var inputNickname by remember {mutableStateOf("")}
 
     // UI 피드백 위함
     val context = LocalContext.current
@@ -162,7 +161,7 @@ fun FamilyDetailScreen(
             item {
                 if (familyMembers.isNotEmpty()) {
                     Text(
-                        text = "현재 가족 구성원 (${familyName})",
+                        text = "${familyName}",
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
                         modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
@@ -190,16 +189,16 @@ fun FamilyMemberCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface)
+            containerColor = Color.White)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 12.dp, horizontal = 16.dp),
+                .padding(vertical = 16.dp, horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // 1. 각 가족 구성원의 프로필
@@ -229,12 +228,12 @@ fun FamilyMemberCard(
                     text = member.nickName,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
-                    color = MaterialTheme.colorScheme.primary
+                    color = Color.Black
                 )
 
                 // 각 가족 구성원의 relationship
                 Text(
-                    text = "(${member.relationship})",
+                    text = "${member.relationship}",
                     fontSize = 14.sp,
                     color = Color.Gray
                 )
@@ -249,7 +248,7 @@ fun FamilyMemberCard(
                 modifier = Modifier.size(36.dp)
             ) {
                 Icon(
-                    Icons.Filled.Delete,
+                    Icons.Default.Delete,
                     contentDescription = "구성원 삭제",
                     tint = Color.Red.copy(alpha = 0.6f)
                 )
