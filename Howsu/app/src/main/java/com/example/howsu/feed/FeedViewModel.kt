@@ -98,7 +98,6 @@ class FeedViewModel : ViewModel() {
 
                 val nicknameInFamily = memberDoc.getString("name") ?: "알 수 없음"
 
-                //추후 user의 profile로 바꾸기
                 val profileUrl = memberDoc.getString("profileImageUrl")
 
                 val me = FamilyMember(
@@ -199,7 +198,7 @@ class FeedViewModel : ViewModel() {
             id = System.currentTimeMillis(),
             authorId = uid,
             authorName = authorName,
-            authorProfileImage = me?.profileImageUrl,
+            authorProfileImage = user?.profileImageUrl,
             title = title,
             content = content,
             imageUris = imageUris,
