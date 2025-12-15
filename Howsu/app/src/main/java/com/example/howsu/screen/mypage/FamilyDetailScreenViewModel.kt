@@ -97,6 +97,8 @@ class FamilyDetailScreenViewModel : ViewModel(){
         viewModelScope.launch {
             try{
                 val uid = user.uid
+
+                val userDoc = db.collection("users").document(uid).get().await()
                 val batch = db.batch()
 
                 // 1. FamilyMembers 컬렉션에 새 문서 추가 (families/{familyId}/members/{uid} 구조)
@@ -109,7 +111,7 @@ class FamilyDetailScreenViewModel : ViewModel(){
                     "nickName" to currentNickName,
                     "relationship" to currentRelationship,
                     "profileImageUrl" to _familyProfileUrl.value,
-                    "isManager" to false // 새로 가입하는 멤버는 방장이 아님
+                    // isManager 필드 없음
                 )
                 batch.set(newMemberDocRef, newFamilyMember)
 
@@ -118,7 +120,6 @@ class FamilyDetailScreenViewModel : ViewModel(){
                 batch.update(userDocRef, "currentFamilyId", targetFamilyId)
 
                 // 3. Family 컬렉션의 memberIds 리스트에 uid 추가 (컬렉션 이름은 families)
-                // ⭐️ "Family" -> "families"
                 val familyDocRef = db.collection("families").document(targetFamilyId)
                 batch.update(familyDocRef, "memberIds", FieldValue.arrayUnion(uid))
 
@@ -201,7 +202,6 @@ class FamilyDetailScreenViewModel : ViewModel(){
     // familyId로 familyName을 Family 컬렉션에서 로드
     private suspend fun loadFamilyName(familyId: String) {
         try {
-            // ⭐️ "Family" -> "families"
             val familyDoc = db.collection("families").document(familyId).get().await()
             val name = familyDoc.getString("familyName")
             _familyName.value = name ?: "우리 가족"
@@ -214,7 +214,8 @@ class FamilyDetailScreenViewModel : ViewModel(){
     // familyId에 해당하는 모든 가족 구성원의 목록을 로드하고 현재 사용자를 맨 앞에 정렬
     private suspend fun loadFamilyMembers(familyId: String) {
         try {
-            // ⭐️ 경로 수정: families/{familyId}/members
+
+            // 경로: families/{familyId}/members
             val familyMembersSnapshot = db.collection("families").document(familyId)
                 .collection("members")
                 .get()
@@ -253,7 +254,7 @@ class FamilyDetailScreenViewModel : ViewModel(){
         }
     }
 
-    // 특정 가족 구성원 삭제
+    // 특정 가족 구성원 삭제 (방장 확인 없이 실행)
     fun removeFamilyMember(targetUserId: String){
         val currentUid = auth.currentUser?.uid
         val familyIdValue = _familyId.value
@@ -265,14 +266,15 @@ class FamilyDetailScreenViewModel : ViewModel(){
 
         viewModelScope.launch {
             try{
+
                 val batch = db.batch()
                 val familyDocRef = db.collection("families").document(familyIdValue)
 
                 // 1. families/{familyId} 문서 업데이트
                 batch.update(familyDocRef, "memberIds", FieldValue.arrayRemove(targetUserId))
 
-                // 2. FamilyMember 문서 삭제
-                val memberDocRef = db.collection("members").document(targetUserId)
+                // 2. FamilyMember 문서 삭제: families/{familyId}/members/{targetUserId}
+                val memberDocRef = familyDocRef.collection("members").document(targetUserId)
                 batch.delete(memberDocRef)
 
                 // 3. User 문서 업데이트
@@ -281,7 +283,7 @@ class FamilyDetailScreenViewModel : ViewModel(){
 
                 batch.commit().await()
 
-                // 4. 화면 데이터 새로고침 (탈퇴하는 멤버가 본인일 경우 가족이 없어진 상태로 UI 갱신)
+                // 4. 화면 데이터 새로고침
                 loadMyFamilyInfo()
             } catch (e: Exception){
                 Log.e("FamilyDetailScreenViewModel", "가족 구성원 삭제 실패", e)

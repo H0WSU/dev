@@ -14,9 +14,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-// ----------------------------------------------------------------------
-// 1. UI State (화면 상태)
-// ----------------------------------------------------------------------
 
 data class ProfileUiState(
     val uid: String = "",
@@ -38,9 +35,6 @@ data class ProfileUiState(
     val relationshipOptions: List<String> = listOf("엄마", "아빠", "언니", "누나", "오빠", "형", "동생")
 )
 
-// ----------------------------------------------------------------------
-// 2. ViewModel
-// ----------------------------------------------------------------------
 
 class EditProfileViewModel: ViewModel() {
     private val db = Firebase.firestore
