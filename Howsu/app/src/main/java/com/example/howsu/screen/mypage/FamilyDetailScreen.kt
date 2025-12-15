@@ -186,6 +186,8 @@ fun FamilyMemberCard(
     member: DisplayFamilyMember,
     viewModel: FamilyDetailScreenViewModel
 ) {
+    //val isRemovable = !member.isManager
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -244,7 +246,7 @@ fun FamilyMemberCard(
             // 3. 가족 구성원 삭제 버튼
             // 방장이거나 본인 계정인 경우에만 표시하도록 로직 추가 필요
             IconButton(
-                onClick = { /* TODO: 가족 구성원 삭제 로직 (ViewModel 함수 호출) */ },
+                onClick = { viewModel.removeFamilyMember(member.userId)},
                 modifier = Modifier.size(36.dp)
             ) {
                 Icon(
