@@ -34,6 +34,8 @@ data class ProfileUiState(
     val relationship: String = "관계 정보 없음", // 반려동물과의 관계
     val originalRelationship: String = "관계 정보 없음", // 취소 시 복구용
     val isRelationLoading: Boolean = false, // 관계 로딩 상태
+    // 관계 드롭 다운 항목
+    val relationshipOptions: List<String> = listOf("엄마", "아빠", "언니", "누나", "오빠", "형", "동생")
 )
 
 // ----------------------------------------------------------------------
@@ -159,7 +161,7 @@ class EditProfileViewModel: ViewModel() {
 
         // 컬렉션 구조: families/{familyId}/familymembers/{uid}
         db.collection("families").document(familyId)
-            .collection("familymembers").document(uid)
+            .collection("members").document(uid)
             .get()
             .addOnSuccessListener { document ->
                 val relationship = document.getString("relationship") ?: "관계 설정 필요"
@@ -197,7 +199,7 @@ class EditProfileViewModel: ViewModel() {
                 if (!familyId.isNullOrBlank()) {
                     // 2. familymembers 컬렉션 업데이트 (관계)
                     db.collection("families").document(familyId)
-                        .collection("familymembers").document(uid)
+                        .collection("members").document(uid)
                         .update("relationship", newRelationship)
                         .addOnSuccessListener {
                             // 모두 저장 성공 시 상태 업데이트

@@ -1,6 +1,5 @@
 package com.example.howsu.screen.mypage
 
-// Dummy Icon for example purposes
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,7 +20,10 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.ModeEdit
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +36,9 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -218,6 +223,7 @@ fun ProfileImageArea(
 }
 
 // 사용자 정보 필드 (닉네임, 관계 등)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserInfoFields(
     uiState: ProfileUiState,
@@ -255,7 +261,6 @@ fun UserInfoFields(
     Spacer(modifier = Modifier.height(16.dp))
 
     // 3. 반려동물과의 관계 (드롭다운)
-    // family id 랑 family relationship 가져와야할듯
     Text(
         text = "반려동물과의 관계",
         style = MaterialTheme.typography.bodySmall,
@@ -264,7 +269,78 @@ fun UserInfoFields(
 
     Spacer(modifier = Modifier.height(8.dp))
 
-    TextField(
+    val isFamilyMember = !uiState.currentFamilyId.isNullOrBlank()
+    val isSelectable = uiState.isEditing && isFamilyMember
+
+    var expanded by remember { mutableStateOf(false) }
+
+    // 로딩 중에는 로딩 인디케이터 표시
+    if (uiState.isRelationLoading){
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp), // TextField 높이와 유사하게 설정
+            contentAlignment = Alignment.CenterStart
+        ) {
+            CircularProgressIndicator(Modifier.size(24.dp))
+        }
+    } else {
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = {
+                if (isSelectable) {
+                    expanded = !expanded
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            TextField(
+                value = uiState.relationship,
+                onValueChange = {}, // 드롭다운이므로 직접 수정 불가
+                readOnly = true,
+                label = { Text("가족 내 관계") },
+                trailingIcon = {
+                    if (isSelectable) {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                    } else {
+                        // 선택 불가 시 다른 아이콘 또는 빈 공간
+                        Icon(Icons.Default.Edit, contentDescription = null)
+                    }
+                },
+                modifier = Modifier
+                    .menuAnchor()
+                    .fillMaxWidth(),
+                enabled = isSelectable, // 편집 가능 여부
+                colors = TextFieldDefaults.colors(
+                    focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                    unfocusedIndicatorColor = Color.LightGray.copy(alpha = 0.7f),
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    disabledContainerColor = Color.Transparent,
+                    disabledTextColor = if (isFamilyMember) Color.Black else Color.Gray // 가족 소속 여부에 따른 텍스트 색상
+                )
+            )
+
+            // 드롭다운 메뉴
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                uiState.relationshipOptions.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option) },
+                        onClick = {
+                            onRelationChange(option) // 선택된 값 ViewModel에 업데이트
+                            expanded = false
+                        },
+                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                    )
+                }
+            }
+        }
+    }
+
+    /*TextField(
         value = if (uiState.isRelationLoading) "로딩 중..." else uiState.relationship,
         onValueChange = onRelationChange,
         // 가족 ID가 있을 때만 편집 가능
@@ -281,7 +357,7 @@ fun UserInfoFields(
             }
         },
         modifier = Modifier.fillMaxWidth()
-    )
+    )*/
 
 
 }
