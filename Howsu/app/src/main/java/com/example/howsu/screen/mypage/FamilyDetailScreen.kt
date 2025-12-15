@@ -59,7 +59,6 @@ import coil.compose.rememberAsyncImagePainter
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FamilyDetailScreen(

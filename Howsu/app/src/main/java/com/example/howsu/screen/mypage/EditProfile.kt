@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.ModeEdit
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -33,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -123,9 +125,6 @@ fun EditProfileScreen(
     }
 }
 
-// ----------------------------------------------------------------------
-// Compose Components
-// ----------------------------------------------------------------------
 
 // 상단 바 (TopBar)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -168,6 +167,9 @@ fun EditProfileTopBar(
                 }
             }
         },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = Color.White
+        ),
         modifier = Modifier.padding(10.dp)
     )
 }
@@ -304,7 +306,7 @@ fun UserInfoFields(
                         ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                     } else {
                         // 선택 불가 시 다른 아이콘 또는 빈 공간
-                        Icon(Icons.Default.Edit, contentDescription = null)
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                     }
                 },
                 modifier = Modifier
@@ -339,27 +341,6 @@ fun UserInfoFields(
             }
         }
     }
-
-    /*TextField(
-        value = if (uiState.isRelationLoading) "로딩 중..." else uiState.relationship,
-        onValueChange = onRelationChange,
-        // 가족 ID가 있을 때만 편집 가능
-        enabled = uiState.isEditing && !uiState.currentFamilyId.isNullOrBlank(),
-        readOnly = !uiState.isEditing || uiState.currentFamilyId.isNullOrBlank(),
-        trailingIcon = {
-            if(uiState.isRelationLoading) {
-                CircularProgressIndicator(
-                    Modifier.size(24.dp),
-                    strokeWidth = 2.dp
-                )
-            } else if (uiState.isEditing && !uiState.currentFamilyId.isNullOrBlank()) {
-                Icon(Icons.Default.Edit, contentDescription = "관계 선택")
-            }
-        },
-        modifier = Modifier.fillMaxWidth()
-    )*/
-
-
 }
 
 // 재사용 가능한 프로필 필드 컴포넌트
