@@ -1,7 +1,10 @@
 package com.example.howsu.screen.mypage
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,28 +16,40 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,9 +66,35 @@ fun FamilyDetailScreen(
     navController: NavHostController,
     viewModel: FamilyDetailScreenViewModel = viewModel()
 ){
-    val familyId by viewModel.familyId.collectAsState()     // 상태 관찰
-    val familyMembers by viewModel.familyMembers.collectAsState()  // 상태 관찰
+    // 상태 관찰
+    val familyId by viewModel.familyId.collectAsState()
+    val familyMembers by viewModel.familyMembers.collectAsState()
     val familyName by viewModel.familyName.collectAsState()
+    val joinStatus by viewModel.joinStatus.collectAsState() // ⭐️ 가족 가입 상태 관찰
+
+    // 가입 상태
+    var inputFamilyCode by remember { mutableStateOf("") }
+    //var inputNickname by remember {mutableStateOf("")}
+
+    // UI 피드백 위함
+    val context = LocalContext.current
+
+    // 가입 상태 변화 시 토스트 메시지 및 네비게이션 처리
+    LaunchedEffect(joinStatus) {
+        when(val status = joinStatus){
+            is JoinStatus.Success -> {
+                Toast.makeText(context, "가족 가입 성공", Toast.LENGTH_SHORT).show()
+                inputFamilyCode = ""
+            }
+            is JoinStatus.Error -> {
+                Toast.makeText(context, "가입 실패 : ${status.message}", Toast.LENGTH_SHORT).show()
+                viewModel.resetJoinStatus() // 실패 시 상태 초기화
+            }
+            else -> {
+
+            }
+        }
+    }
 
     Scaffold(
         containerColor = Color.White,
@@ -106,7 +147,28 @@ fun FamilyDetailScreen(
                 .padding(paddingValues),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            item{/* 부여된 고유 가족 아이디로 가족 초대 할 수 있는 창*/}
+            item{
+                FamilyIdSearchBar(
+                    inputFamilyCode = inputFamilyCode,
+                    onFamilyCodeChange = { inputFamilyCode = it },
+                    onJoinClick = {
+                        // 뷰모델의 가족 가입 함수 호출 (familyCode만 전달)
+                        viewModel.joinFamily(inputFamilyCode)
+                    },
+                    isLoading = joinStatus is JoinStatus.Loading
+                )
+            }
+
+            item {
+                if (familyMembers.isNotEmpty()) {
+                    Text(
+                        text = "현재 가족 구성원 (${familyName})",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                    )
+                }
+            }
 
             // ⭐️ 수정 후 올바르게 참조됨
             items(items = familyMembers, key = { it.userId }) { member ->
@@ -191,6 +253,76 @@ fun FamilyMemberCard(
                     contentDescription = "구성원 삭제",
                     tint = Color.Red.copy(alpha = 0.6f)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun FamilyIdSearchBar(
+    inputFamilyCode: String,
+    onFamilyCodeChange: (String) -> Unit,
+    onJoinClick: () -> Unit,
+    isLoading: Boolean
+) {
+    Surface(
+        modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 40.dp, vertical = 20.dp)
+        .border(
+            width = 2.dp, // 테두리 두께, 원하는 대로 조절
+            color = Color.LightGray, // 테두리 색상, 원하는 색상으로 변경 가능
+            shape = RoundedCornerShape(15.dp) // 둥근 모서리 모양 지정
+        ),
+        shape = MaterialTheme.shapes.medium,
+        color = Color.White
+    ){
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BasicTextField(
+                value = inputFamilyCode,
+                onValueChange = onFamilyCodeChange,
+                singleLine = true,
+                modifier = Modifier
+                    .weight(1f) // 남은 공간 채우기
+                    .padding(vertical = 12.dp),
+                textStyle = LocalTextStyle.current.copy(color = Color.Black, fontSize = 16.sp),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+
+                decorationBox = { innerTextField ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (inputFamilyCode.isEmpty()) {
+                            Text(
+                                text = "아이디로 참여하기",
+                                color = Color.Gray.copy(alpha = 0.8f),
+                                fontSize = 16.sp
+                            )
+                        }
+                        innerTextField() // 실제 입력 필드
+                    }
+                }
+            )
+            IconButton(
+                onClick = onJoinClick,
+                enabled = inputFamilyCode.isNotBlank() && !isLoading
+            ) {
+                if (isLoading) {
+                    // 로딩 중일 때 로딩 인디케이터 표시
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    // 검색 아이콘을 가입 버튼으로 사용
+                    Icon(
+                        Icons.Filled.Search,
+                        contentDescription = "가족 참여",
+                    )
+                }
             }
         }
     }
