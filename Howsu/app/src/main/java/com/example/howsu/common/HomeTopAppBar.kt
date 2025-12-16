@@ -191,7 +191,7 @@ fun FamilyNameSelector(
             text = displayTitle,
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium, // 원래대로
-            color = Color.LightGray // 보내주신 코드에 맞춰 연한 회색
+            color = Color.Gray // 보내주신 코드에 맞춰 연한 회색
         )
     }
 }
