@@ -5,10 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.howsu.data.model.TodoGroup
 import com.google.firebase.auth.ktx.auth
-import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -26,9 +24,6 @@ class TodoViewModel : ViewModel() {
 
     private val db = Firebase.firestore
 
-    // 실시간 업데이트 리스너 관리
-    private var listenerRegistration: ListenerRegistration? = null
-
     private val _allTodoGroups = MutableStateFlow<List<TodoGroup>>(emptyList())
 
     private val _selectedDate = MutableStateFlow(LocalDate.now())
@@ -39,6 +34,7 @@ class TodoViewModel : ViewModel() {
     )
     val currentWeekStart = _currentWeekStart.asStateFlow()
 
+    // 닉네임 표시용
     private val _userNickname = MutableStateFlow("")
     val userNickname = _userNickname.asStateFlow()
 
@@ -59,22 +55,6 @@ class TodoViewModel : ViewModel() {
         fetchTodoGroups()
     }
 
-    // ★★★ [속도 개선] 순서 변경 및 최적화
-    fun updateCurrentFamily(familyId: String) {
-        if (familyId.isBlank()) return
-
-        // 1. 기존 리스너 제거 및 리스트 초기화 (즉시 반응)
-        listenerRegistration?.remove()
-        _allTodoGroups.value = emptyList()
-
-        // 2. [가장 중요] 데이터를 먼저 보여줍니다! (사용자가 안 기다리게)
-        startListeningToTodos(familyId)
-
-        // 3. [백그라운드] 지난 할 일 정리는 뒷단에서 천천히 수행
-        // 완료되면 리스너가 알아서 화면을 한 번 더 갱신해줍니다.
-        checkAndMigrateOverdueTasks(familyId)
-    }
-
     fun fetchTodoGroups() {
         val currentUser = Firebase.auth.currentUser
         if (currentUser == null) {
@@ -82,6 +62,7 @@ class TodoViewModel : ViewModel() {
             return
         }
 
+        // 1단계: 내 유저 정보에서 닉네임 & 가족 ID 가져옴
         db.collection("users").document(currentUser.uid).get()
             .addOnSuccessListener { document ->
                 val name = document.getString("name") ?: "사용자"
@@ -90,9 +71,11 @@ class TodoViewModel : ViewModel() {
                 val myFamilyId = document.getString("currentFamilyId")
 
                 if (myFamilyId != null) {
-                    // 앱 처음 켤 때도 데이터 먼저 보여주고 마이그레이션
-                    startListeningToTodos(myFamilyId)
+                    // ★★★ [추가됨] 지난 할 일 체크 및 오늘로 이동시키기 (여기!!)
                     checkAndMigrateOverdueTasks(myFamilyId)
+
+                    // 2단계: 투두 구독
+                    startListeningToTodos(myFamilyId)
                 } else {
                     Log.e("TodoViewModel", "가족 ID를 찾을 수 없습니다.")
                     _allTodoGroups.value = emptyList()
@@ -103,14 +86,15 @@ class TodoViewModel : ViewModel() {
             }
     }
 
-    // ★★★ [속도 개선] IO 스레드에서 비동기로 실행하도록 명시 (UI 버벅임 방지)
+    // ★★★ [추가됨] 지난 할 일(미완료) 오늘로 자동 이월 함수
     private fun checkAndMigrateOverdueTasks(familyId: String) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             try {
                 val today = LocalDate.now()
                 val formatter = DateTimeFormatter.ofPattern("yyyy. MM. dd", Locale.KOREA)
                 val todayStr = today.format(formatter)
 
+                // 1. 우리 가족의 모든 투두 가져오기
                 val snapshot = db.collection("todoGroups")
                     .whereEqualTo("familyId", familyId)
                     .get()
@@ -157,12 +141,9 @@ class TodoViewModel : ViewModel() {
             }
         }
     }
-
+    // 실제 투두 리스너 (가족 ID가 있을 때만 실행)
     private fun startListeningToTodos(familyId: String) {
-        // 기존 리스너 확실히 제거
-        listenerRegistration?.remove()
-
-        listenerRegistration = db.collection("todoGroups")
+        db.collection("todoGroups")
             .whereEqualTo("familyId", familyId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
@@ -180,11 +161,6 @@ class TodoViewModel : ViewModel() {
                     _allTodoGroups.value = groups
                 }
             }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        listenerRegistration?.remove()
     }
 
     fun resetToToday() {

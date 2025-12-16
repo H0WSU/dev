@@ -89,8 +89,21 @@ fun HomeScreen(
     val currentWeekStart by todoViewModel.currentWeekStart.collectAsState()
 
     // 내 프로필 정보 로딩
-    LaunchedEffect(uiState.family.familyId) { // ★ 가족 ID가 변경될 때마다 내 프로필도 새로고침
-        viewModel.fetchMyProfile()
+    LaunchedEffect(uiState.family.familyId) {
+        val familyId = uiState.family.familyId
+
+        if (familyId.isNotBlank()) {
+            // 1. 내 프로필 정보 새로고침
+            viewModel.fetchMyProfile()
+
+            // 2. 홈 화면 데이터 (펫 목록, 가족 구성원 목록) 새로고침
+            viewModel.loadHomeData()
+
+            // 3. [핵심] 투두 리스트를 새 가족 ID로 변경
+            todoViewModel.updateCurrentFamily(familyId)
+
+            Log.d("HomeScreen", "Family Changed: $familyId -> Data Refreshed")
+        }
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
