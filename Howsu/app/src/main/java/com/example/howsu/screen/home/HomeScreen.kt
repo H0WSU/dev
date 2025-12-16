@@ -652,9 +652,10 @@ fun FamilyMemberItem(
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            text = member.relationship.ifEmpty { "역할없음" },   // relationship으로
+            text = member.relationship.ifEmpty { "역할없음" },
             style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Medium,
+                // 본인이면 Bold, 아니면 Medium
+                fontWeight = if (isCurrentUser) FontWeight.Bold else FontWeight.Medium,
                 fontSize = 15.sp
             )
         )

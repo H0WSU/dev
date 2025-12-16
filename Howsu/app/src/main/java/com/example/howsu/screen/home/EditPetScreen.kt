@@ -55,7 +55,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -337,17 +336,15 @@ fun EditablePetProfileImageSection(
 
     Box(
         modifier = Modifier
-            .size(200.dp),
+            .size(180.dp), // 전체 Box 크기 (이미지+아이콘)
         contentAlignment = Alignment.Center
     ) {
         // 이미지와 테두리를 포함하는 Box
         Box(
             modifier = Modifier
-                .size(200.dp)
+                .size(170.dp) // 실제 이미지 크기
                 .clip(CircleShape)
                 .background(Color.LightGray.copy(alpha = 0.3f))
-                .border(2.dp, Color.LightGray.copy(alpha = 0.5f), CircleShape)
-                // isEditing일 때만 클릭 가능하도록 수정
                 .clickable(
                     enabled = isEditing,
                     onClick = onImageClick,
@@ -363,34 +360,36 @@ fun EditablePetProfileImageSection(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
             )
-            // 수정: 이미지 URL이 없거나 비어있을 때 Icon을 표시
             if (imageSource == null || (imageSource is String && imageSource.isNullOrBlank())) {
                 Icon(
                     imageVector = Icons.Filled.Pets,
                     contentDescription = "기본 프로필",
-                    modifier = Modifier.align(Alignment.Center)
+                    modifier = Modifier.align(Alignment.Center),
+                    tint = Color.Gray
                 )
             }
         }
 
-
-        // 갤러리 아이콘 (편집 버튼): isEditing일 때만 표시
+        // 갤러리 아이콘 (편집 버튼)
         if (isEditing) {
             Surface(
                 onClick = onImageClick,
                 shape = CircleShape,
                 color = YellowBox,
+                // ★ 수정됨: shadow 위치 변경 (Surface 안에 적용)
+                shadowElevation = 4.dp,
                 modifier = Modifier
                     .size(40.dp)
-                    .align(Alignment.BottomEnd) // Box의 BottomEnd에 고정
-                    .offset(x = (-4).dp, y = (-4).dp) // 프로필 테두리에 살짝 걸치도록 조정
-                    .shadow(4.dp, shape = CircleShape),
+                    .align(Alignment.BottomEnd)
+                    // ★ 수정됨: 위치 미세 조정 (너무 바깥으로 나가지 않게)
+                    .offset(x = (-10).dp, y = (-10).dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = "사진 변경",
-                        modifier = Modifier.size(10.dp),
+                        modifier = Modifier.size(15.dp), // 아이콘 크기 살짝 키움
+                        tint = ContentBlack
                     )
                 }
             }
@@ -411,8 +410,8 @@ fun EditableDetailField(
         Text(
             label,
             style = MaterialTheme.typography.titleSmall.copy(
-                fontWeight = FontWeight.SemiBold,
-                color = Color.DarkGray
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
             )
         )
         Spacer(Modifier.height(4.dp))
@@ -453,8 +452,8 @@ fun EditableGenderSelectionSection(
         Text(
             "성별",
             style = MaterialTheme.typography.titleSmall.copy(
-                fontWeight = FontWeight.SemiBold,
-                color = Color.DarkGray
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
             )
         )
         Spacer(Modifier.height(16.dp))
@@ -510,26 +509,30 @@ fun EditableGenderButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val containerColor = if (isSelected) YellowBox else Color.White
-    val contentColor = Color.Black
-    val borderColor = Color.Gray.copy(alpha = 0.5f)
+    // 스타일 로직: GenderChip과 동일하게 적용
+    val borderColor = if (isSelected) YellowBox else Color(0xFFEAEAEA)
+    val textColor = if (isSelected) Color.Black else Color(0xFFBDBDBD)
+    val borderWidth = if (isSelected) 1.5.dp else 1.dp
 
     Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = containerColor,
+        shape = RoundedCornerShape(30.dp), // 둥근 캡슐 모양
+        color = Color.White,               // 배경은 항상 흰색
         modifier = modifier
-            .height(50.dp)
-            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
-            // 클릭 이벤트는 상위 함수에서 isEditing 검사, 여기서는 onClick 호출
+            .height(52.dp)
+            .border(borderWidth, borderColor, RoundedCornerShape(30.dp)) // 선택 시 노란색 테두리
             .clickable(onClick = onClick),
         shadowElevation = 0.dp
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Text(label, color = contentColor, fontWeight = FontWeight.SemiBold)
+            Text(
+                text = label,
+                color = textColor,       // 선택 안 되면 연한 회색, 선택 되면 검정
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
-
 @Composable
 fun EditableWeightField(
     value: String,
@@ -538,7 +541,13 @@ fun EditableWeightField(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        Text("체중")
+        Text(
+            "체중",
+            style = MaterialTheme.typography.titleSmall.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+            )
+        )
         Spacer(Modifier.height(4.dp))
         TextField(
             value = value,
@@ -583,7 +592,7 @@ fun EditableBirthDateAgeSection(
     }
 
     // 투두 DatePickerField 와 동일한 스타일
-    val borderColor = Color(0xFF121212)
+    val borderColor = YellowBox
     val contentBlack = Color(0xFF121212)
 
     Surface(
@@ -593,7 +602,7 @@ fun EditableBirthDateAgeSection(
                 start = 24.dp,
                 end = 24.dp
             )
-            .border(1.dp, borderColor, RoundedCornerShape(17.dp)),
+            .border(1.5.dp, borderColor, RoundedCornerShape(17.dp)),
         shape = RoundedCornerShape(17.dp),
         color = Color.White,
         onClick = onClick

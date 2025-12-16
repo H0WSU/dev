@@ -20,7 +20,6 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.outlined.ModeEdit
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -47,7 +46,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -217,50 +215,52 @@ private fun SaveBottomButton(
 }
 
 // 프로필 이미지 영역
+// 프로필 이미지 영역
 @Composable
 fun ProfileImageArea(
     profileImageUrl: String?,
-    newProfileImageUri: Uri?, // 로컬 URI를 추가로 받음
+    newProfileImageUri: Uri?,
     isEditing: Boolean,
     onImageClick: () -> Unit
 ) {
     val imageSource = if (newProfileImageUri != null) newProfileImageUri else profileImageUrl
 
     Box(
-        modifier = Modifier.size(200.dp),   // 프로필 크기 수정 1
-        contentAlignment = Alignment.BottomEnd
+        modifier = Modifier.size(200.dp),
+        contentAlignment = Alignment.Center // ★ 수정: 중앙 정렬로 변경 (아이콘 배치를 위해)
     ) {
         // 프로필 이미지 표시
         AsyncImage(
             model = imageSource,
             contentDescription = "프로필 사진",
             modifier = Modifier
-                .size(200.dp)   // 프로필 크기 수정 2
+                .size(200.dp)
                 .clip(CircleShape)
                 .background(Color.LightGray),
             contentScale = ContentScale.Crop,
-
         )
 
         // 편집 모드일 때만 이미지 변경 아이콘 표시
         if (isEditing) {
             Surface(
                 onClick = onImageClick,
+                shape = CircleShape,
+                color = YellowBox,
+                shadowElevation = 4.dp,
                 modifier = Modifier
-                    .size(40.dp) // 크기를 약간 키워 시인성 확보
-                    .offset(x = (-4).dp, y = (-4).dp) // 위치를 오른쪽 아래로 옮겨 프로필 테두리에 걸치도록 조정
-                    .clip(CircleShape)
-                    // Surface에 그림자(Elevation) 추가하여 떠있는 느낌 부여
-                    .shadow(4.dp, shape = CircleShape),
-                color = YellowBox  // 아이콘 색
-
+                    .size(40.dp)
+                    .align(Alignment.BottomEnd) // 우측 하단 배치
+                    // ★ 수정됨: 위치를 안쪽으로 조금 더 당김 (-10dp)
+                    .offset(x = (-10).dp, y = (-10).dp)
             ) {
-                Icon(
-                    Icons.Outlined.ModeEdit,
-                    contentDescription = "사진 변경",
-                    // Icon 색상을 흰색으로 지정하여 배경색과 대비
-                    modifier = Modifier.padding(10.dp) // 아이콘 크기 조정
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "사진 변경",
+                        modifier = Modifier.size(15.dp),
+                        tint = ContentBlack
+                    )
+                }
             }
         }
     }
