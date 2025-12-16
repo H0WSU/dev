@@ -217,68 +217,62 @@ class FeedViewModel : ViewModel() {
         imageUris: List<String>,
         videoUris: List<String>,
         hashtags: List<String>,
-        onSuccess: () -> Unit = {},
-        onError: (Throwable) -> Unit = {}
+        onComplete: () -> Unit = {} // ★ 이름 변경 & 기본값 추가
     ) {
         val uid = auth.currentUser?.uid ?: return
 
         viewModelScope.launch {
-
-            // -------------------------------
-            // 1) currentMember 로딩될 때까지 대기
-            // -------------------------------
-            val me = currentMember.value ?: run {
-                // 아직 로딩 안됐으면 fetch 후 다시 읽기
-                fetchMyProfile()
-                kotlinx.coroutines.delay(300)
-
-                currentMember.value ?: return@launch onError(Exception("프로필 로딩 실패"))
-            }
-
-            // -------------------------------
-            // 2) currentUser도 동일하게 보장
-            // -------------------------------
-            val user = currentUser.value ?: run {
-                fetchMyProfile()
-                kotlinx.coroutines.delay(300)
-
-                currentUser.value ?: return@launch onError(Exception("유저 로딩 실패"))
-            }
-
-
-            val authorName = when {
-                !user.name.isNullOrBlank() -> user.name!!
-                !me.nickName.isNullOrBlank() -> me.nickName
-                else -> "익명"
-            }
-
-            val newPost = FeedPost(
-                id = System.currentTimeMillis(),
-                authorId = uid,
-                authorName = authorName,
-                authorProfileImage = me.profileImageUrl ?: "",   // ★ 반드시 URL 보장됨
-                title = title,
-                content = content,
-                imageUris = imageUris,
-                videoUris = videoUris,
-                hashtags = hashtags,
-                likeCount = 0,
-                commentCount = 0,
-                createdAt = System.currentTimeMillis(),
-                familyId = me.familyId
-            )
-
             try {
+                // 1) 프로필/유저 정보 로딩 대기
+                val me = currentMember.value ?: run {
+                    fetchMyProfile()
+                    kotlinx.coroutines.delay(300)
+                    currentMember.value ?: return@launch // 로딩 실패 시 중단
+                }
+
+                val user = currentUser.value ?: run {
+                    fetchMyProfile()
+                    kotlinx.coroutines.delay(300)
+                    currentUser.value ?: return@launch
+                }
+
+                val authorName = when {
+                    !user.name.isNullOrBlank() -> user.name!!
+                    !me.nickName.isNullOrBlank() -> me.nickName
+                    else -> "익명"
+                }
+
+                val newPost = FeedPost(
+                    id = System.currentTimeMillis(),
+                    authorId = uid,
+                    authorName = authorName,
+                    authorProfileImage = me.profileImageUrl ?: "",
+                    title = title,
+                    content = content,
+                    imageUris = imageUris,
+                    videoUris = videoUris,
+                    hashtags = hashtags,
+                    likeCount = 0,
+                    commentCount = 0,
+                    createdAt = System.currentTimeMillis(),
+                    familyId = me.familyId
+                )
+
+                // 2) Firestore 저장
                 db.collection("feeds")
                     .document(newPost.id.toString())
                     .set(newPost)
                     .await()
 
+                // 3) 로컬 리스트 갱신
                 _posts.add(0, newPost)
-                onSuccess()
+
+                // 4) ★ 작업 완료 콜백 호출 (화면 닫기)
+                onComplete()
 
             } catch (e: Exception) {
-                onError(e)
+                Log.e("FeedViewModel", "addPost 실패", e)
+                // 에러 처리 필요 시 onError 콜백 추가 가능
             }
         }
     }
@@ -294,7 +288,7 @@ class FeedViewModel : ViewModel() {
         imageUris: List<String>,
         videoUris: List<String>,
         hashtags: List<String>,
-        onFinish: () -> Unit = {}
+        onComplete: () -> Unit = {} // ★ 이름 통일 (onFinish -> onComplete)
     ) {
         viewModelScope.launch {
             try {
@@ -323,7 +317,9 @@ class FeedViewModel : ViewModel() {
                     )
                 }
 
-                onFinish()
+                // ★ 작업 완료 후 호출
+                onComplete()
+
             } catch (e: Exception) {
                 Log.e("FeedViewModel", "updatePost 실패", e)
             }

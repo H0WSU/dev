@@ -412,13 +412,24 @@ fun FeedWriteScreen(
                 isEditMode = isEditMode,
                 modifier = Modifier.align(Alignment.BottomCenter)
             ) {
+                // ★ 수정됨: onFinishWrite를 뷰모델 함수의 인자로 넘겨서,
+                // 뷰모델이 작업을 "끝낸 후"에 호출하도록 해야 안전합니다.
+
+                // 만약 ViewModel의 addPost가 비동기 함수(suspend)가 아니고
+                // 콜백도 지원하지 않는다면, 아래 코드가 실행되는 순간 화면이 닫히면서
+                // 이미지 업로드 코루틴이 취소되거나 Context가 소실되어 앱이 죽습니다.
+
+                // [해결책] FeedViewModel의 addPost/updatePost 함수에
+                // onComplete: () -> Unit 파라미터를 추가하고, 작업 끝난 뒤 호출하게 수정하세요.
+
                 if (editPost == null) {
                     viewModel.addPost(
                         title = title,
                         content = content,
                         imageUris = imageUris.toList(),
                         videoUris = videoUris.toList(),
-                        hashtags = hashtags.toList()
+                        hashtags = hashtags.toList(),
+                        onComplete = onFinishWrite // ★ 이렇게 전달해야 함
                     )
                 } else {
                     viewModel.updatePost(
@@ -427,12 +438,12 @@ fun FeedWriteScreen(
                         content = content,
                         imageUris = imageUris.toList(),
                         videoUris = videoUris.toList(),
-                        hashtags = hashtags.toList()
+                        hashtags = hashtags.toList(),
+                        onComplete = onFinishWrite // ★ 이렇게 전달해야 함
                     )
                 }
-                onFinishWrite()
+                // onFinishWrite()  <-- ★ 이 줄을 삭제하세요! (여기 있으면 바로 닫혀서 에러남)
             }
-
             // 이미지 소스 선택 바텀시트
             if (showImageSourceDialog) {
                 ImageSourceBottomSheet(

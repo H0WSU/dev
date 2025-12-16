@@ -1,6 +1,5 @@
 package com.example.howsu.screen.feed
 
-import com.example.howsu.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -8,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
@@ -34,6 +34,7 @@ import com.example.howsu.screen.todo.YellowBox
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.example.howsu.R
 
 // -----------------------------------------------------------------------------
 // DETAIL SCREEN
@@ -151,7 +152,7 @@ private fun FeedDetailPostContent(
     isLiked: Boolean,
     onToggleLike: () -> Unit,
     member: FamilyMember,
-    ) {
+) {
     val dateText = remember(post.createdAt) {
         SimpleDateFormat("MM/dd HH:mm", Locale.KOREAN).format(Date(post.createdAt))
     }
@@ -167,7 +168,9 @@ private fun FeedDetailPostContent(
             AsyncImage(
                 model = member.profileImageUrl,
                 contentDescription = null,
-                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape),
                 contentScale = ContentScale.Crop
             )
 
@@ -178,7 +181,6 @@ private fun FeedDetailPostContent(
                 Text(dateText, fontSize = 11.sp, color = Color.Gray)
             }
         }
-
         Spacer(Modifier.height(10.dp))
 
         if (post.hashtags.isNotEmpty()) {
@@ -408,7 +410,7 @@ private fun CommentItem(
                 Box(
                     modifier = Modifier
                         .size(32.dp)
-                        .clip(RoundedCornerShape(6.dp))
+                        .clip(CircleShape)
                         .background(Color.White)
                 )
                 Spacer(Modifier.width(10.dp))
@@ -430,7 +432,7 @@ private fun CommentItem(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(32.dp)
-                        .clip(RoundedCornerShape(6.dp))
+                        .clip(CircleShape)
                 )
 
                 Spacer(Modifier.width(8.dp))
