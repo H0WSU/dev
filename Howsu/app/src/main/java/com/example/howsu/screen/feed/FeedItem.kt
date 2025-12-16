@@ -1,5 +1,6 @@
 package com.example.howsu.screen.feed
 
+import android.R.attr.onClick
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,11 +21,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,7 +55,8 @@ import com.example.howsu.screen.todo.ContentBlack
 fun FeedItem(
     post: FeedPost,
     isLiked: Boolean,
-    onClick: () -> Unit = {},
+    onPostClick: () -> Unit = {},
+    onEditClick: () -> Unit = {},
     onDeleteClick: () -> Unit = {},
     onToggleLike: () -> Unit = {}
 ) {
@@ -59,27 +65,23 @@ fun FeedItem(
             .format(java.util.Date(post.createdAt))
     }
 
-    val heartIcon =
-        if (isLiked) R.drawable.yellow_heart else R.drawable.empty_heart
-
-    // 메뉴 확장 상태 관리
+    val heartIcon = if (isLiked) R.drawable.yellow_heart else R.drawable.empty_heart
     var isMenuExpanded by remember { mutableStateOf(false) }
 
-    // 리스트 아이템 전체 컨테이너
-    Column(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
-            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clickable { onPostClick() },
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
-        // 내부 패딩
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 20.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
 
-            // 1. 상단: 해시태그
+            // 1. 상단: 해시태그 (메뉴 제거)
             if (post.hashtags.isNotEmpty()) {
                 Text(
                     text = post.hashtags.joinToString(" ") { "#$it" },
@@ -90,21 +92,18 @@ fun FeedItem(
                 )
             }
 
-            // 2. 제목 + 메뉴 (Row로 묶어서 가로 배치)
+            // 2. 제목 + 메뉴 (Row로 배치)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // 제목 (weight를 1f로 주어 남은 공간 차지, 메뉴 밀어내지 않음)
                 Text(
                     text = post.title,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                     color = Color.Black,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f) // 제목이 길면 줄바꿈, 메뉴 밀어내지 않음
                 )
 
                 Spacer(modifier = Modifier.width(8.dp))
@@ -113,7 +112,7 @@ fun FeedItem(
                 Box {
                     IconButton(
                         onClick = { isMenuExpanded = true },
-                        modifier = Modifier.size(20.dp) // 아이콘 버튼 크기
+                        modifier = Modifier.size(20.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
@@ -125,13 +124,13 @@ fun FeedItem(
                     DropdownMenu(
                         expanded = isMenuExpanded,
                         onDismissRequest = { isMenuExpanded = false },
-                        modifier = Modifier.background(Color.White)
+                        modifier = Modifier.background(Color.Black)
                     ) {
                         DropdownMenuItem(
                             text = { Text("수정") },
                             onClick = {
                                 isMenuExpanded = false
-                                onClick()
+                                onEditClick()
                             }
                         )
                         DropdownMenuItem(
@@ -177,19 +176,18 @@ fun FeedItem(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 4. 본문 내용
+            // 4. 내용
             Text(
                 text = post.content,
                 fontSize = 15.sp,
                 color = Color.Black,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
                 lineHeight = 22.sp
             )
 
-            // 5. 미디어
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 5) 미디어(썸네일)
             if (post.imageUris.isNotEmpty() || post.videoUris.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -198,57 +196,57 @@ fun FeedItem(
                     post.imageUris.forEach { uri ->
                         AsyncImage(
                             model = uri,
-                            contentDescription = null,
+                            contentDescription = "사진",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
-                                .padding(end = 10.dp)
-                                .size(140.dp)
-                                .clip(RoundedCornerShape(12.dp))
+                                .padding(end = 8.dp)
+                                .size(90.dp)
+                                .clip(RoundedCornerShape(8.dp))
                         )
                     }
+
                     post.videoUris.forEach { uri ->
                         VideoThumbnailWithPlayIcon(
                             uriString = uri,
                             modifier = Modifier
-                                .padding(end = 10.dp)
-                                .size(140.dp)
+                                .padding(end = 8.dp)
+                                .size(90.dp)
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(10.dp))
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // 6. 하단 인터랙션
+            // 좋아요 / 댓글 (아래는 그대로)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // 좋아요
-                Box(modifier = Modifier.clickable { onToggleLike() }) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            painter = painterResource(id = heartIcon),
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = Color.Unspecified
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = post.likeCount.toString(),
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp
-                        )
-                    }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { onToggleLike() }
+                ) {
+                    Icon(
+                        painter = painterResource(id = heartIcon),
+                        contentDescription = "좋아요",
+                        modifier = Modifier.size(16.dp),
+                        tint = Color.Unspecified
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = post.likeCount.toString(),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp
+                    )
                 }
 
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
-                // 댓글
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         painter = painterResource(id = R.drawable.comment),
-                        contentDescription = null,
+                        contentDescription = "댓글",
                         modifier = Modifier.size(16.dp),
                         tint = Color.Unspecified
                     )
@@ -262,23 +260,13 @@ fun FeedItem(
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // 날짜
                 Text(
                     text = dateText,
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     color = Color.Gray
                 )
             }
         }
-
-        // 아이템 구분선
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .height(1.dp)
-                .background(Color(0xFFEEEEEE))
-        )
     }
 }
 
@@ -289,31 +277,35 @@ fun VideoThumbnailWithPlayIcon(
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(Color.DarkGray),
         contentAlignment = Alignment.Center
     ) {
         val thumb = rememberVideoThumbnail(uriString)
+
         if (thumb != null) {
             Image(
                 bitmap = thumb.asImageBitmap(),
-                contentDescription = null,
+                contentDescription = "동영상 썸네일",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.matchParentSize()
             )
         }
+
+        // 재생 아이콘 오버레이
         Box(
             modifier = Modifier
-                .size(36.dp)
-                .background(Color.Black.copy(alpha = 0.45f), CircleShape),
+                .size(30.dp)
+                .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(50)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Filled.PlayArrow,
-                contentDescription = null,
+                contentDescription = "동영상",
                 tint = Color.White,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(18.dp)
             )
         }
     }
 }
+

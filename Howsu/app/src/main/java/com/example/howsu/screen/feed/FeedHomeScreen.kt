@@ -14,11 +14,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -31,6 +34,7 @@ import com.example.howsu.common.MyBottomNavigationBar
 import com.example.howsu.common.MyFloatingActionButton
 import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.data.model.FeedFilter
+import com.example.howsu.data.model.FeedPost
 import com.example.howsu.ui.theme.HowsuTheme
 
 @Composable
@@ -40,6 +44,8 @@ fun FeedHomeScreen(
 ) {
     val filteredPosts = viewModel.filteredPosts
     val selectedFilter = viewModel.selectedFilter
+
+    var deleteTarget by remember { mutableStateOf<FeedPost?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.fetchMyProfile()
@@ -114,14 +120,36 @@ fun FeedHomeScreen(
                         FeedItem(
                             post = post,
                             isLiked = post.isLiked,
-                            onClick = { navController.navigate("feed_detail/${post.id}") },
-                            onDeleteClick = { viewModel.deletePost(post.id) },
+                            onPostClick  = { navController.navigate("feed_detail/${post.id}") },
+                            onEditClick = { navController.navigate("edit_feed/${post.id}") },
+                            onDeleteClick = { deleteTarget = post },
                             onToggleLike = { viewModel.toggleLike(post.id) }   // ★ 추가
                         )
                     }
                 }
             }
         }
+    }
+
+    if (deleteTarget != null) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("삭제하시겠어요?") },
+            text = { Text("삭제하면 되돌릴 수 없습니다.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deletePost(deleteTarget!!.id)
+                        deleteTarget = null
+                    }
+                ) { Text("삭제", color = Color.Red) }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTarget = null }) {
+                    Text("취소")
+                }
+            }
+        )
     }
 }
 

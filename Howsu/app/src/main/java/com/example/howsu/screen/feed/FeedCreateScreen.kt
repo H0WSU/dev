@@ -20,6 +20,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -31,7 +33,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,6 +51,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -272,10 +277,54 @@ fun FeedWriteScreen(
     val canUpload = title.isNotBlank() && content.isNotBlank()
     val isEditMode = editPost != null
 
+    var showExitConfirm by remember { mutableStateOf(false) }
+
+    val hasDraft = remember(
+        title, content, hashtagInput,
+        imageUris.size, videoUris.size, hashtags.size,
+        editPost
+    ) {
+        // 수정 모드/작성 모드 둘 다 커버
+        val baseTitle = editPost?.title ?: ""
+        val baseContent = editPost?.content ?: ""
+        val baseHashtags = editPost?.hashtags ?: emptyList()
+        val baseImages = editPost?.imageUris ?: emptyList()
+        val baseVideos = editPost?.videoUris ?: emptyList()
+
+        val titleChanged = title != baseTitle
+        val contentChanged = content != baseContent
+
+        // hashtagInput은 이제 "입력 중 텍스트"라서, 칩(hashtags) 기준으로 비교하는 게 더 정확합니다.
+        val hashtagsChanged = hashtags.toList() != baseHashtags
+        val imagesChanged = imageUris.toList() != baseImages
+        val videosChanged = videoUris.toList() != baseVideos
+
+        val hasAnyText = title.isNotBlank() || content.isNotBlank() || hashtagInput.isNotBlank()
+        val hasAnyMedia = imageUris.isNotEmpty() || videoUris.isNotEmpty()
+        val hasAnyTags = hashtags.isNotEmpty()
+
+        // 작성 모드: 뭔가 하나라도 있으면 true
+        if (editPost == null) {
+            hasAnyText || hasAnyMedia || hasAnyTags
+        } else {
+            // 수정 모드: 기존과 비교해서 변경이 있으면 true
+            titleChanged || contentChanged || hashtagsChanged || imagesChanged || videosChanged || hashtagInput.isNotBlank()
+        }
+    }
+
     Scaffold(
         containerColor = Color.White,
-        topBar = { FeedWriteTopBar(onCloseClick = onFinishWrite) }
-    ) { innerPadding ->
+        topBar = {
+            FeedWriteTopBar(
+                onCloseClick = {
+                    if (hasDraft) showExitConfirm = true
+                    else onFinishWrite()
+                }
+            )
+        }
+
+    ) {
+        innerPadding ->
 
         Box(
             modifier = Modifier
@@ -377,30 +426,19 @@ fun FeedWriteScreen(
                 // 해시태그
                 Text("해시태그", fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 Spacer(Modifier.height(6.dp))
-                OutlinedTextField(
-                    value = hashtagInput,
-                    onValueChange = { newText ->
-                        hashtagInput = newText
-                        val cleaned = newText
-                            .replace("#", " ")
-                            .trim()
-                            .split(" ")
-                            .filter { it.isNotBlank() }
 
-                        hashtags.clear()
-                        hashtags.addAll(cleaned)
-                    },
-                    placeholder = { Text("예) #일상 #산책", fontSize = 14.sp, color = Color.Gray) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    shape = RoundedCornerShape(14.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFFFFDF37),
-                        unfocusedBorderColor = Color(0xFFE0E0E0),
-                        cursorColor = Color.Black,
-                        focusedTextColor = Color.Black,
-                        unfocusedTextColor = Color.Black
-                    )
+                HashtagInput(
+                    hashtags = hashtags,                  // 기존 mutableStateListOf<String>()
+                    input = hashtagInput,                 // 기존 String state
+                    onInputChange = { hashtagInput = it },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(Modifier.height(10.dp))
+
+                HashtagChipsRow(
+                    hashtags = hashtags,
+                    onRemove = { tag -> hashtags.remove(tag) }
                 )
 
                 Spacer(Modifier.height(24.dp))
@@ -484,6 +522,140 @@ fun FeedWriteScreen(
                         }
                     }
                 )
+            }
+        }
+    }
+
+    if (showExitConfirm) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showExitConfirm = false },
+            title = { Text("작성 중인 내용이 있어요") },
+            text = { Text("나가면 작성 중인 내용이 삭제됩니다. \n정말 나가시겠어요?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showExitConfirm = false
+                    onFinishWrite()
+                }) {
+                    Text("나가기", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExitConfirm = false }) {
+                    Text("취소")
+                }
+            }
+        )
+    }
+
+}
+
+@Composable
+private fun HashtagInput(
+    hashtags: MutableList<String>,
+    input: String,
+    onInputChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    fun commitTag(raw: String) {
+        val cleaned = raw.trim()
+            .removePrefix("#")
+            .replace(" ", "")
+        if (cleaned.isBlank()) return
+
+        // 중복 방지
+        if (hashtags.contains(cleaned)) return
+
+        hashtags.add(cleaned)
+    }
+
+    OutlinedTextField(
+        value = input,
+        onValueChange = { newText ->
+            // 엔터/스페이스로 태그 확정 처리
+            if (newText.contains("\n") || newText.contains(" ")) {
+                val parts = newText
+                    .replace("\n", " ")
+                    .split(" ")
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() }
+
+                // 마지막 조각은 아직 입력 중일 수 있으니: 보통 "끝이 공백"일 때만 전부 커밋
+                val endsWithSeparator = newText.endsWith(" ") || newText.endsWith("\n")
+
+                if (parts.isNotEmpty()) {
+                    val commitCount = if (endsWithSeparator) parts.size else (parts.size - 1).coerceAtLeast(0)
+                    for (i in 0 until commitCount) commitTag(parts[i])
+                }
+
+                onInputChange(if (endsWithSeparator) "" else parts.lastOrNull().orEmpty())
+            } else {
+                onInputChange(newText)
+            }
+        },
+        placeholder = { Text("예) #일상 입력 후 엔터", fontSize = 14.sp, color = Color.Gray) },
+        modifier = modifier,
+        singleLine = true,
+        shape = RoundedCornerShape(14.dp),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(
+            onDone = {
+                // 키보드 Done으로도 태그 확정
+                commitTag(input)
+                onInputChange("")
+            }
+        ),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = Color(0xFFFFDF37),
+            unfocusedBorderColor = Color(0xFFE0E0E0),
+            cursorColor = Color.Black,
+            focusedTextColor = Color.Black,
+            unfocusedTextColor = Color.Black
+        )
+    )
+}
+
+@Composable
+private fun HashtagChipsRow(
+    hashtags: List<String>,
+    onRemove: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (hashtags.isEmpty()) return
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        hashtags.forEach { tag ->
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = Color(0xFFF5F5F5),
+                modifier = Modifier.padding(end = 8.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    IconButton(
+                        onClick = { onRemove(tag) },
+                        modifier = Modifier.size(18.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "삭제",
+                            modifier = Modifier.size(14.dp),
+                            tint = Color.DarkGray
+                        )
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "#$tag",
+                        fontSize = 13.sp,
+                        color = Color.Black
+                    )
+                }
             }
         }
     }

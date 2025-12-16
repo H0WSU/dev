@@ -76,6 +76,7 @@ fun FeedDetailScreen(
     navController: NavHostController,
     viewModel: FeedViewModel,
     postId: Long,
+
 ) {
     val member by viewModel.currentMember.collectAsState()
     val comments by viewModel.comments.collectAsState()
@@ -181,7 +182,8 @@ fun FeedDetailScreen(
                 viewModel.deletePost(postId)
                 navController.popBackStack() // 삭제 후 뒤로가기
             },
-            modifier = Modifier.padding(padding)
+            modifier = Modifier.padding(padding),
+            navController = navController
         )
     }
 }
@@ -196,8 +198,7 @@ private fun FeedDetailPostContent(
     isLiked: Boolean,
     onToggleLike: () -> Unit,
     onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    member: FamilyMember, // 현재 로그인한 멤버 (작성자 확인용으로 쓸 수 있음)
+    onDeleteClick: () -> Unit
 ) {
     val dateText = remember(post.createdAt) {
         SimpleDateFormat("yy/MM/dd", Locale.KOREAN).format(Date(post.createdAt))
@@ -254,7 +255,7 @@ private fun FeedDetailPostContent(
                 DropdownMenu(
                     expanded = isMenuExpanded,
                     onDismissRequest = { isMenuExpanded = false },
-                    modifier = Modifier.background(Color.White)
+                    modifier = Modifier.background(Color.Black)
                 ) {
                     DropdownMenuItem(
                         text = { Text("수정") },
@@ -330,13 +331,28 @@ private fun FeedDetailPostContent(
                     )
                 }
                 post.videoUris.forEach { uri ->
-                    // VideoPlayerBlock 대신 썸네일 로더 사용
-                    VideoThumbnailWithPlayIcon(
-                        uriString = uri,
-                        modifier = Modifier
-                            .padding(end = 10.dp)
-                            .size(300.dp)
-                    )
+                    var play by remember(uri) { mutableStateOf(false) }
+
+                    if (play) {
+                        VideoPlayerBlock(
+                            uriString = uri,
+                            modifier = Modifier
+                                .padding(end = 10.dp)
+                                .size(300.dp)
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .padding(end = 10.dp)
+                                .size(300.dp)
+                                .clickable { play = true }
+                        ) {
+                             VideoThumbnailWithPlayIcon(
+                                uriString = uri,
+                                modifier = Modifier.matchParentSize()
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -417,7 +433,9 @@ fun FeedDetailContentBody(
     onClickCommentLike: (Comment) -> Unit,
     onPostEditClick: () -> Unit, // [추가]
     onPostDeleteClick: () -> Unit, // [추가]
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    navController: NavHostController
+
 ) {
     val rootComments = comments.filter { it.parentCommentId == null }
 
@@ -432,9 +450,8 @@ fun FeedDetailContentBody(
                 FeedDetailPostContent(
                     post = post,
                     isLiked = isLiked,
-                    member = member,
                     onToggleLike = onClickLike,
-                    onEditClick = onPostEditClick,
+                    onEditClick = { navController.navigate("edit_feed/${post.id}") },
                     onDeleteClick = onPostDeleteClick
                 )
                 Spacer(Modifier.height(12.dp))
@@ -643,7 +660,7 @@ private fun CommentItem(
                     DropdownMenu(
                         expanded = menuExpanded,
                         onDismissRequest = { menuExpanded = false },
-                        modifier = Modifier.background(Color.White)
+                        modifier = Modifier.background(Color.Black)
                     ) {
                         DropdownMenuItem(
                             text = { Text("수정", fontSize = 13.sp) },
