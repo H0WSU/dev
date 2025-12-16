@@ -1,5 +1,6 @@
 package com.example.howsu.common
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,12 +13,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,10 +42,13 @@ fun FeedHomeTopBar(
     member: FamilyMember,
     modifier: Modifier = Modifier
 ) {
+
+    var isSearching by remember { mutableStateOf(false) }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         // TopAppBar의 기본 패딩을 고려하여 조절
-        modifier = Modifier.padding(start = 20.dp)
+        modifier = modifier.fillMaxWidth(),
     ) {
         // 왼쪽 프로필 이미지
         if (!member.profileImageUrl.isNullOrBlank()) {
@@ -79,11 +89,6 @@ fun FeedHomeTopBar(
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold
             )
-        }
-
-        // 오른쪽 아이콘들
-        IconButton(onClick = { /* 추후 검색 기능 */ }) {
-            Icon(Icons.Default.Search, contentDescription = "검색")
         }
     }
 }

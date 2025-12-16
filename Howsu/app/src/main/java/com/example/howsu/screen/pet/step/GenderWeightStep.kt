@@ -16,7 +16,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -42,8 +44,7 @@ fun GenderWeightStep(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 18.dp)
-            .verticalScroll(rememberScrollState()),
+            .padding(horizontal = 18.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -52,7 +53,7 @@ fun GenderWeightStep(
 
         PetProfileImageOnly(
             imageUrl = state.profilePetImageUrl,
-            size = 160.dp
+            size = 140.dp
         )
 
         // 이름
@@ -82,7 +83,8 @@ fun GenderWeightStep(
                 text = "여아",
                 selected = state.gender == "FEMALE",
                 onClick = { onGender("FEMALE") },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+
             )
             GenderChip(
                 text = "남아",
@@ -107,7 +109,11 @@ fun GenderWeightStep(
                 onClick = {
                     val current = state.isNeutered == true
                     onNeuteredChanged(!current)
-                }
+                },
+                colors = RadioButtonDefaults.colors(
+                    selectedColor = Color(0xFFFFDF37),
+                    unselectedColor = Color(0xFFBDBDBD)
+                )
             )
             Text(
                 text = "중성화했어요",
@@ -127,7 +133,6 @@ fun GenderWeightStep(
             fontWeight = FontWeight.Normal
         )
 
-        // 몸무게 입력
         // 몸무게 입력
         OutlinedTextField(
             value = state.weight,
@@ -164,7 +169,14 @@ fun GenderWeightStep(
                     fontSize = 14.sp,
                     color = Color.Black
                 )
-            }
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFFFFDF37),      // 포커스 시
+                unfocusedBorderColor = Color(0xFFE0E0E0),
+                cursorColor = Color.Black,
+                focusedTextColor = Color.Black,
+                unfocusedTextColor = Color.Black
+            )
         )
 
 // PhotoNameStep 과 동일: 맨 아래 여백

@@ -12,5 +12,6 @@ data class Comment(
 
     val content: String = "",
     val createdAt: Long = System.currentTimeMillis(),
-    val likeCount: Int = 0
+    val likeCount: Int = 0,
+    val deleted: Boolean = false
 )

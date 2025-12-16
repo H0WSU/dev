@@ -8,6 +8,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.howsu.data.model.PetRegisterUiState
 import com.example.howsu.screen.pet.component.PetProfileImageOnly
 import com.example.howsu.screen.pet.component.RelationChip
@@ -24,17 +25,20 @@ fun RelationshipStep(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(48.dp))
 
         PetProfileImageOnly(
             imageUrl = state.profilePetImageUrl,
             size = 160.dp
         )
 
+        Spacer(modifier = Modifier.height(22.dp))
+
         Text(
-            text = "${state.petName.ifBlank { "우리 아이" }}는 나를",
+            text = "${state.petName.ifBlank { "우리 아이" }}(은)는 나를",
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.DarkGray
+            color = Color.DarkGray,
+            fontSize = 16.sp
         )
 
         Spacer(Modifier.height(12.dp))

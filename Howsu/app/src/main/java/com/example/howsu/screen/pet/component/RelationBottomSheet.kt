@@ -80,8 +80,8 @@ fun RelationBottomSheet(
                     .height(52.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Black,
-                    contentColor = Color.White
+                    containerColor = Color(0xFFFFDF37),
+                    contentColor = Color.Black
                 )
             ) {
                 Text(text = "선택 완료")
