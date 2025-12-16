@@ -5,5 +5,6 @@ data class User(
     val email: String? = null,
     val name: String = "",
     val currentFamilyId: String? = null,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val profileImageUrl: String? = null,
 )

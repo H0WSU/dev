@@ -1,125 +1,265 @@
 package com.example.howsu.screen.home
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.howsu.data.model.Family
+import com.example.howsu.data.model.FamilyMember
+import com.example.howsu.data.model.Pet
+import com.example.howsu.data.model.User
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import java.time.LocalDate
+import java.time.Period
+import java.time.format.DateTimeFormatter
 
-// ----------------------------------------------------
-// HomeScreenViewModel.kt
-// 데이터 모델, 상태 및 비즈니스 로직 관리
-// ----------------------------------------------------
-
-// 1. 데이터 모델 (Data Classes) 정의
-data class Reminder(
-    val text : String,
-    val date: String,
-    val isDone : Boolean
-)
-data class Pet(
-    val name : String,
-    val age : Int,
-    val gender : String,
-    val imageUrl: String = ""
-)
-data class FamilyMember(
-    val name: String,
-    val isUser: Boolean = false
-)
-data class ScheduleDay(
-    val dayOfWeek: String,
-    val dayOfMonth: Int,
-    val isSelected: Boolean
-)
-
-// UI에 필요한 모든 상태를 담는 State 클래스
+// 1. UI 상태 변경: Family와 FamilyMember 객체 자체를 보유하도록 수정
 data class HomeUiState(
-    val pets: List<Pet> = emptyList(),
+    val isLoading: Boolean = false,
+    val family: Family = Family(),             // TopBar용 현재 활성화된 가족 객체
+    val member: FamilyMember = FamilyMember(), // TopBar용 내 멤버 정보
+    val pets: List<PetUiModel> = emptyList(),
     val familyMembers: List<FamilyMember> = emptyList(),
-    val scheduleDays: List<ScheduleDay> = emptyList(),
-    val reminders: List<Reminder> = emptyList(),
-    val showInviteDialog: Boolean = false
+    val userFamilies: List<Family> = emptyList(),
 )
 
+data class PetUiModel(
+    val originalPet: Pet,
+    val ageText: String,
+    val genderText: String,
+)
 
 class HomeScreenViewModel : ViewModel() {
 
-    // MutableStateFlow를 사용하여 UI 상태를 관리
-    private val _uiState = MutableStateFlow(
-        HomeUiState(
-            pets = listOf(
-                Pet("자몽",7,"여아"),
-                Pet("두부", 2,"남아"),
-                Pet("코코", 5,"남아"),
-                Pet("복실", 1,"여아")
-            ),
-            familyMembers = listOf(
-                FamilyMember("언니", isUser = true),
-                FamilyMember("엄마", isUser = false),
-            ),
-            scheduleDays = listOf(
-                ScheduleDay("화", 13, false),
-                ScheduleDay("수", 14, false),
-                ScheduleDay("목", 15, true), // 오늘 날짜처럼 보이게 선택됨
-                ScheduleDay("금", 16, false),
-                ScheduleDay("토", 17, false),
-                ScheduleDay("일", 18, false),
-            ),
-            reminders = listOf(
-                Reminder("츄르 사오기", "2025. 10. 28", false),
-                Reminder("병원 방문하기", "2025. 10. 28", false),
-                Reminder("목욕시키기", "2025. 10. 28", true)
-            )
-        )
-    )
-    // UI가 읽을 수 있는 읽기 전용 StateFlow 노출
+    private val db = Firebase.firestore
+    private val auth = Firebase.auth
+
+    private val _uiState = MutableStateFlow(HomeUiState(isLoading = true))
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
+    // TopBar에 표시되는 내 프로필 (가족 변경 시 업데이트)
+    private val _currentMember = MutableStateFlow<FamilyMember?>(null)
+    val currentMember: StateFlow<FamilyMember?> = _currentMember.asStateFlow()
 
-    // ----------------------
-    // 이벤트 핸들러 (로직)
-    // ----------------------
-
-    fun onInviteDialogVisibilityChange(isVisible: Boolean) {
-        _uiState.update { it.copy(showInviteDialog = isVisible) }
+    init {
+        // ViewModel 초기화 시 전체 홈 데이터 로드
+        loadHomeData()
     }
 
-    /**
-     * 가족 초대 로직 (현재는 임시로 목록에 추가)
-     */
-    fun inviteFamilyMember(email: String) {
-        // 실제로는 API 호출 로직이 들어갑니다.
-        println("Invitation sent to: $email")
+    fun loadHomeData() {
+        viewModelScope.launch {
+            val uid = auth.currentUser?.uid
+            if (uid == null) {
+                _uiState.update { it.copy(isLoading = false) }
+                return@launch
+            }
 
-        val newMember = FamilyMember(
-            name = email.substringBefore("@"),
-            isUser = false
-        )
+            try {
+                // 1. User 정보 가져오기 (현재 활성화된 familyId 확인)
+                val userDoc = db.collection("users").document(uid).get().await()
+                val user = userDoc.toObject(User::class.java)
 
-        _uiState.update { currentState ->
-            currentState.copy(
-                familyMembers = currentState.familyMembers + newMember,
-                showInviteDialog = false // 초대 후 다이얼로그 닫기
-            )
+                val currentFamilyId = user?.currentFamilyId ?: ""
+                val userName = user?.name ?: "알 수 없음"
+                val userProfileUrl = userDoc.getString("profileImageUrl")
+
+                // 2. 사용자가 소속된 모든 가족 리스트 로드 (FamilyDropdownSelector용)
+                val allFamiliesSnapshot = db.collection("families")
+                    .whereArrayContains("memberIds", uid)
+                    .get()
+                    .await()
+                val allFamilies = allFamiliesSnapshot.documents.mapNotNull { it.toObject(Family::class.java) }
+                _uiState.update { it.copy(userFamilies = allFamilies) }
+
+
+                if (currentFamilyId.isNotEmpty()) {
+                    // 3. 현재 활성화된 가족 ID로 전체 홈 데이터 로드
+                    fetchAllHomeData(currentFamilyId)
+                } else {
+                    // 가족 없음: 임시 멤버 객체 생성
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            member = FamilyMember(
+                                nickName = userName,
+                                profileImageUrl = userProfileUrl,
+                            )
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("HomeScreenVM", "Error fetching initial data", e)
+                _uiState.update { it.copy(isLoading = false) }
+            }
         }
     }
 
+
     /**
-     * 리마인더 체크박스 상태 변경 로직
+     * ★ [수정/이름 변경] 특정 가족의 모든 정보 로드
      */
-    fun onReminderCheckedChange(reminder: Reminder, isChecked: Boolean) {
-        _uiState.update { currentState ->
-            val updatedReminders = currentState.reminders.map {
-                if (it == reminder) {
-                    it.copy(isDone = isChecked)
-                } else {
-                    it
+    private suspend fun fetchAllHomeData(
+        familyId: String,
+    ) {
+        val myUid = auth.currentUser?.uid ?: return
+
+        try {
+            // User 문서에서 최신 name과 profileUrl을 다시 가져옴
+            val userDoc = db.collection("users").document(myUid).get().await()
+            val myName = userDoc.getString("name") ?: "알 수 없음"
+            val myProfileUrl = userDoc.getString("profileImageUrl")
+
+            // A. 가족 정보 가져오기 (객체로 변환)
+            val familyDoc = db.collection("families").document(familyId).get().await()
+            val familyObj = familyDoc.toObject(Family::class.java) ?: Family(familyName = "우리 가족")
+
+            // B. 가족 구성원 가져오기
+            val membersSnapshot = db.collection("families").document(familyId)
+                .collection("members")
+                .get()
+                .await()
+
+            val members = membersSnapshot.documents.mapNotNull { it.toObject(FamilyMember::class.java) }
+
+            // C. 구성원 목록에서 '나' 찾기 (TopBar 표시용)
+            val myMemberInfo = members.find { it.userId == myUid }
+                ?: FamilyMember(
+                    nickName = myName,
+                    userId = myUid,
+                    profileImageUrl = myProfileUrl
+                )
+
+            // member 객체에 현재 familyId를 할당
+            val myMemberInfoWithFamilyId = myMemberInfo.copy(familyId = familyId)
+
+            val sortedMenbers = members.sortedByDescending { it.userId == myUid }
+
+            // D. 펫 목록 가져오기 ★ (이 부분이 펫 정보 새로고침의 핵심)
+            val petsSnapshot = db.collection("families").document(familyId)
+                .collection("pets")
+                .get()
+                .await()
+
+            val petsList = petsSnapshot.documents.mapNotNull { doc ->
+                val pet = doc.toObject(Pet::class.java)?.copy(petId = doc.id)
+
+                pet?.let {
+                    val age = calculatePetAge(it)
+                    val gender = translateGender(it.gender)
+
+                    PetUiModel(it, age, gender)
                 }
             }
-            currentState.copy(reminders = updatedReminders)
+
+            // 상태 업데이트
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    family = familyObj,
+                    member = myMemberInfoWithFamilyId,
+                    pets = petsList, // ★ 펫 리스트 갱신
+                    familyMembers = sortedMenbers
+                )
+            }
+
+        } catch (e: Exception) {
+            Log.e("HomeScreenVM", "Error fetching family data", e)
+            _uiState.update { it.copy(isLoading = false) }
         }
     }
 
-    // TODO: 펫 정보 보기, 일정 날짜 선택 등 다른 이벤트 로직도 여기에 추가
+
+    // ----------------------------------------------------
+    // 가족 변경 및 기타 함수 (기존 로직 유지)
+    // ----------------------------------------------------
+
+    fun updateCurrentFamily(newFamilyId: String) {
+        if (newFamilyId == _uiState.value.family.familyId) return
+
+        _uiState.update { it.copy(isLoading = true) }
+        viewModelScope.launch {
+            try {
+                // 1. 유저 문서의 currentFamilyId 업데이트
+                val uid = auth.currentUser?.uid ?: return@launch
+                db.collection("users").document(uid)
+                    .update("currentFamilyId", newFamilyId)
+                    .await()
+
+                // 2. 새로운 가족 ID로 홈 데이터 다시 로드
+                loadHomeData()
+
+            } catch (e: Exception) {
+                Log.e("HomeScreenVM", "Error updating current family ID", e)
+                _uiState.update { it.copy(isLoading = false) }
+            }
+        }
+    }
+
+    fun fetchMyProfile() {
+        val uid = auth.currentUser?.uid ?: run {
+            _currentMember.value = null
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val userDoc = db.collection("users").document(uid).get().await()
+                val currentFamilyId = userDoc.getString("currentFamilyId") ?: ""
+
+                val nickname = userDoc.getString("name") ?: "알 수 없음"
+                val profileUrl = userDoc.getString("profileImageUrl")
+                var relationship = "나"
+
+                if (currentFamilyId.isNotEmpty()) {
+                    val memberDoc = db.collection("families").document(currentFamilyId)
+                        .collection("members").document(uid).get().await()
+                    relationship = memberDoc.getString("relationship") ?: "관계 설정 필요"
+                }
+
+
+                val me = FamilyMember(
+                    userId = uid,
+                    familyId = currentFamilyId,
+                    nickName = nickname,
+                    profileImageUrl = profileUrl,
+                    relationship = relationship
+                )
+                _currentMember.value = me
+
+            } catch (e: Exception) {
+                Log.e("FeedViewModel", "fetchMyProfile 실패", e)
+            }
+        }
+    }
+
+    private fun calculatePetAge(pet: Pet): String {
+        return try {
+            if (!pet.birthdayExact.isNullOrEmpty()) {
+                val birthDate = LocalDate.parse(pet.birthdayExact, DateTimeFormatter.ISO_DATE)
+                val now = LocalDate.now()
+                "${Period.between(birthDate, now).years}세"
+            } else if (!pet.birthdayYearApprox.isNullOrEmpty()) {
+                val birthYear = pet.birthdayYearApprox.toInt()
+                val currentYear = LocalDate.now().year
+                "${currentYear - birthYear}세"
+            } else {
+                "?세"
+            }
+        } catch (e: Exception) { "?세" }
+    }
+
+    private fun translateGender(gender: String?): String {   // DB 상 저장된 성별 형태 변경
+        return when (gender?.uppercase()) {
+            "MALE" -> "남아"
+            "FEMALE" -> "여아"
+            else -> "성별미상"
+        }
+    }
 }

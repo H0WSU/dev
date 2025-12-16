@@ -1,5 +1,6 @@
 package com.example.howsu.navigation
 
+//import com.example.howsu.screen.pet.PetDetailScreen
 import android.annotation.SuppressLint
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,27 +15,26 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.howsu.Pet.PetRegisterViewModel
-import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.screen.family.FamilyInviteScreen
 import com.example.howsu.screen.family.FamilyJoinCompleteScreen
 import com.example.howsu.screen.family.FamilyRegisterIntroScreen
 import com.example.howsu.screen.family.NicknameRegisterScreen
 import com.example.howsu.screen.family.SetRelationshipScreen
-import com.example.howsu.screen.feed.FeedHomeScreen
 import com.example.howsu.screen.feed.FeedDetailScreen
-import com.example.howsu.screen.feed.FeedSearchScreen
+import com.example.howsu.screen.feed.FeedHomeScreen
 import com.example.howsu.screen.feed.FeedViewModel
 import com.example.howsu.screen.feed.FeedWriteScreen
 import com.example.howsu.screen.home.HomeScreen
-import com.example.howsu.screen.home.Pet
-import com.example.howsu.screen.home.PetDetailScreen
 import com.example.howsu.screen.login.AuthViewModel
 import com.example.howsu.screen.login.JoinScreen
 import com.example.howsu.screen.login.LoadingScreen
 import com.example.howsu.screen.login.LoginScreen
+import com.example.howsu.screen.mypage.EditProfileScreen
 import com.example.howsu.screen.mypage.FAQScreen
+import com.example.howsu.screen.mypage.FamilyDetailScreen
 import com.example.howsu.screen.mypage.MypageScreen
 import com.example.howsu.screen.mypage.NotificationScreen
+import com.example.howsu.screen.pet.EditPetScreen
 import com.example.howsu.screen.pet.PetRegisterCompleteScreen
 import com.example.howsu.screen.pet.PetRegisterScreen
 import com.example.howsu.screen.schedule.CreateScheduleScreen
@@ -58,7 +58,7 @@ fun AppNavigation() {
     // 5. NavHost가 화면을 관리
     NavHost(
         navController = navController,
-        startDestination = "loading"
+        startDestination = "loading"   // 시작 화면
     ) {
         composable(route = "loading") {
             LoadingScreen(navController = navController)
@@ -170,9 +170,22 @@ fun AppNavigation() {
         }
 
 
-        // --- (마이페이지) ---
+        // home
         composable(route = "home") {
             HomeScreen(navController = navController)
+        }
+
+        // 펫 정보 보기 & 수정
+        composable(
+            route = "pet_detail/{familyId}/{petId}",
+            arguments = listOf(
+                navArgument("familyId") { type = NavType.StringType },
+                navArgument("petId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val familyId = backStackEntry.arguments?.getString("familyId") ?: ""
+            val petId = backStackEntry.arguments?.getString("petId") ?: ""
+            EditPetScreen(familyId = familyId, petId = petId, navController = navController)
         }
 
         // --- (스케줄) ---
@@ -203,12 +216,6 @@ fun AppNavigation() {
             CreateTodoScreen(navController = navController, documentId = documentId)
         }
 
-        // 펫 상세
-        composable(route = "pet_detail/{petId}") { backStackEntry ->
-            val dummyPet = Pet(name = "자몽", age = 7, gender = "여아")
-            PetDetailScreen(navController = navController, pet = dummyPet)
-        }
-
         // --- (피드) ---
         composable(route = "feed") {
             FeedHomeScreen(
@@ -231,6 +238,13 @@ fun AppNavigation() {
         composable("mypage") {
             MypageScreen(navController = navController)
         }
+        composable("edit_profile") {   // 프로필 편집
+            EditProfileScreen(navController = navController)
+        }
+        composable("family_info") {    // 가족 정보
+            FamilyDetailScreen(navController = navController)
+        }
+
         composable("notice") {   // 공지사항
             NotificationScreen(navController = navController)
         }
