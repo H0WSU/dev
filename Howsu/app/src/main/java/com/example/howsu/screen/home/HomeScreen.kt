@@ -500,7 +500,7 @@ fun PetCard(
                                     imageVector = Icons.Default.Pets,
                                     contentDescription = "Default Pet",
                                     modifier = Modifier.fillMaxSize(0.7f),
-                                    tint = Color.White.copy(alpha = 0.7f)
+                                    tint = Color.LightGray.copy(alpha = 0.7f)
                                 )
                             }
                         }
