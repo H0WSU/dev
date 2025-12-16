@@ -26,15 +26,14 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,19 +41,24 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -62,9 +66,15 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
+import com.example.howsu.R
 import com.example.howsu.screen.home.EditPetViewModel
 import com.example.howsu.screen.todo.ContentBlack
 import com.example.howsu.screen.todo.YellowBox
+import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Date
+import java.util.Locale
 
 
 // ----------------------------------------------------
@@ -90,7 +100,18 @@ fun EditPetScreen(
             viewModel.updatePetProfileImgaeUri(uri)
         }
     }
+    var showDatePicker by remember { mutableStateOf(false) }
 
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = uiState.birthdayExact?.let {
+            try {
+                // "yyyy-MM-dd" 형식 문자열을 밀리초로 변환
+                SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(it)?.time
+            } catch (e: Exception) {
+                null
+            }
+        }
+    )
     Scaffold(
         containerColor = Color.White,
         topBar = {
@@ -198,7 +219,7 @@ fun EditPetScreen(
                     Spacer(Modifier.height(32.dp))
                 }
 
-                // 5. 생년월일/나이 필드 (편집 가능 - 클릭 시 다이얼로그/DatePicker)
+                // 5. 생년월일/나이 필드 (편집 가능)
                 item {
                     val displayDate = if (!uiState.birthdayExact.isNullOrEmpty()) {
                         uiState.birthdayExact!!
@@ -209,14 +230,16 @@ fun EditPetScreen(
                     }
 
                     EditableBirthDateAgeSection(
-                        birthDate = displayDate,
-                        ageText = uiState.ageText,
-                        isEditing = uiState.isEditing, // isEditing 전달
+                        birthdayExact = displayDate,
+                        isEditing = uiState.isEditing,
                         onClick = {
                             // isEditing일 때만 DatePicker 호출
-                            // TODO: DatePicker 다이얼로그 표시 로직
+                            if (uiState.isEditing) {
+                                // 🌟 상태 변경: DatePicker 표시
+                                showDatePicker = true
+                            }
                         },
-                        modifier = Modifier.padding(horizontal = 24.dp)
+                        modifier = Modifier.padding(horizontal = 24.dp),
                     )
                     Spacer(Modifier.height(50.dp))
                 }
@@ -229,6 +252,36 @@ fun EditPetScreen(
                     }
                 }
             }
+        }
+    }
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val millis = datePickerState.selectedDateMillis
+                        if (millis != null) {
+                            val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                            val formatted = formatter.format(Date(millis))
+
+                            // 🌟 ViewModel에 업데이트 요청
+                            viewModel.updateBirthdayExact(formatted)
+                        }
+                        showDatePicker = false
+                    }
+                ) { Text("확인") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("취소")
+                }
+            }
+        ) {
+            DatePicker(
+                state = datePickerState,
+            )
         }
     }
 }
@@ -510,48 +563,63 @@ fun EditableWeightField(
         )
     }
 }
-
 @Composable
 fun EditableBirthDateAgeSection(
-    birthDate: String,
-    ageText: String,
+    birthdayExact: String,
     isEditing: Boolean, // isEditing 인자 추가
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        Text("생년월일/나이", /* ... */)
-        Spacer(Modifier.height(16.dp))
+    val displayText = remember(birthdayExact) {
+        if (birthdayExact.isBlank()) {
+            "날짜를 선택해 주세요"
+        } else {
+            runCatching {
+                val localDate = LocalDate.parse(birthdayExact) // yyyy-MM-dd
+                val formatter = DateTimeFormatter.ofPattern("yyyy년 MM월 dd일")
+                localDate.format(formatter)
+            }.getOrElse { "날짜를 선택해 주세요" }
+        }
+    }
 
-        Card(
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.LightGray.copy(alpha = 0.2f)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(70.dp)
-                // isEditing일 때만 클릭 가능하도록 수정
-                .clickable(enabled = isEditing, onClick = onClick)
+    // 투두 DatePickerField 와 동일한 스타일
+    val borderColor = Color(0xFF121212)
+    val contentBlack = Color(0xFF121212)
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                start = 24.dp,
+                end = 24.dp
+            )
+            .border(1.dp, borderColor, RoundedCornerShape(17.dp)),
+        shape = RoundedCornerShape(17.dp),
+        color = Color.White,
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.DateRange,
-                        contentDescription = "Birthday Icon",
-                        tint = Color.Black
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Text(birthDate, style = MaterialTheme.typography.bodyLarge)
-                }
+            Icon(
+                painter = painterResource(id = R.drawable.date_under), // 투두와 같은 아이콘 사용
+                contentDescription = null,
+                tint = Color.Unspecified,
+                modifier = Modifier.padding(end = 8.dp)
+            )
+
+            Column {
                 Text(
-                    ageText, // "7세"
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    text = "date",
+                    fontSize = 10.sp,
+                    color = contentBlack.copy(alpha = 0.7f)
+                )
+                Text(
+                    text = displayText,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 13.sp,
+                    color = contentBlack
                 )
             }
         }

@@ -5,13 +5,11 @@ import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.howsu.data.model.FamilyMember // 필요하지 않다면 제거
 import com.example.howsu.data.model.Pet
-import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
-import com.google.firebase.storage.storage
+import com.google.firebase.storage.ktx.storage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,7 +19,6 @@ import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.Period
 import java.time.format.DateTimeFormatter
-import com.google.firebase.storage.ktx.storage
 
 data class EditPetUiState(
     val isLoading: Boolean = true,
@@ -136,9 +133,6 @@ class EditPetViewModel(
         }
     }
 
-    /**
-     * Firestore에 이미지 URL을 포함한 모든 펫 정보 저장
-     */
     private fun savePetprofileFirestore(
         petId: String,
         familyId: String,
@@ -186,9 +180,6 @@ class EditPetViewModel(
             }
     }
 
-    /**
-     * Firebase Storage에 이미지를 업로드하고 Firestore 저장을 호출함
-     */
     private fun uploadImageAndSavePetprofile(petId: String, familyId: String, imageUri: Uri, newName: String) {
         val state = _uiState.value
 
@@ -220,9 +211,6 @@ class EditPetViewModel(
             }
     }
 
-    /**
-     * 저장 성공 시 UI 상태 업데이트 헬퍼 함수
-     */
     private fun updateSuccessState(
         newImageUrl: String?,
         newpetName: String,
@@ -267,10 +255,7 @@ class EditPetViewModel(
             )
         }
     }
-
-    /**
-     * 최종 저장 로직 (이미지 유무에 따라 분기)
-     */
+    // 최종 저장 로직
     fun savePetProfile(){
         val state = _uiState.value
         val currentPetId = state.petId
@@ -306,10 +291,6 @@ class EditPetViewModel(
     }
 
 
-    // ----------------------------------------------------
-    // 데이터 업데이트 함수
-    // ----------------------------------------------------
-
     fun updatePetProfileImgaeUri(uri: Uri){
         _uiState.update { it.copy(newPetprofileImageUri = uri) }
     }
@@ -334,9 +315,31 @@ class EditPetViewModel(
         _uiState.update { it.copy(weight = newWeight) }
     }
 
-    /**
-     * 편집 취소: 모든 입력값을 원본 데이터로 되돌리고 편집 모드 해제
-     */
+    fun updateBirthdayExact(dateString: String) {
+        // 추정 생일 필드는 초기화하고 정확한 생일 필드를 업데이트합니다.
+        _uiState.update { currentState ->
+
+            // 임시 Pet 객체를 만들어 나이 계산 유틸리티를 활용
+            val tempPet = currentState.pet?.copy(
+                birthdayExact = dateString,
+                birthdayYearApprox = null,
+                birthdayMonthApprox = null
+            ) ?: Pet(
+                birthdayExact = dateString,
+                birthdayYearApprox = null,
+                birthdayMonthApprox = null
+            )
+
+            currentState.copy(
+                birthdayExact = dateString,
+                birthdayYearApprox = null, // 정확한 날짜가 있으므로 추정 필드는 초기화
+                birthdayMonthApprox = null, // 정확한 날짜가 있으므로 추정 필드는 초기화
+                ageText = calculateAge(tempPet) // 갱신된 정보로 나이 재계산
+            )
+        }
+    }
+
+    // 편집 취소
     fun cancelEditing() {
         if (originalPet != null) {
             val pet = originalPet!!
@@ -361,18 +364,6 @@ class EditPetViewModel(
             _uiState.update { it.copy(isEditing = false, newPetprofileImageUri = null) }
         }
     }
-
-    // TODO: 생년월일 업데이트 함수 (DatePicker 연동 시 필요)
-    // 예시:
-    fun updateBirthdayExact(date: LocalDate?) {
-        _uiState.update {
-            it.copy(
-                birthdayExact = date?.format(DateTimeFormatter.ISO_DATE),
-                ageText = date?.let { calculateAge(it) } ?: "?세"
-            )
-        }
-    }
-
     // ----------------------------------------------------
     // 유틸리티 함수 (PetDetailViewModel과 동일)
     // ----------------------------------------------------

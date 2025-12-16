@@ -126,7 +126,6 @@ fun EditProfileScreen(
             )
 
             Spacer(modifier = Modifier.height(32.dp))
-
             if (uiState.isEditing) {
                 SaveBottomButton(
                     onSaveClick = { viewModel.saveProfile() }
