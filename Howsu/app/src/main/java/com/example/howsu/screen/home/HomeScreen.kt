@@ -1,5 +1,6 @@
 package com.example.howsu.screen.home
 
+import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,12 +23,15 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -35,9 +39,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,6 +56,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
@@ -55,6 +67,7 @@ import coil.compose.AsyncImage
 import com.example.howsu.common.HomeTopAppBar
 import com.example.howsu.common.MyBottomNavigationBar
 import com.example.howsu.common.MyFloatingActionButton
+import com.example.howsu.data.model.Family
 import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.screen.todo.CalendarWeekRow
 import com.example.howsu.screen.todo.ContentBlack
@@ -76,8 +89,41 @@ fun HomeScreen(
     val currentWeekStart by todoViewModel.currentWeekStart.collectAsState()
 
     // 내 프로필 정보 로딩
-    LaunchedEffect(Unit) {
-        viewModel.fetchMyProfile()
+    LaunchedEffect(uiState.family.familyId) {
+        val familyId = uiState.family.familyId
+
+        if (familyId.isNotBlank()) {
+            // 1. 내 프로필 정보 새로고침
+            viewModel.fetchMyProfile()
+
+            // 2. 홈 화면 데이터 (펫 목록, 가족 구성원 목록) 새로고침
+            viewModel.loadHomeData()
+
+            // 3. [핵심] 투두 리스트를 새 가족 ID로 변경
+            todoViewModel.updateCurrentFamily(familyId)
+
+            Log.d("HomeScreen", "Family Changed: $familyId -> Data Refreshed")
+        }
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                // 홈 데이터 로드
+                viewModel.loadHomeData()
+                // ★ 여기도 추가해주면 좋음: 화면 돌아왔을 때 현재 가족의 투두 다시 불러오기
+                if (uiState.family.familyId.isNotBlank()) {
+                    todoViewModel.updateCurrentFamily(uiState.family.familyId)
+                }
+                Log.d("HomeScreen", "ON_RESUME: Reloading Data")
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     val myInfo by viewModel.currentMember.collectAsState()
@@ -97,7 +143,9 @@ fun HomeScreen(
             HomeTopAppBar(
                 member = displayMember,
                 family = uiState.family,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 40.dp)
+                userFamilies = uiState.userFamilies,
+                onFamilySelected = viewModel::updateCurrentFamily,
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 40.dp, bottom = 20.dp)
             )
         },
         bottomBar = { MyBottomNavigationBar(navController = navController) },
@@ -123,19 +171,19 @@ fun HomeScreen(
                     .padding(paddingValues),
                 contentPadding = PaddingValues(bottom = 100.dp)
             ) {
-                item { Spacer(Modifier.height(12.dp)) }
-
                 // 1. 반려동물 섹션
                 item {
                     Column(modifier = Modifier.padding(horizontal = NarrowPadding)) {
                         PetSection(
                             pets = uiState.pets,
                             onPetClick = { petUi ->
-                                val familyId = uiState.member.familyId
-                                val petName = petUi.originalPet.name
+                                val familyId = uiState.member.familyId.takeIf { it.isNotEmpty() }
+                                val petId = petUi.originalPet.petId.takeIf { !it.isNullOrEmpty() }
 
-                                if (familyId.isNotEmpty() && petName.isNotEmpty()) {
-                                    navController.navigate("pet_detail/$familyId/$petName")
+                                if (familyId != null && petId != null) {
+                                    navController.navigate("pet_detail/$familyId/$petId")
+                                } else {
+                                    Log.e("HomeScreen", "펫 상세 이동 실패: familyId=$familyId, petId=$petId")
                                 }
                             }
                         )
@@ -213,6 +261,86 @@ fun HomeScreen(
                         Spacer(Modifier.height(16.dp))
                     }
                 }
+            }
+        }
+    }
+}
+@Composable
+fun FamilyDropdownSelector(
+    currentFamily: Family,
+    allFamilies: List<Family>,
+    onFamilySelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    // 이름 뒤에 '네 가족' / '이네 가족' 붙여주는 함수
+    fun getDisplayName(name: String): String {
+        if (name.isBlank()) return "가족 없음"
+        val lastChar = name.last()
+        val hasBatchim = if (lastChar.code in 0xAC00..0xD7A3) {
+            (lastChar.code - 0xAC00) % 28 > 0
+        } else {
+            false
+        }
+        return if (hasBatchim) "${name}이네 가족" else "${name}네 가족"
+    }
+
+    val displayTitle = getDisplayName(currentFamily.familyName)
+
+    // 가족이 1개 이하일 때는 드롭다운 불필요
+    if (allFamilies.size <= 1 || currentFamily.familyId.isBlank()) {
+        Text(
+            text = displayTitle,
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 20.sp,
+            color = ContentBlack
+        )
+        return
+    }
+
+    Box {
+        TextButton(
+            onClick = { expanded = true },
+            colors = ButtonDefaults.textButtonColors(
+                contentColor = ContentBlack,
+                containerColor = Color.Transparent
+            ),
+            shape = RoundedCornerShape(8.dp),
+            contentPadding = PaddingValues(0.dp), // 공백 제거
+            modifier = Modifier.height(28.dp)     // 높이 압축
+        ) {
+            Text(
+                text = displayTitle,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 18.sp
+            )
+            Icon(Icons.Default.ArrowDropDown, contentDescription = "가족 선택", modifier = Modifier.size(20.dp))
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = Color.White // 배경 흰색
+        ) {
+            allFamilies.forEach { family ->
+                val isSelected = family.familyId == currentFamily.familyId
+
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = getDisplayName(family.familyName),
+                            // ★ 수정: 선택된 건 Bold, 아니면 Normal
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            // ★ 수정: 선택된 건 #121212, 선택 안 된 건 회색으로 구분
+                            color = if (isSelected) Color(0xFF121212) else Color.Gray
+                        )
+                    },
+                    onClick = {
+                        onFamilySelected(family.familyId)
+                        expanded = false
+                    },
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                )
             }
         }
     }
@@ -388,7 +516,7 @@ fun PetCard(
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            text = "${petModel.ageText} | ${petModel.displayGender ?: "성별미상"}",
+                            text = "${petModel.ageText} | ${petModel.genderText ?: "성별미상"}",
                             color = ContentBlack.copy(alpha = 0.7f),
                             fontWeight = FontWeight.Medium
                         )
@@ -515,19 +643,35 @@ fun FamilyMemberItem(
                 },
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "${member.nickName} icon",
-                    modifier = Modifier.fillMaxSize(0.7f),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+            val imageUrl = member.profileImageUrl
+
+            if (!imageUrl.isNullOrEmpty()) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = "${member.nickName} 프로필",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop, // 이미지가 잘리지 않도록 Crop 설정
                 )
+            } else {
+                // 프로필 URL이 없을 경우에만 기본 아이콘 표시
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "${member.nickName} icon",
+                        modifier = Modifier.fillMaxSize(0.7f),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            text = member.relationship.ifEmpty { "역할없음" },   // relationship으로
-            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Normal)
+            text = member.relationship.ifEmpty { "역할없음" },
+            style = MaterialTheme.typography.titleMedium.copy(
+                // 본인이면 Bold, 아니면 Medium
+                fontWeight = if (isCurrentUser) FontWeight.Bold else FontWeight.Medium,
+                fontSize = 15.sp
+            )
         )
     }
 }

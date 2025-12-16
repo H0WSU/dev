@@ -1,13 +1,15 @@
 package com.example.howsu.screen.home
 
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.howsu.data.model.Pet
-import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.ktx.storage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,14 +22,19 @@ import java.time.format.DateTimeFormatter
 
 data class EditPetUiState(
     val isLoading: Boolean = true,
+    val error: String? = null, // 에러 메시지
+    val isEditing: Boolean = false, // 현재 편집 모드인지 확인
+
     val pet: Pet? = null, // 원본 Pet 데이터
     val ageText: String = "", // 계산된 나이 (읽기 전용)
 
     // 💡 편집 가능한 필드 상태
-    val name: String = "",
-    val gender: String = "남아", // "남아" 또는 "여아" (UI 표시용)
-    val isNeutered: Boolean = false,
-    val weight: String = "", // String으로 입력 받음
+    val petprofileImageUrl: String? = null,
+    val newPetprofileImageUri: Uri?= null,   // 새 이미지 로컬 uri
+    val petname: String = "",   // 이름
+    val gender: String = "남아", // 성별
+    val isNeutered: Boolean = false,   // 중성화 여부
+    val weight: String = "", // 몸무게
     val birthdayExact: String? = null,
     val birthdayYearApprox: String? = null,
     val birthdayMonthApprox: String? = null,
@@ -35,7 +42,6 @@ data class EditPetUiState(
     // 💡 저장에 필요한 ID
     val familyId: String? = null,
     val petId: String? = null, // Firestore 문서 ID
-    val error: String? = null
 )
 
 class EditPetViewModel(
@@ -43,78 +49,256 @@ class EditPetViewModel(
 ) : ViewModel() {
 
     private val db = Firebase.firestore
-    private val auth = Firebase.auth
+    private val storage: FirebaseStorage = Firebase.storage
 
-    // 💡 NavArguments에서 familyId와 petId를 추출
-    private val familyId: String? = savedStateHandle["familyId"]
-    private val petId: String? = savedStateHandle["petId"] // 편집 모드에서는 petId가 필요
+    // 💡 NavArguments에서 familyId와 petName을 추출 (NavArgument가 petId를 전달한다고 가정)
+    private val navFamilyId: String? = savedStateHandle["familyId"]
+    private val navPetId: String? = savedStateHandle["petId"] // petId를 네비게이션으로 받는다고 가정
 
-    private val _uiState = MutableStateFlow(EditPetUiState())
+    private var originalPet: Pet?= null
+    // 편집 취소 시 복구를 위한 원본 데이터 저장
+
+    private val _uiState = MutableStateFlow(EditPetUiState(
+        familyId = navFamilyId,
+        petId = navPetId,
+        isLoading = true
+    ))
     val uiState: StateFlow<EditPetUiState> = _uiState.asStateFlow()
 
     init {
-        fetchPetDetail()
+        // NavArguments가 유효할 때만 데이터 로드 시작
+        if (!navFamilyId.isNullOrEmpty() && !navPetId.isNullOrEmpty()) {
+            fetchPetDetail()
+        } else {
+            _uiState.update { it.copy(isLoading = false, error = "가족 ID 또는 펫 ID가 누락되었습니다.") }
+        }
     }
 
+    // firebase에서 펫 상세 정보를 로드함
     private fun fetchPetDetail() {
-        // 인수가 유효한지 확인
-        if (familyId.isNullOrEmpty() || petId.isNullOrEmpty()) {
-            _uiState.update { it.copy(isLoading = false, error = "가족 ID 또는 펫 ID를 찾을 수 없습니다.") }
-            return
-        }
+        val currentFamilyId = navFamilyId ?: return
+        val currentPetId = navPetId ?: return
+
+        _uiState.update { it.copy(isLoading = true) }
 
         viewModelScope.launch {
             try {
-                // petId를 사용하여 특정 Pet 문서 가져오기
-                val petDoc = db.collection("families").document(familyId!!)
-                    .collection("pets").document(petId!!)
-                    .get()
-                    .await()
+                val petDoc = db.collection("families").document(currentFamilyId)
+                    .collection("pets").document(currentPetId)
+                    .get().await()
 
                 val pet = petDoc.toObject(Pet::class.java)?.copy(petId = petDoc.id)
 
                 if (pet != null) {
-                    // DB 성별 ("MALE", "FEMALE")을 UI 성별 ("남아", "여아")로 변환
+                    originalPet = pet // 원본 저장
+
+                    // DB 성별을 UI 성별로 변환
                     val translatedGender = translateGender(pet.gender)
 
-                    // 💡 UI State에 편집 가능한 값들을 초기화
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            pet = pet, // 원본 데이터 보관
+                    _uiState.update { currentState ->
+                        currentState.copy(
+                            pet = pet,
                             ageText = calculateAge(pet),
-                            familyId = familyId,
-                            petId = petId,
+                            isLoading = false,
+                            isEditing = false,
 
-                            // 편집 필드 초기값
-                            name = pet.name.orEmpty(),
+                            // 편집 필드 초기화
+                            petprofileImageUrl = pet.profileImageUrl,
+                            petname = pet.name.orEmpty(),
                             gender = translatedGender,
                             isNeutered = pet.isNeutered ?: false,
                             weight = pet.weight.orEmpty(),
                             birthdayExact = pet.birthdayExact,
                             birthdayYearApprox = pet.birthdayYearApprox,
-                            birthdayMonthApprox = pet.birthdayMonthApprox
+                            birthdayMonthApprox = pet.birthdayMonthApprox,
                         )
                     }
                 } else {
-                    _uiState.update { it.copy(isLoading = false, error = "펫 정보를 찾을 수 없습니다.") }
+                    handleFailure("펫 정보를 찾을 수 없습니다.")
                 }
             } catch (e: Exception) {
-                Log.e("EditPetVM", "Error fetching pet detail", e)
-                _uiState.update { it.copy(isLoading = false, error = "데이터 로드 실패: ${e.message}") }
+                Log.e("EditPetVM", "Error fetching pet detail: ${e.message}", e)
+                handleFailure("데이터 로드 실패: ${e.message}")
             }
         }
     }
 
-    // ----------------------------------------------------
-    // 데이터 업데이트 함수
-    // ----------------------------------------------------
-
-    fun updateName(newName: String) {
-        _uiState.update { it.copy(name = newName) }
+    // 모든 에러 처리를 담당하고 UI 상태를 업데이트함
+    private fun handleFailure(errorMessage: String) {
+        _uiState.update {
+            it.copy(
+                isLoading = false,
+                error = errorMessage
+            )
+        }
     }
 
-    // UI ("남아"/"여아")를 받아서 State 업데이트
+    private fun savePetprofileFirestore(
+        petId: String,
+        familyId: String,
+        newPetprofileImageUrl: String?,
+        newpetName: String,
+        newGender: String, // UI gender ("남아"/"여아")
+        newNeutered: Boolean,
+        newWeight: String,
+        newBirthdayExact: String?,
+        newBirthdayYearApprox: String?,
+        newBirthdayMonthApprox: String?
+    ) {
+        // UI 성별을 DB 성별로 역변환
+        val dbGender = reverseTranslateGender(newGender)
+
+        val updates = mapOf(
+            "profileImageUrl" to newPetprofileImageUrl,
+            "name" to newpetName,
+            "gender" to dbGender,
+            "isNeutered" to newNeutered,
+            "weight" to newWeight.takeIf { it.isNotBlank() }, // 빈 문자열일 경우 null 저장
+            "birthdayExact" to newBirthdayExact,
+            "birthdayYearApprox" to newBirthdayYearApprox,
+            "birthdayMonthApprox" to newBirthdayMonthApprox
+        )
+
+        db.collection("families").document(familyId)
+            .collection("pets").document(petId)
+            .update(updates)
+            .addOnSuccessListener {
+                // 저장 성공 시 상태 업데이트 헬퍼 함수 호출
+                updateSuccessState(
+                    newPetprofileImageUrl,
+                    newpetName,
+                    newGender,
+                    newNeutered,
+                    newWeight,
+                    newBirthdayExact,
+                    newBirthdayYearApprox,
+                    newBirthdayMonthApprox
+                )
+            }
+            .addOnFailureListener { exception ->
+                handleFailure("펫 정보 저장 실패: ${exception.message}")
+            }
+    }
+
+    private fun uploadImageAndSavePetprofile(petId: String, familyId: String, imageUri: Uri, newName: String) {
+        val state = _uiState.value
+
+        val imageRef = storage.reference.child("pet_profile_images/$petId/pet_profile.jpg")
+
+        imageRef.putFile(imageUri)
+            .addOnSuccessListener {
+                imageRef.downloadUrl.addOnSuccessListener { downloadUri ->
+                    // 2단계: Firestore에 새 URL과 모든 필드 저장 호출
+                    savePetprofileFirestore(
+                        petId,
+                        familyId,
+                        downloadUri.toString(), // 새 이미지 URL
+                        newName,
+                        state.gender,
+                        state.isNeutered,
+                        state.weight,
+                        state.birthdayExact,
+                        state.birthdayYearApprox,
+                        state.birthdayMonthApprox
+                    )
+                }
+                    .addOnFailureListener { exception ->
+                        handleFailure("이미지 URL 가져오기 실패: ${exception.message}")
+                    }
+            }
+            .addOnFailureListener { exception ->
+                handleFailure("이미지 업로드 실패: ${exception.message}")
+            }
+    }
+
+    private fun updateSuccessState(
+        newImageUrl: String?,
+        newpetName: String,
+        newGender: String,
+        newNeutered: Boolean,
+        newWeight: String,
+        newBirthdayExact: String?,
+        newBirthdayYearApprox: String?,
+        newBirthdayMonthApprox: String?
+    ){
+        val dbGender = reverseTranslateGender(newGender)
+
+        // 원본 Pet 객체 및 UI State 업데이트
+        originalPet = originalPet?.copy(
+            profileImageUrl = newImageUrl,
+            name = newpetName,
+            gender = dbGender, // DB 값으로 갱신
+            isNeutered = newNeutered,
+            weight = newWeight.takeIf { it.isNotBlank() },
+            birthdayExact = newBirthdayExact,
+            birthdayYearApprox = newBirthdayYearApprox,
+            birthdayMonthApprox = newBirthdayMonthApprox
+        )
+
+        val updatedPet = originalPet // 원본을 갱신했으므로 pet 필드도 갱신
+
+        _uiState.update{
+            it.copy(
+                isLoading = false,
+                isEditing = false,
+                pet = updatedPet,
+                ageText = updatedPet?.let { calculateAge(it) } ?: it.ageText, // 나이 갱신
+                petprofileImageUrl = newImageUrl,
+                petname = newpetName,
+                gender = newGender,
+                isNeutered = newNeutered,
+                weight = newWeight,
+                birthdayExact = newBirthdayExact,
+                birthdayYearApprox = newBirthdayYearApprox,
+                birthdayMonthApprox = newBirthdayMonthApprox,
+                newPetprofileImageUri = null // 임시 URI 제거
+            )
+        }
+    }
+    // 최종 저장 로직
+    fun savePetProfile(){
+        val state = _uiState.value
+        val currentPetId = state.petId
+        val currentFamilyId = state.familyId
+
+        if(currentPetId.isNullOrEmpty() || currentFamilyId.isNullOrEmpty()){
+            _uiState.update{it.copy(error = "펫 또는 가족 인증 정보가 부족합니다.")}
+            return
+        }
+        _uiState.update { it.copy(isLoading = true, error = null) }
+
+        val newImageUri = state.newPetprofileImageUri
+        val newpetName = state.petname
+
+        if(newImageUri != null){
+            // 새 이미지가 선택된 경우 -> storage에 업데이트 후 firestore 업데이트
+            uploadImageAndSavePetprofile(currentPetId, currentFamilyId, newImageUri, newpetName)
+        } else{
+            // 이미지가 변경되지 않은 경우 -> 모든 텍스트/데이터 필드만 firestore 업데이트
+            savePetprofileFirestore(
+                currentPetId,
+                currentFamilyId,
+                state.petprofileImageUrl, // 기존 이미지 URL 사용
+                newpetName,
+                state.gender,
+                state.isNeutered,
+                state.weight,
+                state.birthdayExact,
+                state.birthdayYearApprox,
+                state.birthdayMonthApprox
+            )
+        }
+    }
+
+
+    fun updatePetProfileImgaeUri(uri: Uri){
+        _uiState.update { it.copy(newPetprofileImageUri = uri) }
+    }
+
+    fun updateName(newpetName: String) {
+        _uiState.update { it.copy(petname = newpetName) }
+    }
+
     fun updateGender(newGender: String) {
         _uiState.update { it.copy(gender = newGender) }
     }
@@ -123,78 +307,63 @@ class EditPetViewModel(
         _uiState.update { it.copy(isNeutered = !it.isNeutered) }
     }
 
-    // 체중 입력은 String으로 받음
+    fun toggledEditMode(enable: Boolean) {
+        _uiState.update { it.copy(isEditing = enable) }
+    }
+
     fun updateWeight(newWeight: String) {
         _uiState.update { it.copy(weight = newWeight) }
     }
 
-    // TODO: 생년월일 업데이트 함수 (DatePicker 연동 시 필요)
+    fun updateBirthdayExact(dateString: String) {
+        // 추정 생일 필드는 초기화하고 정확한 생일 필드를 업데이트합니다.
+        _uiState.update { currentState ->
 
-    // ----------------------------------------------------
-    // 저장 함수
-    // ----------------------------------------------------
+            // 임시 Pet 객체를 만들어 나이 계산 유틸리티를 활용
+            val tempPet = currentState.pet?.copy(
+                birthdayExact = dateString,
+                birthdayYearApprox = null,
+                birthdayMonthApprox = null
+            ) ?: Pet(
+                birthdayExact = dateString,
+                birthdayYearApprox = null,
+                birthdayMonthApprox = null
+            )
 
-    fun savePetDetail() {
-        val state = uiState.value
-
-        if (state.familyId.isNullOrEmpty() || state.petId.isNullOrEmpty()) {
-            _uiState.update { it.copy(error = "저장에 필요한 정보가 부족합니다.") }
-            return
-        }
-
-        // UI 성별 ("남아"/"여아")을 DB 성별 ("MALE"/"FEMALE")로 역변환
-        val dbGender = reverseTranslateGender(state.gender)
-
-        // 💡 업데이트할 데이터 맵 생성
-        val petUpdates = hashMapOf<String, Any?>(
-            "name" to state.name,
-            "gender" to dbGender,
-            "isNeutered" to state.isNeutered,
-            "weight" to state.weight.takeIf { it.isNotBlank() }, // 빈 문자열일 경우 null 저장 가능
-            "birthdayExact" to state.birthdayExact,
-            "birthdayYearApprox" to state.birthdayYearApprox,
-            "birthdayMonthApprox" to state.birthdayMonthApprox,
-            // profileImageUrl 업데이트 로직은 제외됨
-        )
-
-        viewModelScope.launch {
-            try {
-                _uiState.update { it.copy(isLoading = true, error = null) }
-
-                db.collection("families").document(state.familyId!!)
-                    .collection("pets").document(state.petId!!)
-                    .update(petUpdates) // 업데이트 실행
-                    .await()
-
-                // TODO: 성공 메시지 또는 상태 업데이트
-                Log.d("EditPetVM", "Pet details updated successfully.")
-
-                // 💡 업데이트된 Pet 객체로 UI State의 pet 필드도 갱신
-                val updatedPet = state.pet?.copy(
-                    name = state.name,
-                    gender = dbGender, // DB 값으로 갱신
-                    isNeutered = state.isNeutered,
-                    weight = state.weight.takeIf { it.isNotBlank() },
-                    birthdayExact = state.birthdayExact,
-                    birthdayYearApprox = state.birthdayYearApprox,
-                    birthdayMonthApprox = state.birthdayMonthApprox,
-                )
-
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        pet = updatedPet,
-                        ageText = updatedPet?.let { calculateAge(it) } ?: it.ageText
-                    )
-                }
-
-            } catch (e: Exception) {
-                Log.e("EditPetVM", "Error saving pet detail", e)
-                _uiState.update { it.copy(isLoading = false, error = "저장 실패: ${e.message}") }
-            }
+            currentState.copy(
+                birthdayExact = dateString,
+                birthdayYearApprox = null, // 정확한 날짜가 있으므로 추정 필드는 초기화
+                birthdayMonthApprox = null, // 정확한 날짜가 있으므로 추정 필드는 초기화
+                ageText = calculateAge(tempPet) // 갱신된 정보로 나이 재계산
+            )
         }
     }
 
+    // 편집 취소
+    fun cancelEditing() {
+        if (originalPet != null) {
+            val pet = originalPet!!
+            // DB 성별을 UI 성별로 역변환
+            val translatedGender = translateGender(pet.gender)
+
+            _uiState.update { currentState ->
+                currentState.copy(
+                    petname = pet.name.orEmpty(),
+                    petprofileImageUrl = pet.profileImageUrl,
+                    gender = translatedGender,
+                    isNeutered = pet.isNeutered ?: false,
+                    weight = pet.weight.orEmpty(),
+                    birthdayExact = pet.birthdayExact,
+                    birthdayYearApprox = pet.birthdayYearApprox,
+                    birthdayMonthApprox = pet.birthdayMonthApprox,
+                    newPetprofileImageUri = null,
+                    isEditing = false
+                )
+            }
+        } else {
+            _uiState.update { it.copy(isEditing = false, newPetprofileImageUri = null) }
+        }
+    }
     // ----------------------------------------------------
     // 유틸리티 함수 (PetDetailViewModel과 동일)
     // ----------------------------------------------------
@@ -221,8 +390,7 @@ class EditPetViewModel(
         return try {
             if (!pet.birthdayExact.isNullOrEmpty()) {
                 val birthDate = LocalDate.parse(pet.birthdayExact, DateTimeFormatter.ISO_DATE)
-                val now = LocalDate.now()
-                "${Period.between(birthDate, now).years}세"
+                calculateAge(birthDate)
             } else if (!pet.birthdayYearApprox.isNullOrEmpty()) {
                 val birthYear = pet.birthdayYearApprox.toInt()
                 val currentYear = LocalDate.now().year
@@ -231,5 +399,10 @@ class EditPetViewModel(
                 "?세"
             }
         } catch (e: Exception) { "?세" }
+    }
+
+    private fun calculateAge(birthDate: LocalDate): String {
+        val now = LocalDate.now()
+        return "${Period.between(birthDate, now).years}세"
     }
 }

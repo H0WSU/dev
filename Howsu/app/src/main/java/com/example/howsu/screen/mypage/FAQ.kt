@@ -15,9 +15,10 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -26,7 +27,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -44,6 +45,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.howsu.common.MyBottomNavigationBar
 import com.example.howsu.common.MyFloatingActionButton
+import com.example.howsu.screen.todo.ContentBlack
+import com.example.howsu.screen.todo.YellowBox
 
 data class FAQ(
     val id: Int,
@@ -102,23 +105,23 @@ fun FAQScreen(
     var selectedTag by remember { mutableStateOf("전체 질문") }
 
     Scaffold(
+        containerColor = Color.White,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "자주 묻는 질문",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                actions = {
-                    IconButton(onClick = { navController.popBackStack() }) {  // 전 페이지로 이동
-                        Icon(Icons.Default.Close, contentDescription = "닫기")
+            CenterAlignedTopAppBar(
+                title = { Text(
+                    text = "자주 묻는 질문",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                ) },
+                navigationIcon = {
+                    IconButton(onClick = {navController.popBackStack() }){
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "되돌아가기")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
+                    containerColor = Color.White
+                ),
+                modifier = Modifier.padding(10.dp)
             )
         },
         bottomBar = {MyBottomNavigationBar(navController = navController)},
@@ -209,15 +212,20 @@ fun TagFilterRow(
     }
 }
 
-// 태그 필터 버튼
 @Composable
 fun TagFilterButton(
     tag: String,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer
-    val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+    // 선택됨: 노란색 배경 / 선택 안 됨: 연한 회색 배경
+    val backgroundColor = if (isSelected) YellowBox else Color(0xFFF4F4F4)
+
+    // 선택됨: 진한 검정 글씨 / 선택 안 됨: 회색 글씨
+    val textColor = if (isSelected) ContentBlack else Color.Gray
+
+    // 선택됨: 두꺼운 글씨 / 선택 안 됨: 일반 글씨
+    val fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
 
     Surface(
         shape = RoundedCornerShape(20.dp),
@@ -226,18 +234,19 @@ fun TagFilterButton(
     ) {
         Text(
             text = tag,
-            color = contentColor,
+            color = textColor, // ★ 색상 적용
             style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+            fontWeight = fontWeight,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
     }
 }
 
-
+// 2. 질문 아이템 수정
 @Composable
 fun ExpandableFAQItem(faq: FAQ) {
     var isExpanded by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -251,43 +260,56 @@ fun ExpandableFAQItem(faq: FAQ) {
             verticalAlignment = Alignment.CenterVertically,
         ){
             Column(modifier = Modifier.weight(1f)){
-                // 태그를 제목 위에 작은 글씨로 표시
+                // 태그 (작은 글씨) - 노란색 포인트 줌 (혹은 회색으로 해도 됨)
                 Text(
                     text = faq.tag,
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    color = Color.Gray, // 태그는 너무 튀지 않게 회색 추천, 원하면 YellowBox로 변경 가능
+                    fontWeight = FontWeight.Medium
                 )
-                Spacer(modifier = Modifier.padding(1.dp))
+                Spacer(modifier = Modifier.padding(2.dp))
+
+                // 질문 제목 - ContentBlack 적용
                 Text(
                     text = faq.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
+                    color = ContentBlack, // ★ 진한 검정 적용
                     maxLines = if (isExpanded) Int.MAX_VALUE else 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
+
+            // 화살표 아이콘
             val icon = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown
             Icon(
                 imageVector = icon,
                 contentDescription = if (isExpanded) "닫기" else "펼치기",
-                tint = MaterialTheme.colorScheme.onSurface
+                tint = ContentBlack // ★ 아이콘도 진한 검정
             )
         }
 
+        // 펼쳐졌을 때 내용
         if(isExpanded){
+            Spacer(modifier = Modifier.padding(4.dp))
+            Divider(color = Color(0xFFEEEEEE)) // 구분선 연하게
             Spacer(modifier = Modifier.padding(8.dp))
-            Divider(color = MaterialTheme.colorScheme.outlineVariant)
-            Spacer(modifier = Modifier.padding(8.dp))
+
             Text(
                 text = faq.content,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = ContentBlack.copy(alpha = 0.8f), // ★ 본문은 가독성 위해 살짝 연하게 하거나 그대로 ContentBlack
                 lineHeight = 24.sp,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
         }
     }
-    Divider(modifier = Modifier.padding(horizontal = 16.dp))
+    // 리스트 사이 구분선
+    Divider(
+        color = Color(0xFFF5F5F5),
+        thickness = 1.dp,
+        modifier = Modifier.padding(horizontal = 24.dp)
+    )
 }
 
 @Preview(showBackground = true)

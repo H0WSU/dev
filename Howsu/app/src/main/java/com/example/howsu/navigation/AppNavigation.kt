@@ -1,5 +1,6 @@
 package com.example.howsu.navigation
 
+//import com.example.howsu.screen.pet.PetDetailScreen
 import android.annotation.SuppressLint
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,15 +15,13 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.howsu.Pet.PetRegisterViewModel
-import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.screen.family.FamilyInviteScreen
 import com.example.howsu.screen.family.FamilyJoinCompleteScreen
 import com.example.howsu.screen.family.FamilyRegisterIntroScreen
 import com.example.howsu.screen.family.NicknameRegisterScreen
 import com.example.howsu.screen.family.SetRelationshipScreen
-import com.example.howsu.screen.feed.FeedHomeScreen
 import com.example.howsu.screen.feed.FeedDetailScreen
-import com.example.howsu.screen.feed.FeedSearchScreen
+import com.example.howsu.screen.feed.FeedHomeScreen
 import com.example.howsu.screen.feed.FeedViewModel
 import com.example.howsu.screen.feed.FeedWriteScreen
 import com.example.howsu.screen.home.HomeScreen
@@ -30,12 +29,12 @@ import com.example.howsu.screen.login.AuthViewModel
 import com.example.howsu.screen.login.JoinScreen
 import com.example.howsu.screen.login.LoadingScreen
 import com.example.howsu.screen.login.LoginScreen
+import com.example.howsu.screen.mypage.EditProfileScreen
 import com.example.howsu.screen.mypage.FAQScreen
 import com.example.howsu.screen.mypage.FamilyDetailScreen
 import com.example.howsu.screen.mypage.MypageScreen
 import com.example.howsu.screen.mypage.NotificationScreen
 import com.example.howsu.screen.pet.EditPetScreen
-import com.example.howsu.screen.pet.PetDetailScreen
 import com.example.howsu.screen.pet.PetRegisterCompleteScreen
 import com.example.howsu.screen.pet.PetRegisterScreen
 import com.example.howsu.screen.schedule.CreateScheduleScreen
@@ -171,12 +170,12 @@ fun AppNavigation() {
         }
 
 
-        // --- (마이페이지) ---
+        // home
         composable(route = "home") {
             HomeScreen(navController = navController)
         }
 
-        // 펫 정보 보기
+        // 펫 정보 보기 & 수정
         composable(
             route = "pet_detail/{familyId}/{petId}",
             arguments = listOf(
@@ -184,22 +183,10 @@ fun AppNavigation() {
                 navArgument("petId") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            PetDetailScreen(navController = navController)
+            val familyId = backStackEntry.arguments?.getString("familyId") ?: ""
+            val petId = backStackEntry.arguments?.getString("petId") ?: ""
+            EditPetScreen(familyId = familyId, petId = petId, navController = navController)
         }
-
-        // 펫 정보 수정
-        composable(
-            route = "edit_pet/{familyId}/{petId}", // 경로 패턴 정의
-            arguments = listOf(
-                navArgument("familyId") { type = NavType.StringType },
-                navArgument("petId") { type = NavType.StringType }
-            )
-        ) { backStackEntry ->
-            // EditPetScreen 컴포저블을 호출
-            // SavedStateHandle을 통해 familyId와 petId가 자동으로 ViewModel에 전달됩니다.
-            EditPetScreen(navController = navController)
-        }
-
 
         // --- (스케줄) ---
         composable(route = "schedule") {
@@ -251,14 +238,18 @@ fun AppNavigation() {
         composable("mypage") {
             MypageScreen(navController = navController)
         }
+        composable("edit_profile") {   // 프로필 편집
+            EditProfileScreen(navController = navController)
+        }
+        composable("family_info") {    // 가족 정보
+            FamilyDetailScreen(navController = navController)
+        }
+
         composable("notice") {   // 공지사항
             NotificationScreen(navController = navController)
         }
         composable("faq") {    // 자주 묻는 질문
             FAQScreen(navController = navController)
-        }
-        composable("family_info") {    // 자주 묻는 질문
-            FamilyDetailScreen(navController = navController)
         }
 
 
