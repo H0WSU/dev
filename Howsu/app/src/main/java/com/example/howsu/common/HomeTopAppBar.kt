@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.ButtonDefaults
@@ -38,7 +38,6 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.howsu.data.model.Family
 import com.example.howsu.data.model.FamilyMember
-import com.example.howsu.screen.todo.YellowBox
 
 @Composable
 fun HomeTopAppBar(
@@ -118,59 +117,81 @@ fun FamilyNameSelector(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
+    // 이름 뒤에 '네 가족' / '이네 가족' 붙여주는 로직
+    fun getDisplayName(name: String): String {
+        if (name.isBlank()) return "가족 없음"
+        val lastChar = name.last()
+        val hasBatchim = if (lastChar.code in 0xAC00..0xD7A3) {
+            (lastChar.code - 0xAC00) % 28 > 0
+        } else {
+            false
+        }
+        return if (hasBatchim) "${name}이네 가족" else "${name}네 가족"
+    }
+
+    val displayTitle = getDisplayName(currentFamily.familyName)
+
     // 가족이 여러 개이거나, 현재 선택된 가족이 있다면 드롭다운 표시
     if (allFamilies.size > 1 && currentFamily.familyId.isNotBlank()) {
         Box {
             TextButton(
                 onClick = { expanded = true },
                 colors = ButtonDefaults.textButtonColors(
-                    contentColor = Color.LightGray,
+                    contentColor = Color.Gray, // ★ 버튼 글씨는 원래대로 회색
                     containerColor = Color.Transparent
                 ),
-                contentPadding = PaddingValues(0.dp) // 패딩 제거
+                // ★ 공백 제거 및 높이 고정 (닉네임과 간격 좁힘)
+                contentPadding = PaddingValues(0.dp),
+                modifier = Modifier.height(24.dp) // 글자가 작으므로 높이도 24dp로 더 줄임
             ) {
                 Text(
-                    text = currentFamily.familyName,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.Gray
+                    text = displayTitle,
+                    fontSize = 16.sp,           // ★ 원래대로 16sp
+                    fontWeight = FontWeight.Medium, // ★ 원래대로 Medium
+                    color = Color.Gray          // ★ 원래대로 회색
                 )
                 Icon(
-                    Icons.Default.ArrowDropDown,
+                    Icons.Default.KeyboardArrowDown,
                     contentDescription = "가족 선택",
-                    modifier = Modifier.size(16.dp),
-                    tint = Color.Gray
+                    modifier = Modifier.size(20.dp),
+                    tint = Color.Gray           // ★ 아이콘도 회색
                 )
             }
 
-            // 드롭다운 메뉴
+            // 드롭다운 메뉴 스타일
             DropdownMenu(
                 expanded = expanded,
-                onDismissRequest = { expanded = false }
+                onDismissRequest = { expanded = false },
+                containerColor = Color.White
             ) {
                 allFamilies.forEach { familyItem ->
+                    val isSelected = familyItem.familyId == currentFamily.familyId
+
                     DropdownMenuItem(
                         text = {
                             Text(
-                                text = familyItem.familyName,
-                                fontWeight = if (familyItem.familyId == currentFamily.familyId) FontWeight.Bold else FontWeight.Normal,
-                                color = if (familyItem.familyId == currentFamily.familyId) YellowBox else Color.Gray
+                                text = getDisplayName(familyItem.familyName),
+                                // ★ 드롭다운 안에서는 선택된 것만 진하게(#121212)
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) Color(0xFF121212) else Color.Gray
                             )
                         },
                         onClick = {
                             onFamilySelected(familyItem.familyId)
                             expanded = false
-                        }
+                        },
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                     )
                 }
             }
         }
     } else {
-        // 가족이 1개 이하일 경우 또는 ID가 없을 경우 일반 텍스트 표시
+        // 가족이 1개 이하일 경우 (드롭다운 없음) - 원래 스타일 유지
         Text(
-            text = currentFamily.familyName.ifBlank { "가족 없음" },
+            text = displayTitle,
             fontSize = 16.sp,
-            color = Color.LightGray
+            fontWeight = FontWeight.Medium, // 원래대로
+            color = Color.LightGray // 보내주신 코드에 맞춰 연한 회색
         )
     }
 }

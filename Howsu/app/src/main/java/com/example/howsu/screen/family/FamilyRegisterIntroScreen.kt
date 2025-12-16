@@ -1,6 +1,8 @@
 package com.example.howsu.screen.family
 
 import android.widget.Toast
+import androidx.compose.ui.res.painterResource
+import com.example.howsu.R
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -46,6 +48,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -322,7 +325,7 @@ fun FamilyRegisterTopBar(
                     .align(Alignment.CenterEnd)
             ) {
                 Icon(
-                    imageVector = Icons.Default.QrCodeScanner,
+                    painter = painterResource(id = R.drawable.qr),
                     contentDescription = "QR 스캔",
                     modifier = Modifier.size(24.dp),
                     tint = Color.Black

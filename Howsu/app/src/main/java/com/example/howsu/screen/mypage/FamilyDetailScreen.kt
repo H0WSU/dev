@@ -3,6 +3,8 @@ package com.example.howsu.screen.mypage
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import com.example.howsu.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -51,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -171,7 +174,7 @@ fun FamilyDetailScreen(
                         scanLauncher.launch(options)
                     }) {
                         Icon(
-                            Icons.Filled.QrCodeScanner,
+                            painter = painterResource(id = R.drawable.qr),
                             contentDescription = "QR로 가족 참여",
                             tint = Color.Black
                         )
@@ -204,10 +207,24 @@ fun FamilyDetailScreen(
 
             item {
                 if (familyMembers.isNotEmpty()) {
+                    // ★ [추가] 이름 뒤에 '네'/'이네' 붙이는 로직
+                    val displayName = remember(familyName) {
+                        if (familyName.isBlank()) ""
+                        else {
+                            val lastChar = familyName.last()
+                            val hasBatchim = if (lastChar.code in 0xAC00..0xD7A3) {
+                                (lastChar.code - 0xAC00) % 28 > 0
+                            } else {
+                                false
+                            }
+                            if (hasBatchim) "${familyName}이네 가족" else "${familyName}네 가족"
+                        }
+                    }
+
                     Text(
-                        text = "${familyName}",
+                        text = displayName, // ★ 수정됨 ("${familyName}" -> displayName)
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
+                        fontSize = 18.sp,
                         modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                     )
                 }
@@ -312,19 +329,20 @@ fun FamilyIdSearchBar(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 40.dp, vertical = 20.dp)
+            // 1. 가로는 여전히 넓게(20dp), 바깥 위아래 간격은 적당히(10dp)
+            .padding(horizontal = 20.dp, vertical = 10.dp)
             .border(
-                width = 2.dp, // 테두리 두께, 원하는 대로 조절
-                color = Color.LightGray, // 테두리 색상, 원하는 색상으로 변경 가능
-                shape = RoundedCornerShape(15.dp) // 둥근 모서리 모양 지정
+                width = 2.dp,
+                color = Color.LightGray,
+                shape = RoundedCornerShape(15.dp)
             ),
-        shape = MaterialTheme.shapes.medium,
+        shape = RoundedCornerShape(15.dp), // Surface 모양도 둥글게 일치시킴
         color = Color.White
     ){
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             BasicTextField(
@@ -332,8 +350,8 @@ fun FamilyIdSearchBar(
                 onValueChange = onFamilyCodeChange,
                 singleLine = true,
                 modifier = Modifier
-                    .weight(1f) // 남은 공간 채우기
-                    .padding(vertical = 12.dp),
+                    .weight(1f)
+                    .padding(start = 8.dp, top = 12.dp, bottom = 12.dp),
                 textStyle = LocalTextStyle.current.copy(color = Color.Black, fontSize = 16.sp),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
 
@@ -346,25 +364,25 @@ fun FamilyIdSearchBar(
                                 fontSize = 16.sp
                             )
                         }
-                        innerTextField() // 실제 입력 필드
+                        innerTextField()
                     }
                 }
             )
             IconButton(
                 onClick = onJoinClick,
-                enabled = inputFamilyCode.isNotBlank() && !isLoading
+                enabled = inputFamilyCode.isNotBlank() && !isLoading,
+                modifier = Modifier.size(40.dp) // 버튼 크기도 살짝 키워서 균형 맞춤
             ) {
                 if (isLoading) {
-                    // 로딩 중일 때 로딩 인디케이터 표시
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         strokeWidth = 2.dp
                     )
                 } else {
-                    // 검색 아이콘을 가입 버튼으로 사용
                     Icon(
                         Icons.Filled.Search,
                         contentDescription = "가족 참여",
+                        tint = Color.Gray
                     )
                 }
             }
