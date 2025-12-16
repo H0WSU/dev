@@ -11,6 +11,7 @@ import com.example.howsu.data.model.Comment
 import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.data.model.FeedFilter
 import com.example.howsu.data.model.FeedPost
+import com.example.howsu.data.model.User
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.firestore
@@ -26,6 +27,10 @@ class FeedViewModel : ViewModel() {
     // Firebase 인스턴스
     private val db = Firebase.firestore
     private val auth = Firebase.auth
+
+    // 현재 로그인한 User (계정 정보)
+    private val _currentUser = MutableStateFlow<User?>(null)
+    val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
     // 현재 로그인중인 FamilyMember (프로필, 닉네임)
     private val _currentMember = MutableStateFlow<FamilyMember?>(null)
@@ -56,41 +61,73 @@ class FeedViewModel : ViewModel() {
        1) 내 프로필(FamilyMember) 불러오기
        ------------------------------------------------------------- */
     fun fetchMyProfile() {
-        val uid = auth.currentUser?.uid ?: run {
-            _currentMember.value = null
-            return
-        }
+        val uid = auth.currentUser?.uid ?: return
 
         viewModelScope.launch {
             try {
+                // 1) users 컬렉션에서 familyId 먼저 가져오기
                 val userDoc = db.collection("users").document(uid).get().await()
 
-                if (userDoc.exists()) {
-                    val nickname = userDoc.getString("name") ?: "알 수 없음"
-                    val profileUrl = userDoc.getString("profileImageUrl")
+                val user = User(
+                    uid = uid,
+                    email = userDoc.getString("email"),
+                    name = userDoc.getString("name") ?: "",           // ← 여기!
+                    currentFamilyId = userDoc.getString("currentFamilyId"),
+                    createdAt = userDoc.getLong("createdAt") ?: System.currentTimeMillis()
+                )
+                _currentUser.value = user
 
-                    val me = FamilyMember(
-                        userId = uid,
-                        familyId = "",
-                        nickName = nickname,
-                        profileImageUrl = profileUrl,
-                        relationship = "나"
-                    )
-                    _currentMember.value = me
+                // familyId 는 스키마에 맞게 가져오기
+                val familyId =
+                    user.currentFamilyId                // User에 들어있다면 이걸 쓰고
+                        ?: userDoc.getString("familyId") // 아니면 기존 필드 쓰고
+                        ?: ""
+
+                if (familyId.isEmpty()) {
+                    _currentMember.value = null
+                    return@launch
                 }
+
+                // 2) families/{familyId}/members/{uid} 에서 가족 정보 가져오기
+                val memberDoc = db.collection("families")
+                    .document(familyId)
+                    .collection("members")
+                    .document(uid)
+                    .get()
+                    .await()
+
+                val nicknameInFamily = memberDoc.getString("name") ?: "알 수 없음"
+
+                val profileUrl = memberDoc.getString("profileImageUrl")
+
+                val me = FamilyMember(
+                    userId = uid,
+                    familyId = familyId,
+                    nickName = nicknameInFamily,                         // 방 안 호칭
+                    relationship = memberDoc.getString("relationship") ?: "",
+                    profileImageUrl = profileUrl
+                )
+
+                _currentMember.value = me
+
+
             } catch (e: Exception) {
                 Log.e("FeedViewModel", "fetchMyProfile 실패", e)
             }
         }
     }
 
+
     /* -------------------------------------------------------------
-       2) 피드 목록 불러오기 (Firestore → _posts)
+       2) '내 가족' 피드 목록 불러오기 (Firestore → _posts)
        ------------------------------------------------------------- */
-    fun loadPosts() {
+    fun loadPostsForMyFamily() {
+        val familyId = _currentMember.value?.familyId ?: return
+
         viewModelScope.launch {
             try {
                 val snapshot = db.collection("feeds")
+                    .whereEqualTo("familyId", familyId)              // ✅ 가족 필터
                     .orderBy("createdAt", Query.Direction.DESCENDING)
                     .get()
                     .await()
@@ -102,10 +139,11 @@ class FeedViewModel : ViewModel() {
                 _posts.clear()
                 _posts.addAll(list)
             } catch (e: Exception) {
-                Log.e("FeedViewModel", "loadPosts 실패", e)
+                Log.e("FeedViewModel", "loadPostsForMyFamily 실패", e)
             }
         }
     }
+
 
     /* -------------------------------------------------------------
        3) 탭 필터링 (ALL / TEXT / IMAGE / VIDEO)
@@ -147,12 +185,20 @@ class FeedViewModel : ViewModel() {
     ) {
         val uid = auth.currentUser?.uid ?: return
         val me = currentMember.value
+        val user = currentUser.value
+
+        // 우선순위: User.name → 없으면 방 닉네임 → 그것도 없으면 "익명"
+        val authorName = when {
+            !user?.name.isNullOrBlank() -> user!!.name
+            !me?.nickName.isNullOrBlank() -> me!!.nickName
+            else -> "익명"
+        }
 
         val newPost = FeedPost(
             id = System.currentTimeMillis(),
             authorId = uid,
-            authorName = me?.nickName ?: "익명",
-            authorProfileImage = me?.profileImageUrl,
+            authorName = authorName,
+            authorProfileImage = user?.profileImageUrl,
             title = title,
             content = content,
             imageUris = imageUris,
@@ -160,7 +206,8 @@ class FeedViewModel : ViewModel() {
             hashtags = hashtags,
             likeCount = 0,
             commentCount = 0,
-            createdAt = System.currentTimeMillis()
+            createdAt = System.currentTimeMillis(),
+            familyId = me?.familyId ?: ""
         )
 
         viewModelScope.launch {

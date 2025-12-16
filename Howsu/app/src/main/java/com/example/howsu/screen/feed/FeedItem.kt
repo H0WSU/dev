@@ -10,19 +10,24 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,6 +35,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.howsu.R
 import com.example.howsu.data.model.FeedPost
 
 @Composable
@@ -39,12 +45,18 @@ fun FeedItem(
     onClick: () -> Unit = {},
     onDeleteClick: () -> Unit = {}
 ) {
+    // createdAt( Long ) → "MM/dd HH:mm" 형식으로 변환
+    val dateText = remember(post.createdAt) {
+        java.text.SimpleDateFormat("MM/dd HH:mm", java.util.Locale.KOREAN)
+            .format(java.util.Date(post.createdAt))
+    }
+
     Card(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .clickable { onClick() },
-            colors = CardDefaults.cardColors(
+        colors = CardDefaults.cardColors(
             containerColor = Color.White
         )
     ) {
@@ -53,17 +65,59 @@ fun FeedItem(
                 .fillMaxWidth()
                 .padding(12.dp)
         ) {
-            // 해시태그
+            // 🔹 프로필 + 닉네임 + 날짜 (상단 영역)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (!post.authorProfileImage.isNullOrBlank()) {
+                    AsyncImage(
+                        model = post.authorProfileImage,
+                        contentDescription = "프로필",
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(MaterialTheme.shapes.small)
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(Color.LightGray, shape = MaterialTheme.shapes.small)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Column {
+                    Text(
+                        text = post.authorName,
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White        // 배경이 어두운 카드라면 흰색/연한색으로
+                    )
+                    Text(
+                        text = dateText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Gray
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 🔹 해시태그 (원하면 제목/내용 아래 쪽에 배치)
             if (post.hashtags.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = post.hashtags.joinToString(" ") { "#$it" },
                     fontSize = 12.sp,
-                    color = Color.Blue
+                    color = Color(0xFF3F51B5)
                 )
-                Spacer(modifier = Modifier.height(4.dp))
             }
 
-            // 제목
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 🔹 제목
             Text(
                 text = post.title,
                 fontWeight = FontWeight.Bold,
@@ -72,9 +126,9 @@ fun FeedItem(
                 overflow = TextOverflow.Ellipsis
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
-            // 내용
+            // 🔹 내용
             Text(
                 text = post.content,
                 fontSize = 14.sp,
@@ -86,14 +140,11 @@ fun FeedItem(
 
             // 썸네일 영역
             if (post.imageUris.isNotEmpty() || post.videoUris.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .horizontalScroll(rememberScrollState())
                 ) {
-                    // 사진
                     post.imageUris.forEach { uri ->
                         AsyncImage(
                             model = uri,
@@ -106,8 +157,6 @@ fun FeedItem(
                                 .clip(RoundedCornerShape(8.dp))
                         )
                     }
-
-                    // 동영상 (Coil이 자동으로 첫 프레임을 썸네일로 사용)
                     post.videoUris.forEach { uri ->
                         AsyncImage(
                             model = uri,
@@ -121,21 +170,60 @@ fun FeedItem(
                         )
                     }
                 }
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 좋아요 / 댓글 카운트 + 수정/삭제 버튼
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "♥ ${post.likeCount}  💬 ${post.commentCount}",
-                    fontSize = 12.sp,
-                    color = Color.Gray
-                )
+                // 좋아요 아이콘 + 숫자
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.yellow_heart),
+                        contentDescription = "좋아요",
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
 
+                    if (post.likeCount > 0) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "${post.likeCount}",
+                            color = Color.DarkGray,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // 댓글 아이콘 + 숫자
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.comment),
+                        contentDescription = "댓글",
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    if (post.likeCount > 0) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "${post.likeCount}",
+                            color = Color.DarkGray,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+
+                // 오른쪽 정렬
                 Spacer(modifier = Modifier.weight(1f))
 
                 TextButton(onClick = onClick) {
@@ -145,15 +233,17 @@ fun FeedItem(
                     Text("삭제", fontSize = 12.sp, color = Color.Red)
                 }
             }
+
         }
     }
 }
 
-@Preview(showBackground = true)
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 600)
 @Composable
 fun FeedItemPreview() {
-
     val samplePost = FeedPost(
+        id = 1L,
         authorId = "user123",
         authorName = "홍길동",
         authorProfileImage = "https://picsum.photos/50/50",

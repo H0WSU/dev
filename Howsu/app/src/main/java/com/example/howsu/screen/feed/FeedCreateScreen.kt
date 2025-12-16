@@ -25,6 +25,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -164,7 +165,7 @@ fun FeedWriteScreen(
 
     val context = LocalContext.current
 
-    // 갤러리/파일 앱 선택 후, 사진/동영상 여러 개 받아오는 런처
+    // 갤러리/파일 앱 선택 런처
     val mediaChooserLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -185,6 +186,7 @@ fun FeedWriteScreen(
                     imageUris.add(s)
                     remain--
                 }
+
                 type.startsWith("video/") -> {
                     videoUris.add(s)
                     remain--
@@ -221,14 +223,13 @@ fun FeedWriteScreen(
         }
     }
 
-    // 사진 촬영 시작
     fun startCamera() {
         val uri = createFeedImageUri(context)
         cameraImageUri = uri
         cameraLauncher.launch(uri)
     }
 
-// 2) 동영상 촬영 런처 (기본 카메라 앱 호출)
+    // 2) 동영상 촬영 런처
     val videoCaptureLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -241,13 +242,12 @@ fun FeedWriteScreen(
         }
     }
 
-    // 동영상 촬영 시작
     fun startVideoCapture() {
         val intent = Intent(MediaStore.ACTION_VIDEO_CAPTURE)
         videoCaptureLauncher.launch(intent)
     }
 
-    // 3) 권한 런처: 사진용 / 동영상용 따로
+    // 3) 권한 런처
     val photoPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -264,203 +264,203 @@ fun FeedWriteScreen(
         }
     }
 
-
     val canUpload = title.isNotBlank() && content.isNotBlank()
     val isEditMode = editPost != null
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-    ) {
-        // 상단바
-        FeedWriteTopBar(onCloseClick = onFinishWrite)
+    Scaffold(
+        containerColor = Color.White,
+        topBar = {
+            FeedWriteTopBar(onCloseClick = onFinishWrite)
+        }
+    ) { innerPadding ->
 
-        Column(
+        Box(
             modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 8.dp)
+                .fillMaxSize()
+                .padding(innerPadding)
         ) {
-            // 제목
-            Text("제목", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-            Spacer(Modifier.height(6.dp))
-            OutlinedTextField(
-                value = title,
-                onValueChange = { if (it.length <= titleMax) title = it },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("제목을 입력해 주세요", fontSize = 14.sp) },
-                singleLine = true,
-                shape = RoundedCornerShape(14.dp)
-            )
-            Text(
-                text = "${title.length}/$titleMax",
+            // 스크롤 가능한 본문 (하단 버튼 높이만큼 패딩 추가)
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp),
-                textAlign = TextAlign.End,
-                fontSize = 11.sp,
-                color = Color.Gray
-            )
-
-            Spacer(Modifier.height(20.dp))
-
-            // 내용
-            Text("내용", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-            Spacer(Modifier.height(6.dp))
-            OutlinedTextField(
-                value = content,
-                onValueChange = { if (it.length <= contentMax) content = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp),
-                placeholder = { Text("내용을 입력해 주세요", fontSize = 14.sp) },
-                shape = RoundedCornerShape(14.dp)
-            )
-            Text(
-                text = "${content.length}/$contentMax",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp),
-                textAlign = TextAlign.End,
-                fontSize = 11.sp,
-                color = Color.Gray
-            )
-
-            Spacer(Modifier.height(24.dp))
-
-            // 사진/동영상 추가
-            val mediaCount = imageUris.size + videoUris.size
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 8.dp)
+                    .padding(bottom = 120.dp), // 버튼 공간 확보
             ) {
-                Text("사진/동영상 추가", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                Text("$mediaCount/5", fontSize = 12.sp, color = Color.Gray)
-            }
-            Spacer(Modifier.height(8.dp))
-
-            // + 박스 → 바텀시트 열기
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(140.dp)
-                    .border(
-                        BorderStroke(1.dp, Color(0xFFE5E5E5)),
-                        RoundedCornerShape(16.dp)
-                    )
-                    .clickable { showImageSourceDialog = true },
-                contentAlignment = Alignment.Center
-            ) {
-                Text("+", fontSize = 28.sp, color = Color.Gray)
-            }
-
-            // 선택된 사진/동영상 썸네일
-            SelectedMediaRow(imageUris = imageUris, videoUris = videoUris)
-
-            Spacer(Modifier.height(24.dp))
-
-            // 해시태그
-
-            Text("해시태그", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-            Spacer(Modifier.height(6.dp))
-            OutlinedTextField(
-                value = hashtagInput,
-                onValueChange = { newText ->
-                    hashtagInput = newText
-                    val cleaned = newText
-                        .replace("#", " ")
-                        .trim()
-                        .split(" ")
-                        .filter { it.isNotBlank() }
-
-                    hashtags.clear()
-                    hashtags.addAll(cleaned)
-                },
-                placeholder = { Text("예) #일상 #산책", fontSize = 14.sp, color = Color.Gray) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(14.dp)
-            )
-
-            Spacer(Modifier.height(24.dp))
-        }
-
-        // 업로드 버튼
-        FeedWriteBottomBar(
-            enabled = canUpload,
-            isEditMode = isEditMode
-        ) {
-            if (editPost == null) {
-                viewModel.addPost(
-                    title = title,
-                    content = content,
-                    imageUris = imageUris.toList(),
-                    videoUris = videoUris.toList(),
-                    hashtags = hashtags.toList()
+                // 제목
+                Text("제목", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Spacer(Modifier.height(6.dp))
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { if (it.length <= titleMax) title = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("제목을 입력해 주세요", fontSize = 14.sp) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp)
                 )
-            } else {
-                viewModel.updatePost(
-                    id = editPost.id,
-                    title = title,
-                    content = content,
-                    imageUris = imageUris.toList(),
-                    videoUris = videoUris.toList(),
-                    hashtags = hashtags.toList()
+                Text(
+                    text = "${title.length}/$titleMax",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    textAlign = TextAlign.End,
+                    fontSize = 11.sp,
+                    color = Color.Gray
                 )
-            }
-            onFinishWrite()
-        }
 
-        // 바텀시트: 앨범/카메라 선택
-        if (showImageSourceDialog) {
-            ImageSourceBottomSheet(
-                onDismiss = { showImageSourceDialog = false },
-                onPickGallery = {
-                    showImageSourceDialog = false
+                Spacer(Modifier.height(20.dp))
 
-                    // 이미지 + 동영상, 여러 개 선택 가능
-                    val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-                        type = "*/*"
-                        putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
-                        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-                    }
-                    // 여기서는 createChooser 안 쓰고, OS가 알아서 앱 선택 화면을 띄우게 둠
-                    mediaChooserLauncher.launch(intent)
-                },
-                onTakePhoto = {
-                    showImageSourceDialog = false
+                // 내용
+                Text("내용", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Spacer(Modifier.height(6.dp))
+                OutlinedTextField(
+                    value = content,
+                    onValueChange = { if (it.length <= contentMax) content = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp),
+                    placeholder = { Text("내용을 입력해 주세요", fontSize = 14.sp) },
+                    shape = RoundedCornerShape(14.dp)
+                )
+                Text(
+                    text = "${content.length}/$contentMax",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    textAlign = TextAlign.End,
+                    fontSize = 11.sp,
+                    color = Color.Gray
+                )
 
-                    val granted = ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.CAMERA
-                    ) == PackageManager.PERMISSION_GRANTED
+                Spacer(Modifier.height(24.dp))
 
-                    if (granted) {
-                        startCamera()
-                    } else {
-                        photoPermissionLauncher.launch(Manifest.permission.CAMERA)
-                    }
-                },
-                onTakeVideo = {
-                    showImageSourceDialog = false
-
-                    val granted = ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.CAMERA
-                    ) == PackageManager.PERMISSION_GRANTED
-
-                    if (granted) {
-                        startVideoCapture()
-                    } else {
-                        videoPermissionLauncher.launch(Manifest.permission.CAMERA)
-                    }
+                // 사진/동영상 추가
+                val mediaCount = imageUris.size + videoUris.size
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("사진/동영상 추가", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    Text("$mediaCount/5", fontSize = 12.sp, color = Color.Gray)
                 }
-            )
+                Spacer(Modifier.height(8.dp))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(140.dp)
+                        .border(
+                            BorderStroke(1.dp, Color(0xFFE5E5E5)),
+                            RoundedCornerShape(16.dp)
+                        )
+                        .clickable { showImageSourceDialog = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("+", fontSize = 28.sp, color = Color.Gray)
+                }
+
+                SelectedMediaRow(imageUris = imageUris, videoUris = videoUris)
+
+                Spacer(Modifier.height(24.dp))
+
+                // 해시태그
+                Text("해시태그", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Spacer(Modifier.height(6.dp))
+                OutlinedTextField(
+                    value = hashtagInput,
+                    onValueChange = { newText ->
+                        hashtagInput = newText
+                        val cleaned = newText
+                            .replace("#", " ")
+                            .trim()
+                            .split(" ")
+                            .filter { it.isNotBlank() }
+
+                        hashtags.clear()
+                        hashtags.addAll(cleaned)
+                    },
+                    placeholder = { Text("예) #일상 #산책", fontSize = 14.sp, color = Color.Gray) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp)
+                )
+
+                Spacer(Modifier.height(24.dp))
+            }
+
+            // 하단 버튼: CreateSchedule과 동일한 방식으로 붙이기
+            FeedWriteBottomBar(
+                enabled = canUpload,
+                isEditMode = isEditMode,
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
+                if (editPost == null) {
+                    viewModel.addPost(
+                        title = title,
+                        content = content,
+                        imageUris = imageUris.toList(),
+                        videoUris = videoUris.toList(),
+                        hashtags = hashtags.toList()
+                    )
+                } else {
+                    viewModel.updatePost(
+                        id = editPost.id,
+                        title = title,
+                        content = content,
+                        imageUris = imageUris.toList(),
+                        videoUris = videoUris.toList(),
+                        hashtags = hashtags.toList()
+                    )
+                }
+                onFinishWrite()
+            }
+
+            // 이미지 소스 선택 바텀시트
+            if (showImageSourceDialog) {
+                ImageSourceBottomSheet(
+                    onDismiss = { showImageSourceDialog = false },
+                    onPickGallery = {
+                        showImageSourceDialog = false
+                        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                            type = "*/*"
+                            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
+                            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                        }
+                        mediaChooserLauncher.launch(intent)
+                    },
+                    onTakePhoto = {
+                        showImageSourceDialog = false
+                        val granted = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.CAMERA
+                        ) == PackageManager.PERMISSION_GRANTED
+
+                        if (granted) {
+                            startCamera()
+                        } else {
+                            photoPermissionLauncher.launch(Manifest.permission.CAMERA)
+                        }
+                    },
+                    onTakeVideo = {
+                        showImageSourceDialog = false
+                        val granted = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.CAMERA
+                        ) == PackageManager.PERMISSION_GRANTED
+
+                        if (granted) {
+                            startVideoCapture()
+                        } else {
+                            videoPermissionLauncher.launch(Manifest.permission.CAMERA)
+                        }
+                    }
+                )
+            }
         }
     }
 }
+
 
 /** 피드용 카메라 사진 임시 Uri 생성 */
 private fun createFeedImageUri(context: Context): Uri {

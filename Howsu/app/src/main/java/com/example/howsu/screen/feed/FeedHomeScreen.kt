@@ -42,12 +42,20 @@ fun FeedHomeScreen(
     val filteredPosts = viewModel.filteredPosts
     val selectedFilter = viewModel.selectedFilter
 
-    // 내 프로필 정보 로딩
+    // 프로필 불러오기
     LaunchedEffect(Unit) {
         viewModel.fetchMyProfile()
     }
 
+// myInfo 변화를 보고, familyId가 준비되면 피드 로딩
     val myInfo by viewModel.currentMember.collectAsState()
+
+    LaunchedEffect(myInfo) {
+        myInfo?.let {
+            viewModel.loadPostsForMyFamily()
+        }
+    }
+
 
     // 로딩 중일 때 사용할 임시 데이터
     val displayMember = myInfo ?: FamilyMember(

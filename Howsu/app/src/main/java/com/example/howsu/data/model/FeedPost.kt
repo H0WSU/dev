@@ -23,7 +23,9 @@ data class FeedPost(
     val likeCount: Int = 0,
     val commentCount: Int = 0,
 
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+
+    val familyId: String = ""   //속한 가족
 )
 
 
