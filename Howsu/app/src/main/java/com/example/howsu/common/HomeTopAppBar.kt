@@ -37,7 +37,6 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.howsu.data.model.Family
 import com.example.howsu.data.model.FamilyMember
-import com.example.howsu.screen.todo.YellowBox
 
 @Composable
 fun HomeTopAppBar(
@@ -80,7 +79,7 @@ fun HomeTopAppBar(
             }
         }
 
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(15.dp))
 
         // 2. 가운데 텍스트
         Column(
@@ -94,7 +93,7 @@ fun HomeTopAppBar(
 
             Text(
                 text = member.nickName,
-                fontSize = 18.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold
             )
         }
@@ -121,21 +120,21 @@ fun FamilyNameSelector(
             TextButton(
                 onClick = { expanded = true },
                 colors = ButtonDefaults.textButtonColors(
-                    contentColor = Color.LightGray,
+                    contentColor = Color.White,
                     containerColor = Color.Transparent
                 ),
                 contentPadding = PaddingValues(0.dp) // 패딩 제거
             ) {
                 Text(
                     text = currentFamily.familyName,
-                    fontSize = 16.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color.Gray
                 )
                 Icon(
                     Icons.Default.ArrowDropDown,
                     contentDescription = "가족 선택",
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(15.dp),
                     tint = Color.Gray
                 )
             }
@@ -151,7 +150,7 @@ fun FamilyNameSelector(
                             Text(
                                 text = familyItem.familyName,
                                 fontWeight = if (familyItem.familyId == currentFamily.familyId) FontWeight.Bold else FontWeight.Normal,
-                                color = if (familyItem.familyId == currentFamily.familyId) YellowBox else Color.Gray
+                                color = if (familyItem.familyId == currentFamily.familyId) Color.Black else Color.Gray
                             )
                         },
                         onClick = {
