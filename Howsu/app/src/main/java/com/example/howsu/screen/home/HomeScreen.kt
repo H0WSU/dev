@@ -518,13 +518,25 @@ fun FamilyMemberItem(
                 },
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "${member.nickName} icon",
-                    modifier = Modifier.fillMaxSize(0.7f),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+            val imageUrl = member.profileImageUrl
+
+            if (!imageUrl.isNullOrEmpty()) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = "${member.nickName} 프로필",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop, // 이미지가 잘리지 않도록 Crop 설정
                 )
+            } else {
+                // 프로필 URL이 없을 경우에만 기본 아이콘 표시
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "${member.nickName} icon",
+                        modifier = Modifier.fillMaxSize(0.7f),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
         Spacer(Modifier.height(4.dp))

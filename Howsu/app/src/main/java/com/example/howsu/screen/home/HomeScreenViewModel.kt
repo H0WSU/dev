@@ -64,15 +64,21 @@ class HomeScreenViewModel : ViewModel() {
                 val userDoc = db.collection("users").document(uid).get().await()
                 val user = userDoc.toObject(User::class.java)
 
+                val userName = user?.name ?: "알 수 없음"
+                val userProfileUrl = userDoc.getString("profileImageUrl")
+
                 if (user?.currentFamilyId != null) {
                     // 2. 가족 데이터 가져오기
-                    fetchFamilyData(user.currentFamilyId!!, uid, user.name)
+                    fetchFamilyData(user.currentFamilyId!!, uid, userName, userProfileUrl)
                 } else {
                     // 가족 없음: 임시 멤버 객체 생성
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            member = FamilyMember(nickName = user?.name ?: "알 수 없음")
+                            member = FamilyMember(
+                                nickName = userName,
+                                profileImageUrl = userProfileUrl,
+                            )
                         )
                     }
                 }
@@ -84,7 +90,7 @@ class HomeScreenViewModel : ViewModel() {
     }
 
     /* -------------------------------------------------------------
-      1) 내 프로필(FamilyMember) 불러오기 - (현재 HomeScreen에서 사용 중)
+      1) 내 프로필(FamilyMember) 불러오기
       ------------------------------------------------------------- */
     fun fetchMyProfile() {
         val uid = auth.currentUser?.uid ?: run {
@@ -115,7 +121,12 @@ class HomeScreenViewModel : ViewModel() {
         }
     }
 
-    private suspend fun fetchFamilyData(familyId: String, myUid: String, myName: String) {
+    private suspend fun fetchFamilyData(
+        familyId: String,
+        myUid: String,
+        myName: String,
+        myProfileUrl: String?
+    ) {
         try {
             // A. 가족 정보 가져오기 (객체로 변환)
             val familyDoc = db.collection("families").document(familyId).get().await()
@@ -131,9 +142,13 @@ class HomeScreenViewModel : ViewModel() {
 
             // C. 구성원 목록에서 '나' 찾기 (TopBar 표시용)
             val myMemberInfo = members.find { it.userId == myUid }
-                ?: FamilyMember(nickName = myName, userId = myUid)
+                ?: FamilyMember(
+                    nickName = myName,
+                    userId = myUid,
+                    profileImageUrl = myProfileUrl
+                )
 
-            // ⭐ 수정: member 객체에 현재 familyId를 명확히 할당 ⭐
+            // member 객체에 현재 familyId를 할당
             val myMemberInfoWithFamilyId = myMemberInfo.copy(familyId = familyId)
 
 
@@ -148,7 +163,6 @@ class HomeScreenViewModel : ViewModel() {
                 .await()
 
             val petsList = petsSnapshot.documents.mapNotNull { doc ->
-                // ⭐ 수정: 문서 ID (petId)를 Pet 객체에 할당하여 넘겨줍니다. ⭐
                 val pet = doc.toObject(Pet::class.java)?.copy(petId = doc.id)
 
                 pet?.let {
@@ -164,7 +178,7 @@ class HomeScreenViewModel : ViewModel() {
                 it.copy(
                     isLoading = false,
                     family = familyObj,
-                    member = myMemberInfoWithFamilyId, // ⭐ 수정된 멤버 객체 사용 ⭐
+                    member = myMemberInfoWithFamilyId,
                     pets = petsList,
                     familyMembers = sortedMenbers
                 )
