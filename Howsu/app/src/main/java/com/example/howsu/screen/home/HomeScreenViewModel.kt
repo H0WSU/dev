@@ -27,14 +27,13 @@ data class HomeUiState(
     val member: FamilyMember = FamilyMember(), // TopBar용 내 멤버 정보
     val pets: List<PetUiModel> = emptyList(),
     val familyMembers: List<FamilyMember> = emptyList(),
-    // ★ 1. [추가] 사용자가 소속된 모든 가족 리스트 (선택 드롭다운용)
     val userFamilies: List<Family> = emptyList(),
 )
 
 data class PetUiModel(
     val originalPet: Pet,
     val ageText: String,
-    val displayGender: String
+    val genderText: String,
 )
 
 class HomeScreenViewModel : ViewModel() {
@@ -45,40 +44,16 @@ class HomeScreenViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState(isLoading = true))
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    // 현재 로그인중인 FamilyMember (프로필, 닉네임)
+    // TopBar에 표시되는 내 프로필 (가족 변경 시 업데이트)
     private val _currentMember = MutableStateFlow<FamilyMember?>(null)
     val currentMember: StateFlow<FamilyMember?> = _currentMember.asStateFlow()
 
     init {
-        // ★ fetchHomeData() 대신 fetchInitialData()를 호출하여 모든 가족 정보를 먼저 로드
-        fetchInitialData()
+        // ViewModel 초기화 시 전체 홈 데이터 로드
+        loadHomeData()
     }
 
-    // ★ 2. [추가] 가족 ID 변경 함수
-    fun updateCurrentFamily(newFamilyId: String) {
-        if (newFamilyId == _uiState.value.family.familyId) return
-
-        _uiState.update { it.copy(isLoading = true) }
-        viewModelScope.launch {
-            try {
-                // 1. 유저 문서의 currentFamilyId 업데이트
-                val uid = auth.currentUser?.uid ?: return@launch
-                db.collection("users").document(uid)
-                    .update("currentFamilyId", newFamilyId)
-                    .await()
-
-                // 2. 새로운 가족 ID로 홈 데이터 다시 로드
-                fetchHomeData(newFamilyId)
-
-            } catch (e: Exception) {
-                Log.e("HomeScreenVM", "Error updating current family ID", e)
-                _uiState.update { it.copy(isLoading = false) }
-            }
-        }
-    }
-
-    // ★ 3. [수정] 초기 데이터 로드 (모든 소속 가족 리스트 로드)
-    private fun fetchInitialData() {
+    fun loadHomeData() {
         viewModelScope.launch {
             val uid = auth.currentUser?.uid
             if (uid == null) {
@@ -95,21 +70,18 @@ class HomeScreenViewModel : ViewModel() {
                 val userName = user?.name ?: "알 수 없음"
                 val userProfileUrl = userDoc.getString("profileImageUrl")
 
-                // 2. [추가] 사용자가 소속된 모든 가족 ID를 포함하는 Family 문서 찾기
-                // Firestore 쿼리: memberIds 필드에 현재 UID가 포함된 모든 Family 문서
+                // 2. 사용자가 소속된 모든 가족 리스트 로드 (FamilyDropdownSelector용)
                 val allFamiliesSnapshot = db.collection("families")
                     .whereArrayContains("memberIds", uid)
                     .get()
                     .await()
-
                 val allFamilies = allFamiliesSnapshot.documents.mapNotNull { it.toObject(Family::class.java) }
-
                 _uiState.update { it.copy(userFamilies = allFamilies) }
 
 
                 if (currentFamilyId.isNotEmpty()) {
                     // 3. 현재 활성화된 가족 ID로 전체 홈 데이터 로드
-                    fetchHomeData(currentFamilyId)
+                    fetchAllHomeData(currentFamilyId)
                 } else {
                     // 가족 없음: 임시 멤버 객체 생성
                     _uiState.update {
@@ -129,14 +101,17 @@ class HomeScreenViewModel : ViewModel() {
         }
     }
 
-    // ★ 4. [수정] fetchHomeData는 이제 인자로 familyId를 받습니다.
-    private suspend fun fetchHomeData(
+
+    /**
+     * ★ [수정/이름 변경] 특정 가족의 모든 정보 로드
+     */
+    private suspend fun fetchAllHomeData(
         familyId: String,
     ) {
         val myUid = auth.currentUser?.uid ?: return
 
         try {
-            // User 문서에서 최신 name과 profileUrl을 다시 가져옵니다.
+            // User 문서에서 최신 name과 profileUrl을 다시 가져옴
             val userDoc = db.collection("users").document(myUid).get().await()
             val myName = userDoc.getString("name") ?: "알 수 없음"
             val myProfileUrl = userDoc.getString("profileImageUrl")
@@ -164,11 +139,9 @@ class HomeScreenViewModel : ViewModel() {
             // member 객체에 현재 familyId를 할당
             val myMemberInfoWithFamilyId = myMemberInfo.copy(familyId = familyId)
 
-            val sortedMenbers = members.sortedWith(   // 사용자 본인을 가장 앞에 보여줌
-                compareByDescending { it.userId == myUid }
-            )
+            val sortedMenbers = members.sortedByDescending { it.userId == myUid }
 
-            // D. 펫 목록 가져오기
+            // D. 펫 목록 가져오기 ★ (이 부분이 펫 정보 새로고침의 핵심)
             val petsSnapshot = db.collection("families").document(familyId)
                 .collection("pets")
                 .get()
@@ -191,20 +164,44 @@ class HomeScreenViewModel : ViewModel() {
                     isLoading = false,
                     family = familyObj,
                     member = myMemberInfoWithFamilyId,
-                    pets = petsList,
+                    pets = petsList, // ★ 펫 리스트 갱신
                     familyMembers = sortedMenbers
                 )
             }
 
         } catch (e: Exception) {
             Log.e("HomeScreenVM", "Error fetching family data", e)
+            _uiState.update { it.copy(isLoading = false) }
         }
     }
 
 
-    /* -------------------------------------------------------------
-      1) 내 프로필(FamilyMember) 불러오기 (초기 가족 ID가 바뀔 수 있어 수정)
-      ------------------------------------------------------------- */
+    // ----------------------------------------------------
+    // 가족 변경 및 기타 함수 (기존 로직 유지)
+    // ----------------------------------------------------
+
+    fun updateCurrentFamily(newFamilyId: String) {
+        if (newFamilyId == _uiState.value.family.familyId) return
+
+        _uiState.update { it.copy(isLoading = true) }
+        viewModelScope.launch {
+            try {
+                // 1. 유저 문서의 currentFamilyId 업데이트
+                val uid = auth.currentUser?.uid ?: return@launch
+                db.collection("users").document(uid)
+                    .update("currentFamilyId", newFamilyId)
+                    .await()
+
+                // 2. 새로운 가족 ID로 홈 데이터 다시 로드
+                loadHomeData()
+
+            } catch (e: Exception) {
+                Log.e("HomeScreenVM", "Error updating current family ID", e)
+                _uiState.update { it.copy(isLoading = false) }
+            }
+        }
+    }
+
     fun fetchMyProfile() {
         val uid = auth.currentUser?.uid ?: run {
             _currentMember.value = null

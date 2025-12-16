@@ -23,15 +23,15 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown // ★ 추가
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu // ★ 추가
-import androidx.compose.material3.DropdownMenuItem // ★ 추가
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -39,12 +39,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf // ★ 추가
-import androidx.compose.runtime.remember // ★ 추가
-import androidx.compose.runtime.setValue // ★ 추가
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +57,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
@@ -85,8 +89,26 @@ fun HomeScreen(
     val currentWeekStart by todoViewModel.currentWeekStart.collectAsState()
 
     // 내 프로필 정보 로딩
-    LaunchedEffect(uiState.family.familyId) { // 가족 ID가 변경될 때마다 내 프로필도 새로고침
+    LaunchedEffect(uiState.family.familyId) { // ★ 가족 ID가 변경될 때마다 내 프로필도 새로고침
         viewModel.fetchMyProfile()
+    }
+
+    // 1. [핵심 수정] LifecycleEventObserver를 사용하여 화면의 생명주기를 관찰합니다.
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            // 화면이 다시 활성화될 때 (예: 펫 편집 화면에서 뒤로 가기)
+            if (event == Lifecycle.Event.ON_RESUME) {
+                // 홈 화면 전체 데이터 로드(펫 목록 포함)를 강제 실행합니다.
+                viewModel.loadHomeData()
+                Log.d("HomeScreen", "ON_RESUME: Calling viewModel.loadHomeData()")
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     val myInfo by viewModel.currentMember.collectAsState()
@@ -106,8 +128,8 @@ fun HomeScreen(
             HomeTopAppBar(
                 member = displayMember,
                 family = uiState.family,
-                userFamilies = uiState.userFamilies,
-                onFamilySelected = viewModel::updateCurrentFamily,
+                userFamilies = uiState.userFamilies, // ★ 추가
+                onFamilySelected = viewModel::updateCurrentFamily, // ★ 추가
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 40.dp)
             )
         },
@@ -231,7 +253,7 @@ fun HomeScreen(
     }
 }
 
-// ★ 8. [추가] 가족 드롭다운 컴포넌트
+// 가족 드롭다운 컴포넌트
 @Composable
 fun FamilyDropdownSelector(
     currentFamily: Family,
@@ -462,7 +484,7 @@ fun PetCard(
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            text = "${petModel.ageText} | ${petModel.displayGender ?: "성별미상"}",
+                            text = "${petModel.ageText} | ${petModel.genderText ?: "성별미상"}",
                             color = ContentBlack.copy(alpha = 0.7f),
                             fontWeight = FontWeight.Medium
                         )
