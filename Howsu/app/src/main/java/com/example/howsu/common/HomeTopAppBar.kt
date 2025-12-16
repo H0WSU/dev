@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -55,8 +56,14 @@ fun HomeTopAppBar(
                 modifier = Modifier
                     .size(42.dp)
                     .clip(CircleShape)
-                    .background(Color.Gray)
-            )
+                    .background(Color.LightGray)
+            ){
+                Icon(
+                    imageVector = Icons.Filled.Person,
+                    contentDescription = "기본 프로필",
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
         }
 
         Spacer(Modifier.width(12.dp))
