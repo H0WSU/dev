@@ -38,7 +38,6 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.howsu.data.model.Family
 import com.example.howsu.data.model.FamilyMember
-import com.example.howsu.screen.todo.YellowBox
 
 @Composable
 fun HomeTopAppBar(
