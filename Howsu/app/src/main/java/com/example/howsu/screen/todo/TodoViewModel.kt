@@ -5,8 +5,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.howsu.data.model.TodoGroup
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -23,6 +25,9 @@ import java.util.Locale
 class TodoViewModel : ViewModel() {
 
     private val db = Firebase.firestore
+
+    // 실시간 업데이트 리스너
+    private var listenerRegistration: ListenerRegistration? = null
 
     private val _allTodoGroups = MutableStateFlow<List<TodoGroup>>(emptyList())
 
@@ -55,6 +60,23 @@ class TodoViewModel : ViewModel() {
         fetchTodoGroups()
     }
 
+    // ★★★ [이 함수가 없어서 빨간 줄이 떴던 겁니다!] ★★★
+    fun updateCurrentFamily(familyId: String) {
+        if (familyId.isBlank()) return
+
+        // 1. 기존 리스너 제거
+        listenerRegistration?.remove()
+
+        // 2. 리스트 초기화
+        _allTodoGroups.value = emptyList()
+
+        // 3. 새 가족 리스너 연결
+        startListeningToTodos(familyId)
+
+        // 4. 지난 할 일 정리 (백그라운드)
+        checkAndMigrateOverdueTasks(familyId)
+    }
+
     fun fetchTodoGroups() {
         val currentUser = Firebase.auth.currentUser
         if (currentUser == null) {
@@ -71,11 +93,8 @@ class TodoViewModel : ViewModel() {
                 val myFamilyId = document.getString("currentFamilyId")
 
                 if (myFamilyId != null) {
-                    // ★★★ [추가됨] 지난 할 일 체크 및 오늘로 이동시키기 (여기!!)
-                    checkAndMigrateOverdueTasks(myFamilyId)
-
-                    // 2단계: 투두 구독
-                    startListeningToTodos(myFamilyId)
+                    // ★ 이제 빨간 줄 안 뜸 (위에 함수를 만들었으니까)
+                    updateCurrentFamily(myFamilyId)
                 } else {
                     Log.e("TodoViewModel", "가족 ID를 찾을 수 없습니다.")
                     _allTodoGroups.value = emptyList()
@@ -86,15 +105,14 @@ class TodoViewModel : ViewModel() {
             }
     }
 
-    // ★★★ [추가됨] 지난 할 일(미완료) 오늘로 자동 이월 함수
+    // 지난 할 일(미완료) 오늘로 자동 이월 함수
     private fun checkAndMigrateOverdueTasks(familyId: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 val today = LocalDate.now()
                 val formatter = DateTimeFormatter.ofPattern("yyyy. MM. dd", Locale.KOREA)
                 val todayStr = today.format(formatter)
 
-                // 1. 우리 가족의 모든 투두 가져오기
                 val snapshot = db.collection("todoGroups")
                     .whereEqualTo("familyId", familyId)
                     .get()
@@ -116,7 +134,6 @@ class TodoViewModel : ViewModel() {
                             null
                         }
 
-                        // 조건: "체크 안 됨" AND "오늘보다 이전 날짜" -> 오늘로 변경
                         if (task.isChecked.not() && taskDate != null && taskDate.isBefore(today)) {
                             groupUpdated = true
                             hasUpdates = true
@@ -141,9 +158,11 @@ class TodoViewModel : ViewModel() {
             }
         }
     }
-    // 실제 투두 리스너 (가족 ID가 있을 때만 실행)
+
     private fun startListeningToTodos(familyId: String) {
-        db.collection("todoGroups")
+        listenerRegistration?.remove()
+
+        listenerRegistration = db.collection("todoGroups")
             .whereEqualTo("familyId", familyId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
@@ -161,6 +180,11 @@ class TodoViewModel : ViewModel() {
                     _allTodoGroups.value = groups
                 }
             }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        listenerRegistration?.remove()
     }
 
     fun resetToToday() {

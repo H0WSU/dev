@@ -3,8 +3,6 @@ package com.example.howsu.screen.mypage
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
-import androidx.compose.ui.res.painterResource
-import com.example.howsu.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -24,7 +22,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -60,7 +57,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
-import com.example.howsu.screen.family.PortraitCaptureActivity // ⭐️ QR 스캔을 위해 필요
+import com.example.howsu.R
+import com.example.howsu.screen.family.PortraitCaptureActivity
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import java.net.URLEncoder
@@ -130,6 +128,9 @@ fun FamilyDetailScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        viewModel.loadMyFamilyInfo()
+    }
 
     // 가입 상태 변화 시 토스트 메시지 및 네비게이션 처리
     LaunchedEffect(joinStatus) {

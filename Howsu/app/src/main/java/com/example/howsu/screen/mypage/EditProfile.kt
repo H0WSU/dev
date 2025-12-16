@@ -3,9 +3,13 @@ package com.example.howsu.screen.mypage
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,34 +24,33 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.outlined.ModeEdit
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -101,7 +104,7 @@ fun EditProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(32.dp))
@@ -113,7 +116,7 @@ fun EditProfileScreen(
                 isEditing = uiState.isEditing,
                 onImageClick = {
                     imagePickerLauncher.launch("image/*")
-                }
+                },
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -220,47 +223,48 @@ private fun SaveBottomButton(
 @Composable
 fun ProfileImageArea(
     profileImageUrl: String?,
-    newProfileImageUri: Uri?, // 로컬 URI를 추가로 받음
+    newProfileImageUri: Uri?,
     isEditing: Boolean,
     onImageClick: () -> Unit
 ) {
     val imageSource = if (newProfileImageUri != null) newProfileImageUri else profileImageUrl
 
     Box(
-        modifier = Modifier.size(200.dp),   // 프로필 크기 수정 1
-        contentAlignment = Alignment.BottomEnd
+        modifier = Modifier.size(200.dp),
+        contentAlignment = Alignment.Center // ★ 수정: 중앙 정렬로 변경 (아이콘 배치를 위해)
     ) {
         // 프로필 이미지 표시
         AsyncImage(
             model = imageSource,
             contentDescription = "프로필 사진",
             modifier = Modifier
-                .size(200.dp)   // 프로필 크기 수정 2
+                .size(200.dp)
                 .clip(CircleShape)
                 .background(Color.LightGray),
             contentScale = ContentScale.Crop,
-
         )
 
         // 편집 모드일 때만 이미지 변경 아이콘 표시
         if (isEditing) {
             Surface(
                 onClick = onImageClick,
+                shape = CircleShape,
+                color = YellowBox,
+                shadowElevation = 4.dp,
                 modifier = Modifier
-                    .size(40.dp) // 크기를 약간 키워 시인성 확보
-                    .offset(x = (-4).dp, y = (-4).dp) // 위치를 오른쪽 아래로 옮겨 프로필 테두리에 걸치도록 조정
-                    .clip(CircleShape)
-                    // Surface에 그림자(Elevation) 추가하여 떠있는 느낌 부여
-                    .shadow(4.dp, shape = CircleShape),
-                color = YellowBox  // 아이콘 색
-
+                    .size(40.dp)
+                    .align(Alignment.BottomEnd) // 우측 하단 배치
+                    // ★ 수정됨: 위치를 안쪽으로 조금 더 당김 (-10dp)
+                    .offset(x = (-10).dp, y = (-10).dp)
             ) {
-                Icon(
-                    Icons.Outlined.ModeEdit,
-                    contentDescription = "사진 변경",
-                    // Icon 색상을 흰색으로 지정하여 배경색과 대비
-                    modifier = Modifier.padding(10.dp) // 아이콘 크기 조정
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "사진 변경",
+                        modifier = Modifier.size(15.dp),
+                        tint = ContentBlack
+                    )
+                }
             }
         }
     }
@@ -274,6 +278,9 @@ fun UserInfoFields(
     onNameChange: (String) -> Unit,
     onRelationChange: (String) -> Unit // 관계 변경 핸들러
 ) {
+    // 1. 다이얼로그 표시 상태 추가
+    var showRelationDialog by remember { mutableStateOf(false) }
+
     // 1. 아이디 (읽기 전용)
     ProfileField(
         label = "아이디",
@@ -292,7 +299,6 @@ fun UserInfoFields(
         textAlign = TextAlign.Start // 왼쪽 정렬
 
     )
-
     Spacer(modifier = Modifier.height(16.dp))
 
     // 2. 닉네임 (닉네임)
@@ -310,78 +316,64 @@ fun UserInfoFields(
         style = MaterialTheme.typography.bodySmall,
         modifier = Modifier.fillMaxWidth()
     )
-
-    Spacer(modifier = Modifier.height(8.dp))
+    Spacer(modifier = Modifier.height(16.dp))
 
     val isFamilyMember = !uiState.currentFamilyId.isNullOrBlank()
     val isSelectable = uiState.isEditing && isFamilyMember
 
     var expanded by remember { mutableStateOf(false) }
 
-    // 로딩 중에는 로딩 인디케이터 표시
-    if (uiState.isRelationLoading){
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp), // TextField 높이와 유사하게 설정
-            contentAlignment = Alignment.CenterStart
-        ) {
-            CircularProgressIndicator(Modifier.size(24.dp))
-        }
-    } else {
-        ExposedDropdownMenuBox(
-            expanded = expanded,
-            onExpandedChange = {
+    Surface(
+        modifier = Modifier
+            .height(56.dp)
+            .clip(RoundedCornerShape(25.dp))
+            .clickable(enabled = isSelectable) {
                 if (isSelectable) {
-                    expanded = !expanded
+                    showRelationDialog = true
                 }
             },
-            modifier = Modifier.fillMaxWidth()
+        shape = RoundedCornerShape(25.dp),
+        border = BorderStroke(1.dp, Color.LightGray.copy(alpha = 0.7f)),
+        color = Color.Transparent, // 배경 투명
+        shadowElevation = 0.dp // 그림자 없음
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp), // 내부 패딩
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween // 텍스트와 아이콘을 양 끝에 배치
         ) {
-            TextField(
-                value = uiState.relationship,
-                onValueChange = {}, // 드롭다운이므로 직접 수정 불가
-                readOnly = true,
-                label = { Text("가족 내 관계") },
-                trailingIcon = {
-                    if (isSelectable) {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                    } else {
-                        // 선택 불가 시 다른 아이콘 또는 빈 공간
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                    }
-                },
-                modifier = Modifier
-                    .menuAnchor()
-                    .fillMaxWidth(),
-                enabled = isSelectable, // 편집 가능 여부
-                colors = TextFieldDefaults.colors(
-                    focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-                    unfocusedIndicatorColor = Color.LightGray.copy(alpha = 0.7f),
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    disabledContainerColor = Color.Transparent,
-                    disabledTextColor = if (isFamilyMember) Color.Black else Color.Gray // 가족 소속 여부에 따른 텍스트 색상
-                )
+            // 선택된 관계 텍스트
+            Text(
+                text = uiState.relationship,
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
+                // isSelectable에 따라 텍스트 색상 조정
+                color = if (isSelectable) Color.Black else Color.Gray,
+                fontWeight = FontWeight.Normal
             )
 
-            // 드롭다운 메뉴
-            ExposedDropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
-                uiState.relationshipOptions.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option) },
-                        onClick = {
-                            onRelationChange(option) // 선택된 값 ViewModel에 업데이트
-                            expanded = false
-                        },
-                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
-                    )
-                }
-            }
+            // 드롭다운 아이콘
+            Icon(
+                Icons.Filled.ArrowDropDown,
+                contentDescription = null,
+                tint = if (isSelectable) Color.Black else Color.Gray // isSelectable에 따라 아이콘 색상 조정
+            )
         }
+    }
+
+
+    // 3. RelationPickerDialog 호출 (로직 유지)
+    if (showRelationDialog) {
+        RelationBottomSheet(
+            currentRelation = uiState.relationship,
+            relations = uiState.relationshipOptions,
+            onDismiss = { showRelationDialog = false },
+            onRelationSelected = { selected ->
+                onRelationChange(selected) // 선택된 값 ViewModel에 업데이트
+                showRelationDialog = false
+            }
+        )
     }
 }
 
@@ -417,5 +409,84 @@ fun ProfileField(
                 disabledContainerColor = Color.Transparent,
             ),
         )
+    }
+}
+
+
+// 재정의
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RelationBottomSheet(
+    currentRelation: String,
+    relations: List<String>, // RelationBottomSheet에는 이 파라미터가 없으나, 여기서는 사용
+    onDismiss: () -> Unit,
+    onRelationSelected: (String) -> Unit // onConfirm과 동일 역할
+) {
+    var selected by rememberSaveable {
+        mutableStateOf(if (currentRelation.isNotBlank()) currentRelation else relations[0])
+    }
+
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+        containerColor = Color.White
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "어떤 역할을 맡고 있나요?",
+                fontSize = 16.sp,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            relations.forEach { rel ->
+                val isSelected = rel == selected
+
+                Text(
+                    text = rel,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                        .clickable { selected = rel },
+                    textAlign = TextAlign.Center,
+                    fontSize = if (isSelected) 22.sp else 16.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isSelected) Color.Black else Color(0xFFBDBDBD)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = {
+                    onRelationSelected(selected) // onRelationSelected 사용
+                    onDismiss()
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Black, // 기존 RelationBottomSheet은 Black
+                    contentColor = Color.White
+                )
+            ) {
+                Text(text = "선택 완료")
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+        }
     }
 }

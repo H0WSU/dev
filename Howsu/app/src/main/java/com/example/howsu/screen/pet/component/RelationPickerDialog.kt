@@ -30,6 +30,8 @@ fun RelationPickerDialog(
                 Text("닫기")
             }
         },
+        containerColor = Color.White,
+        tonalElevation = 0.dp,
         title = { Text("어떤 역할을 맡고 있나요?") },
         text = {
             Column {
@@ -43,7 +45,7 @@ fun RelationPickerDialog(
                             .padding(vertical = 6.dp),
                         fontSize = 15.sp,
                         fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                        color = if (selected) Color.Black else Color.Gray
+                        color = if (selected) Color(0xFFFFDF37) else Color.Black
                     )
                 }
             }

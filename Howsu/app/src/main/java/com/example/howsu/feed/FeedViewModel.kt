@@ -11,7 +11,10 @@ import com.example.howsu.data.model.Comment
 import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.data.model.FeedFilter
 import com.example.howsu.data.model.FeedPost
+import com.example.howsu.data.model.User
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
@@ -20,6 +23,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlin.collections.filter
+import kotlin.collections.sortedByDescending
 
 class FeedViewModel : ViewModel() {
 
@@ -27,9 +32,20 @@ class FeedViewModel : ViewModel() {
     private val db = Firebase.firestore
     private val auth = Firebase.auth
 
+    // 현재 로그인한 User (계정 정보)
+    private val _currentUser = MutableStateFlow<User?>(null)
+    val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
+
     // 현재 로그인중인 FamilyMember (프로필, 닉네임)
     private val _currentMember = MutableStateFlow<FamilyMember?>(null)
     val currentMember: StateFlow<FamilyMember?> = _currentMember.asStateFlow()
+
+    var searchQuery by mutableStateOf("")
+        private set
+
+    fun changeFilter(filter: FeedFilter) {
+        selectedFilter = filter
+    }
 
     // 피드 목록
     private val _posts = mutableStateListOf<FeedPost>()
@@ -51,61 +67,102 @@ class FeedViewModel : ViewModel() {
     private val _likedCommentIds = MutableStateFlow<Set<String>>(emptySet())
     val likedCommentIds: StateFlow<Set<String>> = _likedCommentIds.asStateFlow()
 
+    private var feedListener: ListenerRegistration? = null
 
     /* -------------------------------------------------------------
        1) 내 프로필(FamilyMember) 불러오기
        ------------------------------------------------------------- */
     fun fetchMyProfile() {
-        val uid = auth.currentUser?.uid ?: run {
-            _currentMember.value = null
-            return
-        }
+        val uid = auth.currentUser?.uid ?: return
 
         viewModelScope.launch {
             try {
+                // 1) users 컬렉션에서 familyId 먼저 가져오기
                 val userDoc = db.collection("users").document(uid).get().await()
 
-                if (userDoc.exists()) {
-                    val nickname = userDoc.getString("name") ?: "알 수 없음"
-                    val profileUrl = userDoc.getString("profileImageUrl")
+                val user = User(
+                    uid = uid,
+                    email = userDoc.getString("email"),
+                    name = userDoc.getString("name") ?: "",           // ← 여기!
+                    currentFamilyId = userDoc.getString("currentFamilyId"),
+                    createdAt = userDoc.getLong("createdAt") ?: System.currentTimeMillis()
+                )
+                _currentUser.value = user
 
-                    val me = FamilyMember(
-                        userId = uid,
-                        familyId = "",
-                        nickName = nickname,
-                        profileImageUrl = profileUrl,
-                        relationship = "나"
-                    )
-                    _currentMember.value = me
+                // familyId 는 스키마에 맞게 가져오기
+                val familyId =
+                    user.currentFamilyId                // User에 들어있다면 이걸 쓰고
+                        ?: userDoc.getString("familyId") // 아니면 기존 필드 쓰고
+                        ?: ""
+
+                if (familyId.isEmpty()) {
+                    _currentMember.value = null
+                    return@launch
                 }
+
+                // 2) families/{familyId}/members/{uid} 에서 가족 정보 가져오기
+                val memberDoc = db.collection("families")
+                    .document(familyId)
+                    .collection("members")
+                    .document(uid)
+                    .get()
+                    .await()
+
+                val nicknameInFamily = memberDoc.getString("nickName") ?: "알 수 없음"
+
+                val profileUrl = memberDoc.getString("profileImageUrl")
+
+                val me = FamilyMember(
+                    userId = uid,
+                    familyId = familyId,
+                    nickName = nicknameInFamily,
+                    relationship = memberDoc.getString("relationship") ?: "",
+                    profileImageUrl = profileUrl
+                )
+
+                _currentMember.value = me
+
+
             } catch (e: Exception) {
                 Log.e("FeedViewModel", "fetchMyProfile 실패", e)
             }
         }
     }
 
-    /* -------------------------------------------------------------
-       2) 피드 목록 불러오기 (Firestore → _posts)
-       ------------------------------------------------------------- */
-    fun loadPosts() {
-        viewModelScope.launch {
-            try {
-                val snapshot = db.collection("feeds")
-                    .orderBy("createdAt", Query.Direction.DESCENDING)
-                    .get()
-                    .await()
 
-                val list = snapshot.documents.mapNotNull { doc ->
-                    doc.toObject(FeedPost::class.java)
+    /* -------------------------------------------------------------
+       2) '내 가족' 피드 목록 불러오기 (Firestore → _posts)
+       ------------------------------------------------------------- */
+    fun loadPostsForMyFamilyRealtime() {
+        val familyId = _currentMember.value?.familyId ?: return
+
+        // 이미 리스너 있으면 제거 (중복 방지)
+        feedListener?.remove()
+
+        feedListener = db.collection("feeds")
+            .whereEqualTo("familyId", familyId)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (snapshot == null) return@addSnapshotListener
+
+                val newList = snapshot.documents.mapNotNull { doc ->
+                    val post = doc.toObject(FeedPost::class.java) ?: return@mapNotNull null
+                    val isLiked = _likedPostIds.value.contains(post.id)
+                    post.copy(isLiked = isLiked)
                 }
 
                 _posts.clear()
-                _posts.addAll(list)
-            } catch (e: Exception) {
-                Log.e("FeedViewModel", "loadPosts 실패", e)
+                _posts.addAll(newList)
             }
-        }
+
     }
+
+    override fun onCleared() {
+        super.onCleared()
+        feedListener?.remove()
+        feedListener = null
+    }
+
 
     /* -------------------------------------------------------------
        3) 탭 필터링 (ALL / TEXT / IMAGE / VIDEO)
@@ -126,12 +183,30 @@ class FeedViewModel : ViewModel() {
                     it.videoUris.isNotEmpty()
                 }
             }
+
+            //검색 기능 추가
+            val raw = searchQuery.trim()
+            if(raw.isBlank()) return base.sortedByDescending { it.createdAt }
+
+            val q = raw.lowercase()
+
+            val searched = if(q.startsWith("#")){
+                val tag = q.removePrefix("#").trim()
+                if(tag.isBlank()){
+                    base
+                }else{
+                    base.filter { post ->
+                        post.hashtags.any{it.lowercase().contains(tag)}
+                    }
+                }
+            }else{
+                base.filter { post ->
+                    post.title.lowercase().contains(q) || post.content.lowercase().contains(q)
+                }
+            }
+
             return base.sortedByDescending { it.createdAt }
         }
-
-    fun changeFilter(filter: FeedFilter) {
-        selectedFilter = filter
-    }
 
     /* -------------------------------------------------------------
        4) 글 작성 (Firestore 저장 + 로컬 리스트 추가)
@@ -142,42 +217,66 @@ class FeedViewModel : ViewModel() {
         imageUris: List<String>,
         videoUris: List<String>,
         hashtags: List<String>,
-        onSuccess: () -> Unit = {},
-        onError: (Throwable) -> Unit = {}
+        onComplete: () -> Unit = {} // ★ 이름 변경 & 기본값 추가
     ) {
         val uid = auth.currentUser?.uid ?: return
-        val me = currentMember.value
-
-        val newPost = FeedPost(
-            id = System.currentTimeMillis(),
-            authorId = uid,
-            authorName = me?.nickName ?: "익명",
-            authorProfileImage = me?.profileImageUrl,
-            title = title,
-            content = content,
-            imageUris = imageUris,
-            videoUris = videoUris,
-            hashtags = hashtags,
-            likeCount = 0,
-            commentCount = 0,
-            createdAt = System.currentTimeMillis()
-        )
 
         viewModelScope.launch {
             try {
+                // 1) 프로필/유저 정보 로딩 대기
+                val me = currentMember.value ?: run {
+                    fetchMyProfile()
+                    kotlinx.coroutines.delay(300)
+                    currentMember.value ?: return@launch // 로딩 실패 시 중단
+                }
+
+                val user = currentUser.value ?: run {
+                    fetchMyProfile()
+                    kotlinx.coroutines.delay(300)
+                    currentUser.value ?: return@launch
+                }
+
+                val authorName = when {
+                    !user.name.isNullOrBlank() -> user.name!!
+                    !me.nickName.isNullOrBlank() -> me.nickName
+                    else -> "익명"
+                }
+
+                val newPost = FeedPost(
+                    id = System.currentTimeMillis(),
+                    authorId = uid,
+                    authorName = authorName,
+                    authorProfileImage = me.profileImageUrl ?: "",
+                    title = title,
+                    content = content,
+                    imageUris = imageUris,
+                    videoUris = videoUris,
+                    hashtags = hashtags,
+                    likeCount = 0,
+                    commentCount = 0,
+                    createdAt = System.currentTimeMillis(),
+                    familyId = me.familyId
+                )
+
+                // 2) Firestore 저장
                 db.collection("feeds")
                     .document(newPost.id.toString())
                     .set(newPost)
                     .await()
 
+                // 3) 로컬 리스트 갱신
                 _posts.add(0, newPost)
-                onSuccess()
+
+                // 4) ★ 작업 완료 콜백 호출 (화면 닫기)
+                onComplete()
+
             } catch (e: Exception) {
                 Log.e("FeedViewModel", "addPost 실패", e)
-                onError(e)
+                // 에러 처리 필요 시 onError 콜백 추가 가능
             }
         }
     }
+
 
     /* -------------------------------------------------------------
        5) 글 수정 (Firestore + 로컬 둘 다)
@@ -189,7 +288,7 @@ class FeedViewModel : ViewModel() {
         imageUris: List<String>,
         videoUris: List<String>,
         hashtags: List<String>,
-        onFinish: () -> Unit = {}
+        onComplete: () -> Unit = {} // ★ 이름 통일 (onFinish -> onComplete)
     ) {
         viewModelScope.launch {
             try {
@@ -218,7 +317,9 @@ class FeedViewModel : ViewModel() {
                     )
                 }
 
-                onFinish()
+                // ★ 작업 완료 후 호출
+                onComplete()
+
             } catch (e: Exception) {
                 Log.e("FeedViewModel", "updatePost 실패", e)
             }
@@ -252,62 +353,79 @@ class FeedViewModel : ViewModel() {
         val uid = auth.currentUser?.uid ?: return
 
         viewModelScope.launch {
-            try {
-                val snap = db.collection("feeds")
-                    .document(postId.toString())
-                    .collection("likes")
-                    .document(uid)
-                    .get()
-                    .await()
+            val snap = db.collection("feeds")
+                .document(postId.toString())
+                .collection("likes")
+                .document(uid)
+                .get()
+                .await()
 
-                _likedPostIds.value =
-                    if (snap.exists()) _likedPostIds.value + postId
-                    else _likedPostIds.value - postId
-            } catch (e: Exception) {
-                Log.e("FeedViewModel", "loadLikeStateForPost 실패", e)
+            val liked = snap.exists()
+
+            // 전역 likedPostIds 업데이트
+            _likedPostIds.value =
+                if (liked) _likedPostIds.value + postId
+                else _likedPostIds.value - postId
+
+            // 로컬 posts 업데이트
+            val index = _posts.indexOfFirst { it.id == postId }
+            if (index != -1) {
+                val old = _posts[index]
+                _posts[index] = old.copy(isLiked = liked)
             }
         }
     }
+
 
     fun toggleLike(postId: Long) {
         val uid = auth.currentUser?.uid ?: return
 
-        val likeRef = db.collection("feeds")
-            .document(postId.toString())
-            .collection("likes")
-            .document(uid)
+        val feedRef = db.collection("feeds").document(postId.toString())
+        val likeRef = feedRef.collection("likes").document(uid)
+
+        val index = _posts.indexOfFirst { it.id == postId }
+        if (index == -1) return
+
+        val old = _posts[index]
+        val nowLiked = !old.isLiked
+        val newCount = (old.likeCount + if (nowLiked) 1 else -1).coerceAtLeast(0)
+
+        // 즉시 UI 반영 -----------------------------------
+        _posts[index] = old.copy(
+            isLiked = nowLiked,
+            likeCount = newCount
+        )
+
+        // likedPostIds 즉시 반영
+        _likedPostIds.value = if (nowLiked)
+            _likedPostIds.value + postId
+        else
+            _likedPostIds.value - postId
+        // ------------------------------------------------
 
         viewModelScope.launch {
             try {
-                val snap = likeRef.get().await()
-
-                if (snap.exists()) {
-                    // 좋아요 취소
-                    likeRef.delete().await()
-                    _likedPostIds.value = _likedPostIds.value - postId
-                } else {
-                    // 좋아요 추가
-                    likeRef.set(mapOf("isLike" to true)).await()
-                    _likedPostIds.value = _likedPostIds.value + postId
-                }
-
-                // 좋아요 개수 다시 계산
-                val feedRef = db.collection("feeds").document(postId.toString())
-                val likesSnap = feedRef.collection("likes").get().await()
-                val count = likesSnap.size()
-
-                feedRef.update("likeCount", count).await()
-
-                val index = _posts.indexOfFirst { it.id == postId }
-                if (index != -1) {
-                    val old = _posts[index]
-                    _posts[index] = old.copy(likeCount = count)
-                }
+                db.runTransaction { tx ->
+                    val snap = tx.get(likeRef)
+                    if (snap.exists()) {
+                        tx.delete(likeRef)
+                        tx.update(feedRef, "likeCount", FieldValue.increment(-1))
+                    } else {
+                        tx.set(likeRef, mapOf("isLike" to true))
+                        tx.update(feedRef, "likeCount", FieldValue.increment(1))
+                    }
+                }.await()
             } catch (e: Exception) {
-                Log.e("FeedViewModel", "toggleLike 실패", e)
+                // Firestore 실패 → 롤백
+                _posts[index] = old
+                _likedPostIds.value = if (old.isLiked)
+                    _likedPostIds.value + postId
+                else
+                    _likedPostIds.value - postId
             }
         }
     }
+
 
 
     /**
@@ -432,6 +550,7 @@ class FeedViewModel : ViewModel() {
                 Log.e("FeedViewModel", "fetchComments 실패", e)
             }
         }
+
     }
 
     /**
@@ -495,38 +614,34 @@ class FeedViewModel : ViewModel() {
         }
     }
 
+
     /**
-     * 댓글 삭제 (해당 댓글 + 모든 자식 대댓글 재귀 삭제)
+     * 댓글 삭제 (소프트 삭제)
      * 깊이 제한 없음
      */
     fun deleteComment(postId: Long, commentId: String) {
         viewModelScope.launch {
             try {
-                deleteCommentRecursive(postId, commentId)
-                fetchComments(postId)
+                softDeleteComment(postId, commentId)
+                fetchComments(postId) // 화면/카운트 갱신
             } catch (e: Exception) {
-                Log.e("FeedViewModel", "deleteComment 실패", e)
+                Log.e("FeedViewModel", "deleteComment(soft) 실패", e)
             }
         }
     }
 
-    // 내부용: 자식 대댓글까지 전부 삭제
-    private suspend fun deleteCommentRecursive(postId: Long, commentId: String) {
-        val commentsRef = db.collection("feeds")
+    private suspend fun softDeleteComment(postId: Long, commentId: String) {
+        val docRef = db.collection("feeds")   // ★ feed_posts -> feeds 로 수정
             .document(postId.toString())
             .collection("comments")
+            .document(commentId)
 
-        // 1) 나 자신 삭제
-        commentsRef.document(commentId).delete().await()
+        docRef.update(
+            mapOf(
+                "deleted" to true,
+                "content" to ""
+            )
+        ).await()
 
-        // 2) 나를 부모로 가지는 자식들 찾기
-        val children = commentsRef
-            .whereEqualTo("parentCommentId", commentId)
-            .get()
-            .await()
-
-        for (child in children.documents) {
-            deleteCommentRecursive(postId, child.id)
-        }
     }
 }

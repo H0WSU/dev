@@ -24,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.howsu.data.model.BirthdayInputType
 import com.example.howsu.data.model.PetRegisterUiState
-import com.example.howsu.screen.pet.component.DoubleRingProfileImage
 import com.example.howsu.screen.pet.component.PetProfileImageOnly
 
 @Composable
@@ -35,7 +34,9 @@ fun PetRegisterCompleteScreen(
     onPickImage: () -> Unit
 
 ) {
-    Scaffold { padding ->
+    Scaffold (
+        containerColor = Color.White
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -43,6 +44,8 @@ fun PetRegisterCompleteScreen(
                 .padding(horizontal = 24.dp, vertical = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.height(18.dp))
+
             Text(
                 text = "반려동물 등록이 완료되었어요!",
                 style = MaterialTheme.typography.titleMedium,
@@ -56,11 +59,13 @@ fun PetRegisterCompleteScreen(
                 size = 160.dp
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             Text(
                 text = uiState.petName.ifBlank { "우리 아이" },
-                style = MaterialTheme.typography.titleMedium
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold, // 글씨 굵게
+                color = Color(0xFF121212)
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -118,8 +123,8 @@ fun PetRegisterCompleteScreen(
                     .height(52.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Black,
-                    contentColor = Color.White
+                    containerColor = Color(0xFFFFDF37),
+                    contentColor = Color.Black
                 )
             ) {
                 Text("반려동물 추가로 등록하기")

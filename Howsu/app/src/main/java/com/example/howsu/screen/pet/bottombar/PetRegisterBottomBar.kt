@@ -25,7 +25,7 @@ fun PetRegisterBottomBar(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.Transparent)
-            .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 30.dp)
+            .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 45.dp)
     ) {
 
         Button(
@@ -51,11 +51,14 @@ fun PetRegisterBottomBar(
 
             TextButton(
                 onClick = onSkip,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = Color.Gray
+                )
             ) {
                 Text("나중에 등록하고 싶어요! 건너뛰기",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp)
+                    fontSize = 14.sp)
             }
         }
     }

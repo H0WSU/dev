@@ -89,20 +89,35 @@ fun HomeScreen(
     val currentWeekStart by todoViewModel.currentWeekStart.collectAsState()
 
     // 내 프로필 정보 로딩
-    LaunchedEffect(uiState.family.familyId) { // ★ 가족 ID가 변경될 때마다 내 프로필도 새로고침
-        viewModel.fetchMyProfile()
+    LaunchedEffect(uiState.family.familyId) {
+        val familyId = uiState.family.familyId
+
+        if (familyId.isNotBlank()) {
+            // 1. 내 프로필 정보 새로고침
+            viewModel.fetchMyProfile()
+
+            // 2. 홈 화면 데이터 (펫 목록, 가족 구성원 목록) 새로고침
+            viewModel.loadHomeData()
+
+            // 3. [핵심] 투두 리스트를 새 가족 ID로 변경
+            todoViewModel.updateCurrentFamily(familyId)
+
+            Log.d("HomeScreen", "Family Changed: $familyId -> Data Refreshed")
+        }
     }
 
-    // 1. [핵심 수정] LifecycleEventObserver를 사용하여 화면의 생명주기를 관찰합니다.
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            // 화면이 다시 활성화될 때 (예: 펫 편집 화면에서 뒤로 가기)
             if (event == Lifecycle.Event.ON_RESUME) {
-                // 홈 화면 전체 데이터 로드(펫 목록 포함)를 강제 실행합니다.
+                // 홈 데이터 로드
                 viewModel.loadHomeData()
-                Log.d("HomeScreen", "ON_RESUME: Calling viewModel.loadHomeData()")
+                // ★ 여기도 추가해주면 좋음: 화면 돌아왔을 때 현재 가족의 투두 다시 불러오기
+                if (uiState.family.familyId.isNotBlank()) {
+                    todoViewModel.updateCurrentFamily(uiState.family.familyId)
+                }
+                Log.d("HomeScreen", "ON_RESUME: Reloading Data")
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -128,8 +143,8 @@ fun HomeScreen(
             HomeTopAppBar(
                 member = displayMember,
                 family = uiState.family,
-                userFamilies = uiState.userFamilies, // ★ 추가
-                onFamilySelected = viewModel::updateCurrentFamily, // ★ 추가
+                userFamilies = uiState.userFamilies,
+                onFamilySelected = viewModel::updateCurrentFamily,
                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 40.dp, bottom = 20.dp)
             )
         },
@@ -250,7 +265,6 @@ fun HomeScreen(
         }
     }
 }
-
 @Composable
 fun FamilyDropdownSelector(
     currentFamily: Family,
@@ -652,9 +666,10 @@ fun FamilyMemberItem(
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            text = member.relationship.ifEmpty { "역할없음" },   // relationship으로
+            text = member.relationship.ifEmpty { "역할없음" },
             style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Medium,
+                // 본인이면 Bold, 아니면 Medium
+                fontWeight = if (isCurrentUser) FontWeight.Bold else FontWeight.Medium,
                 fontSize = 15.sp
             )
         )
