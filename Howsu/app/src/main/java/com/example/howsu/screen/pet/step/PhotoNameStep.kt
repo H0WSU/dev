@@ -7,6 +7,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -39,6 +40,8 @@ fun PhotoNameStep(
             onClick = onPickImage
         )
 
+        Spacer(modifier = Modifier.height(12.dp))
+
         Text(
             text = "아이의 이름을 입력해 주세요",
             style = MaterialTheme.typography.bodyMedium,
@@ -55,7 +58,14 @@ fun PhotoNameStep(
                 .padding(top = 4.dp),
             placeholder = { Text("이름 입력하기") },
             singleLine = true,
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(16.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFFFFDF37),      // 포커스 시
+                unfocusedBorderColor = Color(0xFFE0E0E0),
+                cursorColor = Color.Black,
+                focusedTextColor = Color.Black,
+                unfocusedTextColor = Color.Black
+            )
         )
 
         Spacer(modifier = Modifier.height(40.dp))

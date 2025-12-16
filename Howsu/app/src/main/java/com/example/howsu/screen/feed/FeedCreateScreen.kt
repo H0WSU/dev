@@ -5,11 +5,14 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,14 +23,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -47,11 +54,14 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.howsu.data.model.FeedPost
 import com.example.howsu.screen.pet.component.ImageSourceBottomSheet
 import com.example.howsu.screen.todo.ContentBlack
 import com.example.howsu.screen.todo.YellowBox
 import com.example.howsu.ui.theme.HowsuTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /* -------------------------------------------
@@ -186,7 +196,6 @@ fun FeedWriteScreen(
                     imageUris.add(s)
                     remain--
                 }
-
                 type.startsWith("video/") -> {
                     videoUris.add(s)
                     remain--
@@ -211,7 +220,7 @@ fun FeedWriteScreen(
     // 카메라 촬영용 임시 Uri
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
 
-    // 1) 사진 촬영 런처
+    // 사진 촬영 런처
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
@@ -229,7 +238,7 @@ fun FeedWriteScreen(
         cameraLauncher.launch(uri)
     }
 
-    // 2) 동영상 촬영 런처
+    // 동영상 촬영 런처
     val videoCaptureLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -247,21 +256,17 @@ fun FeedWriteScreen(
         videoCaptureLauncher.launch(intent)
     }
 
-    // 3) 권한 런처
+    // 권한 런처
     val photoPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) {
-            startCamera()
-        }
+        if (granted) startCamera()
     }
 
     val videoPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) {
-            startVideoCapture()
-        }
+        if (granted) startVideoCapture()
     }
 
     val canUpload = title.isNotBlank() && content.isNotBlank()
@@ -269,9 +274,7 @@ fun FeedWriteScreen(
 
     Scaffold(
         containerColor = Color.White,
-        topBar = {
-            FeedWriteTopBar(onCloseClick = onFinishWrite)
-        }
+        topBar = { FeedWriteTopBar(onCloseClick = onFinishWrite) }
     ) { innerPadding ->
 
         Box(
@@ -285,7 +288,7 @@ fun FeedWriteScreen(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 24.dp, vertical = 8.dp)
-                    .padding(bottom = 120.dp), // 버튼 공간 확보
+                    .padding(bottom = 120.dp)
             ) {
                 // 제목
                 Text("제목", fontSize = 14.sp, fontWeight = FontWeight.Medium)
@@ -296,7 +299,14 @@ fun FeedWriteScreen(
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text("제목을 입력해 주세요", fontSize = 14.sp) },
                     singleLine = true,
-                    shape = RoundedCornerShape(14.dp)
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFFFDF37),
+                        unfocusedBorderColor = Color(0xFFE0E0E0),
+                        cursorColor = Color.Black,
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black
+                    )
                 )
                 Text(
                     text = "${title.length}/$titleMax",
@@ -320,7 +330,14 @@ fun FeedWriteScreen(
                         .fillMaxWidth()
                         .height(180.dp),
                     placeholder = { Text("내용을 입력해 주세요", fontSize = 14.sp) },
-                    shape = RoundedCornerShape(14.dp)
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFFFDF37),
+                        unfocusedBorderColor = Color(0xFFE0E0E0),
+                        cursorColor = Color.Black,
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black
+                    )
                 )
                 Text(
                     text = "${content.length}/$contentMax",
@@ -344,23 +361,16 @@ fun FeedWriteScreen(
                     Text("사진/동영상 추가", fontSize = 14.sp, fontWeight = FontWeight.Medium)
                     Text("$mediaCount/5", fontSize = 12.sp, color = Color.Gray)
                 }
+
                 Spacer(Modifier.height(8.dp))
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(140.dp)
-                        .border(
-                            BorderStroke(1.dp, Color(0xFFE5E5E5)),
-                            RoundedCornerShape(16.dp)
-                        )
-                        .clickable { showImageSourceDialog = true },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("+", fontSize = 28.sp, color = Color.Gray)
-                }
-
-                SelectedMediaRow(imageUris = imageUris, videoUris = videoUris)
+                // + 카드(72dp)와 썸네일(72dp)을 동일 규격으로 가로 스크롤 영역에 배치합니다.
+                SelectedMediaRow(
+                    imageUris = imageUris,
+                    videoUris = videoUris,
+                    enabledAdd = mediaCount < 5,
+                    onAddClick = { showImageSourceDialog = true }
+                )
 
                 Spacer(Modifier.height(24.dp))
 
@@ -383,13 +393,20 @@ fun FeedWriteScreen(
                     placeholder = { Text("예) #일상 #산책", fontSize = 14.sp, color = Color.Gray) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    shape = RoundedCornerShape(14.dp)
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFFFDF37),
+                        unfocusedBorderColor = Color(0xFFE0E0E0),
+                        cursorColor = Color.Black,
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black
+                    )
                 )
 
                 Spacer(Modifier.height(24.dp))
             }
 
-            // 하단 버튼: CreateSchedule과 동일한 방식으로 붙이기
+            // 하단 버튼
             FeedWriteBottomBar(
                 enabled = canUpload,
                 isEditMode = isEditMode,
@@ -461,13 +478,9 @@ fun FeedWriteScreen(
     }
 }
 
-
-/** 피드용 카메라 사진 임시 Uri 생성 */
+/* 피드용 카메라 사진 임시 Uri 생성 */
 private fun createFeedImageUri(context: Context): Uri {
-    val imageFile = File(
-        context.cacheDir,
-        "feed_${System.currentTimeMillis()}.jpg"
-    )
+    val imageFile = File(context.cacheDir, "feed_${System.currentTimeMillis()}.jpg")
     return FileProvider.getUriForFile(
         context,
         "${context.packageName}.fileprovider",
@@ -475,17 +488,37 @@ private fun createFeedImageUri(context: Context): Uri {
     )
 }
 
+/* 썸네일 줄 + 동일 크기(72dp) 추가 카드 */
 @Composable
 fun SelectedMediaRow(
     imageUris: MutableList<String>,
-    videoUris: MutableList<String>
+    videoUris: MutableList<String>,
+    enabledAdd: Boolean,
+    onAddClick: () -> Unit
 ) {
+    val borderColor = Color(0xFFE5E5E5)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .padding(top = 8.dp)
+            .padding(top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
+        // + 카드 (썸네일과 동일 크기)
+        Box(
+            modifier = Modifier
+                .size(72.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .border(BorderStroke(1.dp, borderColor), RoundedCornerShape(8.dp))
+                .clickable(enabled = enabledAdd) { onAddClick() },
+            contentAlignment = Alignment.Center
+        ) {
+            Text("+", fontSize = 20.sp, color = Color.Gray)
+        }
+
+        Spacer(Modifier.width(8.dp))
+
         // 이미지 썸네일
         imageUris.forEach { uri ->
             Box(
@@ -507,7 +540,8 @@ fun SelectedMediaRow(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "삭제"
+                        contentDescription = "삭제",
+                        tint = Color.White
                     )
                 }
             }
@@ -519,25 +553,54 @@ fun SelectedMediaRow(
                 modifier = Modifier
                     .padding(end = 8.dp)
                     .size(72.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.DarkGray),
+                    .clip(RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                AsyncImage(
-                    model = uri,
-                    contentDescription = "동영상",
-                    contentScale = ContentScale.Crop,
+                // 1. 동영상 썸네일
+                val thumb = rememberVideoThumbnail(uri)
+
+                if (thumb != null) {
+                    Image(
+                        bitmap = thumb.asImageBitmap(),
+                        contentDescription = "동영상 썸네일",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.matchParentSize()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(Color.DarkGray)
+                    )
+                }
+
+                // 2. ▶ 재생 아이콘 (썸네일 위 오버레이)
+                Box(
                     modifier = Modifier
-                        .matchParentSize()
-                        .clip(RoundedCornerShape(8.dp))
-                )
+                        .size(28.dp)
+                        .background(
+                            color = Color.Black.copy(alpha = 0.4f),
+                            shape = RoundedCornerShape(50)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.PlayArrow,
+                        contentDescription = "동영상",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                // 3. 삭제 버튼
                 IconButton(
                     onClick = { videoUris.remove(uri) },
                     modifier = Modifier.align(Alignment.TopEnd)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "삭제"
+                        contentDescription = "삭제",
+                        tint = Color.White
                     )
                 }
             }
@@ -545,11 +608,32 @@ fun SelectedMediaRow(
     }
 }
 
+@Composable
+fun rememberVideoThumbnail(uriString: String): Bitmap? {
+    val context = LocalContext.current
+    var bitmap by remember(uriString) { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(uriString) {
+        bitmap = withContext(Dispatchers.IO) {
+            runCatching {
+                val retriever = MediaMetadataRetriever()
+                retriever.setDataSource(context, Uri.parse(uriString))
+                val frame = retriever.getFrameAtTime(
+                    0,
+                    MediaMetadataRetriever.OPTION_CLOSEST_SYNC
+                )
+                retriever.release()
+                frame
+            }.getOrNull()
+        }
+    }
+    return bitmap
+}
+
 @Preview(showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
 fun FeedWriteScreenPreview() {
     HowsuTheme {
-        // 실제 기능 없이, UI 레이아웃만 그대로 재현하는 프리뷰용 화면
         val titleMax = 30
         val contentMax = 300
 
@@ -570,8 +654,6 @@ fun FeedWriteScreenPreview() {
                 .fillMaxSize()
                 .background(Color.White)
         ) {
-
-            // 상단바 (닫기 버튼은 동작 없음)
             FeedWriteTopBar(onCloseClick = {})
 
             Column(
@@ -580,7 +662,6 @@ fun FeedWriteScreenPreview() {
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 24.dp, vertical = 8.dp)
             ) {
-                // 제목
                 Text("제목", fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 Spacer(Modifier.height(6.dp))
                 OutlinedTextField(
@@ -603,7 +684,6 @@ fun FeedWriteScreenPreview() {
 
                 Spacer(Modifier.height(20.dp))
 
-                // 내용
                 Text("내용", fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 Spacer(Modifier.height(6.dp))
                 OutlinedTextField(
@@ -627,7 +707,6 @@ fun FeedWriteScreenPreview() {
 
                 Spacer(Modifier.height(24.dp))
 
-                // 사진/동영상 추가 영역 (플러스 박스 + 썸네일 영역)
                 val mediaCount = imageUris.size + videoUris.size
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -637,30 +716,18 @@ fun FeedWriteScreenPreview() {
                     Text("사진/동영상 추가", fontSize = 14.sp, fontWeight = FontWeight.Medium)
                     Text("$mediaCount/5", fontSize = 12.sp, color = Color.Gray)
                 }
+
                 Spacer(Modifier.height(8.dp))
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(140.dp)
-                        .border(
-                            BorderStroke(1.dp, Color(0xFFE5E5E5)),
-                            RoundedCornerShape(16.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("+", fontSize = 28.sp, color = Color.Gray)
-                }
-
-                // 선택된 사진/동영상 프리뷰 (여기서는 비워둠)
                 SelectedMediaRow(
                     imageUris = imageUris,
-                    videoUris = videoUris
+                    videoUris = videoUris,
+                    enabledAdd = true,
+                    onAddClick = {}
                 )
 
                 Spacer(Modifier.height(24.dp))
 
-                // 해시태그
                 Text("해시태그", fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 Spacer(Modifier.height(6.dp))
                 OutlinedTextField(
@@ -675,7 +742,6 @@ fun FeedWriteScreenPreview() {
                 Spacer(Modifier.height(24.dp))
             }
 
-            // 하단 업로드 버튼 (동작 없음)
             FeedWriteBottomBar(
                 enabled = title.isNotBlank() && content.isNotBlank(),
                 isEditMode = false,
@@ -683,4 +749,6 @@ fun FeedWriteScreenPreview() {
             )
         }
     }
+
+
 }

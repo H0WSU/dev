@@ -1,5 +1,6 @@
 package com.example.howsu.screen.feed
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -14,18 +15,25 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -34,55 +42,58 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.howsu.R
+import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.data.model.FeedPost
 
 @Composable
 fun FeedItem(
     post: FeedPost,
-    modifier: Modifier = Modifier,
+    isLiked: Boolean,                // ← ViewModel에서 내려주는 값만 사용
     onClick: () -> Unit = {},
-    onDeleteClick: () -> Unit = {}
+    onDeleteClick: () -> Unit = {},
+    onToggleLike: () -> Unit = {}
 ) {
-    // createdAt( Long ) → "MM/dd HH:mm" 형식으로 변환
     val dateText = remember(post.createdAt) {
         java.text.SimpleDateFormat("MM/dd HH:mm", java.util.Locale.KOREAN)
             .format(java.util.Date(post.createdAt))
     }
 
+    val heartIcon =
+        if (isLiked) R.drawable.yellow_heart else R.drawable.empty_heart
+
     Card(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .clickable { onClick() },
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        )
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp)
         ) {
-            // 🔹 프로필 + 닉네임 + 날짜 (상단 영역)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+
+            // 작성자 영역
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 if (!post.authorProfileImage.isNullOrBlank()) {
                     AsyncImage(
                         model = post.authorProfileImage,
                         contentDescription = "프로필",
                         modifier = Modifier
-                            .size(32.dp)
-                            .clip(MaterialTheme.shapes.small)
+                            .size(40.dp)
+                            .clip(MaterialTheme.shapes.small),
+                        contentScale = ContentScale.Crop
                     )
                 } else {
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
-                            .background(Color.LightGray, shape = MaterialTheme.shapes.small)
+                            .size(40.dp)
+                            .clip(MaterialTheme.shapes.small)
+                            .background(Color.LightGray)
                     )
                 }
 
@@ -90,14 +101,14 @@ fun FeedItem(
 
                 Column {
                     Text(
-                        text = post.authorName,
+                        text = post.authorName.ifBlank { "익명" },
                         fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White        // 배경이 어두운 카드라면 흰색/연한색으로
+                        fontSize = 13.sp,
+                        color = Color.Black
                     )
                     Text(
                         text = dateText,
-                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 11.sp,
                         color = Color.Gray
                     )
                 }
@@ -105,19 +116,17 @@ fun FeedItem(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 🔹 해시태그 (원하면 제목/내용 아래 쪽에 배치)
+            // 해시태그
             if (post.hashtags.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = post.hashtags.joinToString(" ") { "#$it" },
                     fontSize = 12.sp,
                     color = Color(0xFF3F51B5)
                 )
+                Spacer(modifier = Modifier.height(6.dp))
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 🔹 제목
+            // 제목
             Text(
                 text = post.title,
                 fontWeight = FontWeight.Bold,
@@ -128,7 +137,7 @@ fun FeedItem(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // 🔹 내용
+            // 내용
             Text(
                 text = post.content,
                 fontSize = 14.sp,
@@ -136,9 +145,9 @@ fun FeedItem(
                 overflow = TextOverflow.Ellipsis
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // 썸네일 영역
+            // 미디어
             if (post.imageUris.isNotEmpty() || post.videoUris.isNotEmpty()) {
                 Row(
                     modifier = Modifier
@@ -152,78 +161,64 @@ fun FeedItem(
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
                                 .padding(end = 8.dp)
-                                .width(90.dp)
-                                .height(90.dp)
+                                .size(90.dp)
                                 .clip(RoundedCornerShape(8.dp))
                         )
                     }
+
                     post.videoUris.forEach { uri ->
-                        AsyncImage(
-                            model = uri,
-                            contentDescription = "동영상",
-                            contentScale = ContentScale.Crop,
+                        VideoThumbnailWithPlayIcon(
+                            uriString = uri,
                             modifier = Modifier
                                 .padding(end = 8.dp)
-                                .width(90.dp)
-                                .height(90.dp)
-                                .clip(RoundedCornerShape(8.dp))
+                                .size(90.dp)
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+
+                Spacer(modifier = Modifier.height(10.dp))
             }
 
+            // 좋아요 / 댓글
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                // 좋아요 아이콘 + 숫자
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { onToggleLike() }
                 ) {
                     Icon(
-                        painter = painterResource(id = R.drawable.yellow_heart),
+                        painter = painterResource(id = heartIcon),
                         contentDescription = "좋아요",
                         modifier = Modifier.size(16.dp),
+                        tint = Color.Unspecified
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-
-                    if (post.likeCount > 0) {
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "${post.likeCount}",
-                            color = Color.DarkGray,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp
-                        )
-                    }
+                    Text(
+                        text = post.likeCount.toString(),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp
+                    )
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // 댓글 아이콘 + 숫자
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         painter = painterResource(id = R.drawable.comment),
                         contentDescription = "댓글",
                         modifier = Modifier.size(16.dp),
+                        tint = Color.Unspecified
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-
-                    if (post.likeCount > 0) {
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "${post.likeCount}",
-                            color = Color.DarkGray,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp
-                        )
-                    }
+                    Text(
+                        text = post.commentCount.toString(),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp
+                    )
                 }
 
-                // 오른쪽 정렬
                 Spacer(modifier = Modifier.weight(1f))
 
                 TextButton(onClick = onClick) {
@@ -233,36 +228,47 @@ fun FeedItem(
                     Text("삭제", fontSize = 12.sp, color = Color.Red)
                 }
             }
-
         }
     }
 }
 
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 600)
 @Composable
-fun FeedItemPreview() {
-    val samplePost = FeedPost(
-        id = 1L,
-        authorId = "user123",
-        authorName = "홍길동",
-        authorProfileImage = "https://picsum.photos/50/50",
-        title = "오늘 강아지랑 산책 다녀왔어요!",
-        content = "날씨가 좋아서 공원에서 한참 놀다 왔어요. 강아지가 너무 신나 해서 보기만 해도 기분이 좋아지더라고요.",
-        imageUris = listOf(
-            "https://picsum.photos/200/200",
-            "https://picsum.photos/200/300"
-        ),
-        videoUris = emptyList(),
-        hashtags = listOf("산책", "강아지", "행복"),
-        likeCount = 12,
-        commentCount = 3,
-        createdAt = System.currentTimeMillis()
-    )
+fun VideoThumbnailWithPlayIcon(
+    uriString: String,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color.DarkGray),
+        contentAlignment = Alignment.Center
+    ) {
+        val thumb = rememberVideoThumbnail(uriString)
 
-    FeedItem(
-        post = samplePost,
-        onClick = {},
-        onDeleteClick = {}
-    )
+        if (thumb != null) {
+            Image(
+                bitmap = thumb.asImageBitmap(),
+                contentDescription = "동영상 썸네일",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.matchParentSize()
+            )
+        }
+
+        // 재생 아이콘 오버레이
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(50)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.PlayArrow,
+                contentDescription = "동영상",
+                tint = Color.White,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
 }
+

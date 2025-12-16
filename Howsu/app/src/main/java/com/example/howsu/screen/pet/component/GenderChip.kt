@@ -25,7 +25,7 @@ fun GenderChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val borderColor = if (selected) Color.Black else Color(0xFFEAEAEA)
+    val borderColor = if (selected) Color(0xFFFFDF37) else Color(0xFFBDBDBD)
     val textColor = if (selected) Color.Black else Color(0xFFBDBDBD)
 
     Box(
