@@ -28,7 +28,7 @@ data class EditPetUiState(
     val pet: Pet? = null, // 원본 Pet 데이터
     val ageText: String = "", // 계산된 나이 (읽기 전용)
 
-    // 💡 편집 가능한 필드 상태
+    // 편집 가능한 필드 상태
     val petprofileImageUrl: String? = null,
     val newPetprofileImageUri: Uri?= null,   // 새 이미지 로컬 uri
     val petname: String = "",   // 이름
@@ -39,9 +39,11 @@ data class EditPetUiState(
     val birthdayYearApprox: String? = null,
     val birthdayMonthApprox: String? = null,
 
-    // 💡 저장에 필요한 ID
+    // 저장에 필요한 ID
     val familyId: String? = null,
     val petId: String? = null, // Firestore 문서 ID
+
+    val isPetDeleted: Boolean = false,  // 펫 삭제 성공 시 true
 )
 
 class EditPetViewModel(
@@ -287,6 +289,42 @@ class EditPetViewModel(
                 state.birthdayYearApprox,
                 state.birthdayMonthApprox
             )
+        }
+    }
+
+    // 💡 펫 삭제 로직 추가
+    fun deletePetProfile(onSuccess: () -> Unit) {
+        val currentPetId = navPetId
+        val currentFamilyId = navFamilyId
+
+        if (currentPetId.isNullOrEmpty() || currentFamilyId.isNullOrEmpty()) {
+            _uiState.update { it.copy(error = "삭제할 펫 또는 가족 ID가 부족합니다.") }
+            return
+        }
+
+        _uiState.update { it.copy(isLoading = true, error = null) }
+
+        viewModelScope.launch {
+            try {
+                // 1. Firestore 문서 삭제 (families/{familyId}/pets/{petId})
+                db.collection("families").document(currentFamilyId)
+                    .collection("pets").document(currentPetId)
+                    .delete().await()
+
+                // 2. Storage 이미지 삭제 (선택 사항이지만 안전을 위해 추가)
+                val imageUrl = _uiState.value.petprofileImageUrl
+                if (!imageUrl.isNullOrEmpty()) {
+                    storage.getReferenceFromUrl(imageUrl).delete().await()
+                }
+
+                // 3. 상태 업데이트 및 콜백 호출
+                _uiState.update { it.copy(isLoading = false, isPetDeleted = true) }
+                onSuccess() // 삭제 성공 시 네비게이션 호출
+
+            } catch (e: Exception) {
+                Log.e("EditPetVM", "펫 삭제 실패: ${e.message}", e)
+                handleFailure("펫 삭제 실패: ${e.message}")
+            }
         }
     }
 
