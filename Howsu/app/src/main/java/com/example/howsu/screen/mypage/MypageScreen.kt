@@ -85,7 +85,7 @@ fun Profile(
                     .clip(CircleShape)
                     .border(
                         width = 2.dp, // 테두리 두께
-                        color = Color.Gray,
+                        color = Color.LightGray,
                         shape = CircleShape // 원형 테두리
                     )
             ){
