@@ -92,7 +92,11 @@ fun EditPetScreen(
         containerColor = Color.White,
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("펫 정보 편집", fontWeight = FontWeight.SemiBold) },
+                title = { Text(
+                    text = "펫 정보 편집",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                ) },
                 navigationIcon = {
                     IconButton(onClick = {
                         // 편집 중이면 취소, 아니면 뒤로 가기
@@ -441,7 +445,7 @@ fun EditableWeightField(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        Text("체중", /* ... */)
+        Text("체중")
         Spacer(Modifier.height(4.dp))
         TextField(
             value = value,

@@ -83,6 +83,7 @@ fun EditProfileScreen(
     }
 
     Scaffold(
+        containerColor = Color.White,
         topBar = {
             EditProfileTopBar(
                 navController = navController,
