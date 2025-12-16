@@ -93,16 +93,18 @@ fun HomeScreen(
         viewModel.fetchMyProfile()
     }
 
-    // 1. [핵심 수정] LifecycleEventObserver를 사용하여 화면의 생명주기를 관찰합니다.
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            // 화면이 다시 활성화될 때 (예: 펫 편집 화면에서 뒤로 가기)
             if (event == Lifecycle.Event.ON_RESUME) {
-                // 홈 화면 전체 데이터 로드(펫 목록 포함)를 강제 실행합니다.
+                // 홈 데이터 로드
                 viewModel.loadHomeData()
-                Log.d("HomeScreen", "ON_RESUME: Calling viewModel.loadHomeData()")
+                // ★ 여기도 추가해주면 좋음: 화면 돌아왔을 때 현재 가족의 투두 다시 불러오기
+                if (uiState.family.familyId.isNotBlank()) {
+                    todoViewModel.updateCurrentFamily(uiState.family.familyId)
+                }
+                Log.d("HomeScreen", "ON_RESUME: Reloading Data")
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -128,8 +130,8 @@ fun HomeScreen(
             HomeTopAppBar(
                 member = displayMember,
                 family = uiState.family,
-                userFamilies = uiState.userFamilies, // ★ 추가
-                onFamilySelected = viewModel::updateCurrentFamily, // ★ 추가
+                userFamilies = uiState.userFamilies,
+                onFamilySelected = viewModel::updateCurrentFamily,
                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 40.dp, bottom = 20.dp)
             )
         },
@@ -250,7 +252,6 @@ fun HomeScreen(
         }
     }
 }
-
 @Composable
 fun FamilyDropdownSelector(
     currentFamily: Family,

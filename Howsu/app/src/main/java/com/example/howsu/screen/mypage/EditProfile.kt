@@ -215,7 +215,6 @@ private fun SaveBottomButton(
 }
 
 // 프로필 이미지 영역
-// 프로필 이미지 영역
 @Composable
 fun ProfileImageArea(
     profileImageUrl: String?,
