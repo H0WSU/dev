@@ -14,11 +14,15 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.outlined.ModeEdit
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
@@ -31,7 +35,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
@@ -54,6 +57,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
+import com.example.howsu.screen.todo.ContentBlack
 import com.example.howsu.screen.todo.YellowBox
 
 @Composable
@@ -89,10 +93,9 @@ fun EditProfileScreen(
                 navController = navController,
                 isEditing = uiState.isEditing,
                 onEditClick = { viewModel.toggledEditMode(true) },
-                onSaveClick = { viewModel.saveProfile() },
                 onCancelClick = { viewModel.cancelEditing() }
             )
-        }
+        },
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -110,7 +113,6 @@ fun EditProfileScreen(
                 isEditing = uiState.isEditing,
                 onImageClick = {
                     imagePickerLauncher.launch("image/*")
-                    // 선택 후 viewModel.updateProfileImageUri(selectedUri) 호출
                 }
             )
 
@@ -122,7 +124,17 @@ fun EditProfileScreen(
                 onNameChange = viewModel::updateName,
                 onRelationChange = viewModel::updateRelationship
             )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            if (uiState.isEditing) {
+                SaveBottomButton(
+                    onSaveClick = { viewModel.saveProfile() }
+                )
+            }
+
         }
+
     }
 }
 
@@ -134,7 +146,6 @@ fun EditProfileTopBar(
     navController: NavHostController,
     isEditing: Boolean,
     onEditClick: () -> Unit,
-    onSaveClick: () -> Unit,
     onCancelClick: () -> Unit
 ) {
     CenterAlignedTopAppBar(
@@ -155,11 +166,8 @@ fun EditProfileTopBar(
         actions = {
             if (isEditing) {
                 // 편집 모드일 때: 저장 및 취소 버튼
-                TextButton(onClick = onCancelClick) {
-                    Text("취소")
-                }
-                TextButton(onClick = onSaveClick) {
-                    Text("저장")
+                IconButton(onClick = onCancelClick){
+                    Icon(Icons.Default.Close, contentDescription = "취소")
                 }
             } else {
                 // 보기 모드일 때: 편집 버튼
@@ -168,11 +176,45 @@ fun EditProfileTopBar(
                 }
             }
         },
+
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = Color.White
         ),
         modifier = Modifier.padding(10.dp)
     )
+}
+
+// 새로운 하단 저장 버튼 컴포넌트
+@Composable
+private fun SaveBottomButton(
+    modifier: Modifier = Modifier, // ★ 1. modifier 파라미터 추가
+    onSaveClick: () -> Unit,
+) {
+    Column(
+        modifier = modifier // ★ 2. 전달받은 modifier 사용 (align(BottomCenter))
+            .fillMaxWidth()
+            // ★ 3. 배경을 투명하게 (Scaffold 배경이 보이도록)
+            .background(Color.Transparent)
+            // ★ 4. (수정) 패딩 변경 (상단 공백 16dp, 하단 공백 32dp)
+            .padding(
+                top = 16.dp,
+                bottom = 16.dp
+            )
+    ) {
+        Button(
+            onClick = onSaveClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = YellowBox, // ★ 색상 적용 (노랑)
+                contentColor = ContentBlack // ★ 색상 적용 (검정)
+            ),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text("저장하기", fontWeight = FontWeight.Medium, fontSize = 15.sp)
+        }
+    }
 }
 
 // 프로필 이미지 영역

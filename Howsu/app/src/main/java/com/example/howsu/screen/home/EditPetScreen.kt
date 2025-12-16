@@ -25,9 +25,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -39,7 +42,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
@@ -61,6 +63,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.example.howsu.screen.home.EditPetViewModel
+import com.example.howsu.screen.todo.ContentBlack
 import com.example.howsu.screen.todo.YellowBox
 
 
@@ -107,15 +110,9 @@ fun EditPetScreen(
                 },
                 actions = {
                     if (uiState.isEditing) {
-                        // 편집 모드: 저장 및 취소 버튼
-                        TextButton(onClick = { viewModel.cancelEditing() }) {
-                            Text("취소")
-                        }
-                        TextButton(
-                            onClick = { viewModel.savePetProfile() },
-                            enabled = !uiState.isLoading
-                        ) {
-                            Text("저장", style = MaterialTheme.typography.bodySmall)
+                        // 편집 모드일 때: 저장 및 취소 버튼
+                        IconButton(onClick = { viewModel.cancelEditing() }){
+                            Icon(Icons.Default.Close, contentDescription = "취소")
                         }
                     } else {
                         // 보기 모드: 편집 버튼
@@ -223,10 +220,53 @@ fun EditPetScreen(
                     )
                     Spacer(Modifier.height(50.dp))
                 }
+
+                item{
+                    if (uiState.isEditing) {
+                        SaveBottomButton(
+                            onSaveClick = { viewModel.savePetProfile() }
+                        )
+                    }
+                }
             }
         }
     }
 }
+
+@Composable
+private fun SaveBottomButton(
+    modifier: Modifier = Modifier, // ★ 1. modifier 파라미터 추가
+    onSaveClick: () -> Unit,
+) {
+    Column(
+        modifier = modifier // ★ 2. 전달받은 modifier 사용 (align(BottomCenter))
+            .fillMaxWidth()
+            // ★ 3. 배경을 투명하게 (Scaffold 배경이 보이도록)
+            .background(Color.Transparent)
+            // ★ 4. (수정) 패딩 변경 (상단 공백 16dp, 하단 공백 32dp)
+            .padding(
+                start = 24.dp,
+                end = 24.dp,
+                top = 16.dp,
+                bottom = 16.dp
+            )
+    ) {
+        Button(
+            onClick = onSaveClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = YellowBox, // ★ 색상 적용 (노랑)
+                contentColor = ContentBlack // ★ 색상 적용 (검정)
+            ),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text("저장하기", fontWeight = FontWeight.Medium, fontSize = 15.sp)
+        }
+    }
+}
+
 
 // ----------------------------------------------------
 // 하위 컴포넌트 (편집 가능 버전)
