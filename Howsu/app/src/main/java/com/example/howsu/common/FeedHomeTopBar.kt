@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -35,19 +36,23 @@ fun FeedHomeTopBar(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 1. 왼쪽 프로필 이미지 (HomeTopAppBar와 동일한 로직)
+        val profileOffset = 1.dp
+
+        // 1. 왼쪽 프로필 이미지
         if (!member.profileImageUrl.isNullOrBlank()) {
             AsyncImage(
                 model = member.profileImageUrl,
                 contentDescription = "프로필 이미지",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
+                    .offset(y = profileOffset)
                     .size(42.dp)
                     .clip(CircleShape)
             )
         } else {
             Box(
                 modifier = Modifier
+                    .offset(y = profileOffset) // ★ 여기도 추가! (기본 이미지일 때)
                     .size(42.dp)
                     .clip(CircleShape)
                     .border(
@@ -60,6 +65,7 @@ fun FeedHomeTopBar(
                 Icon(
                     imageVector = Icons.Filled.Person,
                     contentDescription = "기본 프로필",
+                    modifier = Modifier.align(Alignment.Center),
                     tint = Color.Gray
                 )
             }
@@ -67,12 +73,10 @@ fun FeedHomeTopBar(
 
         Spacer(Modifier.width(12.dp))
 
-        // 2. 가운데 텍스트 (위치 보정)
+        // 2. 가운데 텍스트
         Column(
             modifier = Modifier.weight(1f)
         ) {
-            // ★ 수정: 홈 화면의 '가족 선택 버튼' 높이(24dp)와 동일한 Box로 감싸서
-            // 텍스트 위치가 미세하게 어긋나는 현상을 방지함
             Box(
                 modifier = Modifier.height(24.dp),
                 contentAlignment = Alignment.CenterStart
@@ -85,8 +89,7 @@ fun FeedHomeTopBar(
                 )
             }
 
-            // 홈 화면과 동일한 간격 유지
-            Spacer(Modifier.height(4.dp)) // 기존엔 0dp 였으나 Home과 맞추려면 있어야 할 수도 있음. Home 코드 확인 시 4dp 있으면 유지.
+            Spacer(Modifier.height(2.dp))
 
             Text(
                 text = member.nickName,
