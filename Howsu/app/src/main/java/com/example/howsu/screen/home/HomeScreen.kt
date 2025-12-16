@@ -23,12 +23,15 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown // ★ 추가
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu // ★ 추가
+import androidx.compose.material3.DropdownMenuItem // ★ 추가
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -39,6 +42,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf // ★ 추가
+import androidx.compose.runtime.remember // ★ 추가
+import androidx.compose.runtime.setValue // ★ 추가
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
@@ -56,6 +63,7 @@ import coil.compose.AsyncImage
 import com.example.howsu.common.HomeTopAppBar
 import com.example.howsu.common.MyBottomNavigationBar
 import com.example.howsu.common.MyFloatingActionButton
+import com.example.howsu.data.model.Family
 import com.example.howsu.data.model.FamilyMember
 import com.example.howsu.screen.todo.CalendarWeekRow
 import com.example.howsu.screen.todo.ContentBlack
@@ -77,7 +85,7 @@ fun HomeScreen(
     val currentWeekStart by todoViewModel.currentWeekStart.collectAsState()
 
     // 내 프로필 정보 로딩
-    LaunchedEffect(Unit) {
+    LaunchedEffect(uiState.family.familyId) { // 가족 ID가 변경될 때마다 내 프로필도 새로고침
         viewModel.fetchMyProfile()
     }
 
@@ -98,6 +106,8 @@ fun HomeScreen(
             HomeTopAppBar(
                 member = displayMember,
                 family = uiState.family,
+                userFamilies = uiState.userFamilies,
+                onFamilySelected = viewModel::updateCurrentFamily,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 40.dp)
             )
         },
@@ -216,6 +226,67 @@ fun HomeScreen(
                         Spacer(Modifier.height(16.dp))
                     }
                 }
+            }
+        }
+    }
+}
+
+// ★ 8. [추가] 가족 드롭다운 컴포넌트
+@Composable
+fun FamilyDropdownSelector(
+    currentFamily: Family,
+    allFamilies: List<Family>,
+    onFamilySelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    // 가족이 1개 이하일 때는 드롭다운 불필요
+    if (allFamilies.size <= 1 || currentFamily.familyId.isBlank()) {
+        Text(
+            text = currentFamily.familyName.ifBlank { "가족 없음" },
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 20.sp,
+            color = ContentBlack
+        )
+        return
+    }
+
+    Box {
+        TextButton(
+            onClick = { expanded = true },
+            colors = ButtonDefaults.textButtonColors(
+                contentColor = ContentBlack,
+                containerColor = Color(0xFFFAFAFA)
+            ),
+            shape = RoundedCornerShape(8.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+        ) {
+            Text(
+                text = currentFamily.familyName,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 18.sp
+            )
+            Icon(Icons.Default.ArrowDropDown, contentDescription = "가족 선택", modifier = Modifier.size(24.dp))
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            allFamilies.forEach { family ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = family.familyName,
+                            fontWeight = if (family.familyId == currentFamily.familyId) FontWeight.Bold else FontWeight.Normal,
+                            color = if (family.familyId == currentFamily.familyId) YellowBox else Color.Black
+                        )
+                    },
+                    onClick = {
+                        onFamilySelected(family.familyId)
+                        expanded = false
+                    }
+                )
             }
         }
     }
