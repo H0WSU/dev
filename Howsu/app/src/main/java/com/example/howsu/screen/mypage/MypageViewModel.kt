@@ -13,20 +13,19 @@ import kotlinx.coroutines.tasks.await
 
 class MypageViewModel : ViewModel() {
 
-    // --- 가족 정보 ---
+    // --- 가족 정보 상태 ---
     private val _familyName = MutableStateFlow("")
     val familyName = _familyName.asStateFlow()
 
     private val _familyId = MutableStateFlow("")
     val familyId = _familyId.asStateFlow()
 
-    // --- ⭐ 추가된 사용자 정보 상태 ⭐ ---
+    // --- 사용자 정보 상태 ---
     private val _userName = MutableStateFlow("")
     val userName = _userName.asStateFlow()
 
     private val _userEmail = MutableStateFlow("")
     val userEmail = _userEmail.asStateFlow()
-    // ---
 
     // 내 프로필 이미지 URL 상태
     private val _myProfileUrl = MutableStateFlow<String?>(null)
@@ -36,31 +35,29 @@ class MypageViewModel : ViewModel() {
     private val auth = Firebase.auth
 
     init {
-        loadMyFamilyInfo() // 함수 이름은 그대로 유지하되, 내부에서 사용자 정보도 로드
+        // ViewModel 초기화 시 데이터 로드
+        loadMyInfo()
     }
-
-    private fun loadMyFamilyInfo() {
+    fun loadMyInfo() {
         val user = auth.currentUser
         if (user == null) return
 
-        // ⭐ Auth에서 이메일 즉시 가져오기 ⭐
+        // 1. Firebase Auth에서 이메일 정보 가져오기
         _userEmail.value = user.email ?: "이메일 없음"
 
         viewModelScope.launch {
             try {
-                // 1. 내 정보 가져오기 (Firestore)
+                // 2. Firestore에서 내 정보 (이름, 프로필 URL, 가족 ID) 가져오기
                 val userDoc = db.collection("users").document(user.uid).get().await()
 
-                // ⭐ 사용자 이름 가져오기 ⭐
                 _userName.value = userDoc.getString("name") ?: "사용자"
 
-                // 내 프로필 사진 URL 가져오기
                 val profileUrl = userDoc.getString("profileImageUrl")
                 _myProfileUrl.value = profileUrl
 
-                // 2. 가족 정보 가져오기
                 val myFamilyId = userDoc.getString("currentFamilyId")
 
+                // 3. 가족 ID가 있을 경우 가족 이름 가져오기
                 if (!myFamilyId.isNullOrBlank()) {
                     val familyDoc = db.collection("families").document(myFamilyId).get().await()
                     if (familyDoc.exists()) {

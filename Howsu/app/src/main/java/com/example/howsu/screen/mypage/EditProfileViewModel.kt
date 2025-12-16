@@ -1,18 +1,26 @@
 package com.example.howsu.screen.mypage
 
+// Firebase Coroutines 확장 함수를 사용하기 위해 import
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.howsu.data.model.User
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 import com.google.firebase.firestore.firestore
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.storage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 
 data class ProfileUiState(
@@ -36,6 +44,7 @@ data class ProfileUiState(
 )
 
 
+// Context가 필요 없는 기본 ViewModel로 복구
 class EditProfileViewModel: ViewModel() {
     private val db = Firebase.firestore
     private val auth = Firebase.auth
@@ -54,30 +63,25 @@ class EditProfileViewModel: ViewModel() {
     }
 
     // ----------------------------------------------------
-    // 데이터 업데이트 함수
+    // 데이터 업데이트 함수 (변경 없음)
     // ----------------------------------------------------
 
-    //사용자가 새 프로필 이미지를 갤러리/파일에서 선택 시 호출
     fun updateProfileImageUri(uri: Uri?){
         _uiState.update { it.copy(newProfileImageUri = uri) }
     }
 
-    // 편집 모드 on & off
     fun toggledEditMode(enable: Boolean) {
         _uiState.update { it.copy(isEditing = enable) }
     }
 
-    // 사용자 이름 입력 필드 값 업데이트 (임시 상태)
     fun updateName(newName: String) {
         _uiState.update { it.copy(name = newName) }
     }
 
-    // 반려동물과의 관계 입력 필드 값 업데이트
     fun updateRelationship(newRelationship: String) {
         _uiState.update { it.copy(relationship = newRelationship) }
     }
 
-    // 편집 취소: 모든 입력값을 원본 데이터로 되돌리고 편집 모드 해제
     fun cancelEditing() {
         if (originalUser != null) {
             _uiState.update { currentState ->
@@ -95,14 +99,13 @@ class EditProfileViewModel: ViewModel() {
     }
 
 
-
     // < 데이터 로드/업데이트 및 예외 처리 함수 >
 
-    // Firebase에서 사용자 정보를 로드함
+    // Firebase에서 사용자 정보를 로드함 (변경 없음)
     fun loadUserProfile() {
         val currentUser = auth.currentUser
         val currentUid = auth.currentUser?.uid ?: return
-        val userEmail = currentUser?.email ?: ""  // Firebase Auth에서 이메일 정보 가져오기
+        val userEmail = currentUser?.email ?: ""
 
         _uiState.update { it.copy(isLoading = true) }
 
@@ -112,7 +115,7 @@ class EditProfileViewModel: ViewModel() {
                 val user = document.toObject(User::class.java)
                 val familyId = document.getString("currentFamilyId")
                 if (user != null) {
-                    originalUser = user  // 원본 저장
+                    originalUser = user
                     _uiState.update { currentState ->
                         currentState.copy(
                             uid = user.uid,
@@ -121,10 +124,9 @@ class EditProfileViewModel: ViewModel() {
                             profileImageUrl = user.profileImageUrl,
                             currentFamilyId = familyId,
                             isLoading = false,
-                            isEditing = false // 초기에는 보기 모드
+                            isEditing = false
                         )
                     }
-                    // 프로필 로드 후, 관계 정보 로드를 시작
                     loadRelationship(currentUid, familyId)
                 } else {
                     handleFailure("사용자 정보를 찾을 수 없습니다.")
@@ -135,7 +137,6 @@ class EditProfileViewModel: ViewModel() {
             }
     }
 
-    // 모든 에러 처리를 담당하고 UI 상태를 업데이트함
     private fun handleFailure(errorMessage: String) {
         _uiState.update {
             it.copy(
@@ -144,7 +145,7 @@ class EditProfileViewModel: ViewModel() {
             )
         }
     }
-    // 현재 가족 ID를 기반으로 사용자의 관계(relationship)를 로드
+
     private fun loadRelationship(uid: String, familyId: String?) {
         if (familyId.isNullOrBlank()) {
             _uiState.update { it.copy(relationship = "가족에 소속되지 않음", originalRelationship = "가족에 소속되지 않음", isRelationLoading = false) }
@@ -153,7 +154,6 @@ class EditProfileViewModel: ViewModel() {
 
         _uiState.update { it.copy(isRelationLoading = true) }
 
-        // 컬렉션 구조: families/{familyId}/familymembers/{uid}
         db.collection("families").document(familyId)
             .collection("members").document(uid)
             .get()
@@ -163,7 +163,7 @@ class EditProfileViewModel: ViewModel() {
                 _uiState.update { currentState ->
                     currentState.copy(
                         relationship = relationship,
-                        originalRelationship = relationship, // 원본으로 저장
+                        originalRelationship = relationship,
                         isRelationLoading = false
                     )
                 }
@@ -174,78 +174,86 @@ class EditProfileViewModel: ViewModel() {
             }
     }
 
-    // Firestore에 이름 및 이미지 URL + 관계 저장
-    private fun saveProfileToFirestore(
+
+    /**
+     * Firestore에 이름 및 이미지 URL + 관계를 병렬로 저장하는 함수
+     * Coroutines의 async와 awaitAll을 사용하여 users와 members 컬렉션 업데이트를 동시에 실행
+     */
+    private suspend fun saveProfileToFirestore(
         uid: String,
         familyId: String?,
         newName: String,
         newImageUrl: String?,
         newRelationship: String
-    ) {
-        val updates = mapOf(
-            "name" to newName,
-            "profileImageUrl" to newImageUrl
-        )
+    ) = withContext(Dispatchers.IO) { // IO 스레드에서 실행
 
-        db.collection("users").document(uid)
-            .update(updates)
-            .addOnSuccessListener {
-                if (!familyId.isNullOrBlank()) {
-                    // 2. familymembers 컬렉션 업데이트 (관계)
+        try {
+            // 1. users 컬렉션 업데이트
+            val userUpdates = mapOf(
+                "name" to newName,
+                "profileImageUrl" to newImageUrl
+            )
+            // 비동기 작업 1 시작
+            val userUpdateTask = async {
+                db.collection("users").document(uid).update(userUpdates).await()
+            }
 
-                    // 추가
+            // 2. members 컬렉션 업데이트 (가족에 소속된 경우에만)
+            // 비동기 작업 2 시작 (조건부)
+            val memberUpdateTask = if (!familyId.isNullOrBlank()) {
+                async {
                     val memberUpdates = mapOf(
                         "relationship" to newRelationship,
-                        "profileImageUrl" to newImageUrl // ★ 이 부분을 추가하여 members 컬렉션에 프로필 URL을 업데이트합니다.
+                        "profileImageUrl" to newImageUrl
                     )
                     db.collection("families").document(familyId)
                         .collection("members").document(uid)
-                        .update(memberUpdates)
-                        .addOnSuccessListener {
-                            // 모두 저장 성공 시 상태 업데이트
-                            updateSuccessState(newName, newImageUrl, newRelationship)
-                        }
-                        .addOnFailureListener { exception ->
-                            handleFailure("관계 정보 저장 실패: ${exception.message}")
-                        }
-                } else {
-                    // 가족이 없는 경우 이름/이미지만 저장 성공
-                    updateSuccessState(newName, newImageUrl, newRelationship)
+                        .update(memberUpdates).await()
                 }
+            } else {
+                null
             }
-            .addOnFailureListener { exception ->
-                handleFailure("프로필 정보 저장 실패: ${exception.message}")
+
+            // 모든 비동기 작업이 완료되기를 기다립니다. (병렬 실행)
+            if (memberUpdateTask != null) {
+                awaitAll(userUpdateTask, memberUpdateTask)
+            } else {
+                userUpdateTask.await()
             }
+
+            // 모든 작업 성공 시 상태 업데이트
+            updateSuccessState(newName, newImageUrl, newRelationship)
+
+        } catch (e: Exception) {
+            handleFailure("프로필 정보 저장 실패: ${e.message}")
+        }
     }
 
-    // Firebase Storage에 이미지를 업로드하고 Firestore 저장을 호출함
-    private fun uploadImageAndSaveProfile(uid: String, imageUri: Uri, newName: String) {
-        val state = _uiState.value // 현재 상태 가져오기
+    private suspend fun uploadImageAndSaveProfile(uid: String, imageUri: Uri, newName: String) = withContext(Dispatchers.IO) {
+        val state = _uiState.value
         val currentFamilyId = state.currentFamilyId
         val newRelationship = state.relationship
-        // 파일 이름을 UID와 'profile.jpg'로 지정
+
         val imageRef = storage.reference.child("profile_images/$uid/profile.jpg")
 
-        imageRef.putFile(imageUri)
-            .addOnSuccessListener {
-                // 업로드 성공 후 다운로드 URL 가져옴
-                imageRef.downloadUrl.addOnSuccessListener { downloadUri ->
-                    // 2단계: Firestore에 새 URL과 이름 저장
-                    saveProfileToFirestore(
-                        uid,
-                        currentFamilyId,
-                        newName,
-                        downloadUri.toString(),
-                        newRelationship
-                    )
-                }
-                    .addOnFailureListener { exception ->
-                        handleFailure("이미지 URL 가져오기 실패: ${exception.message}")
-                    }
-            }
-            .addOnFailureListener { exception ->
-                handleFailure("이미지 업로드 실패: ${exception.message}")
-            }
+        try {
+            // 1. 이미지 업로드 (await으로 동기처럼 대기)
+            imageRef.putFile(imageUri).await() // ★ putBytes 대신 putFile 사용
+
+            // 2. 다운로드 URL 가져오기 (await으로 동기처럼 대기)
+            val downloadUri = imageRef.downloadUrl.await()
+
+            // 3. Firestore에 병렬 저장 호출
+            saveProfileToFirestore(
+                uid,
+                currentFamilyId,
+                newName,
+                downloadUri.toString(),
+                newRelationship
+            )
+        } catch (e: Exception) {
+            handleFailure("이미지 업로드 또는 URL 가져오기 실패: ${e.message}")
+        }
     }
 
 
@@ -270,24 +278,26 @@ class EditProfileViewModel: ViewModel() {
         val currentUid = auth.currentUser?.uid
         val state = _uiState.value
 
-        if(currentUid == null|| state.currentFamilyId == null){
+        if(currentUid == null || state.currentFamilyId == null){
             _uiState.update { it.copy(error = "사용자 인증 실패") }
             return
         }
 
-        _uiState.update { it.copy(isLoading = true, error = null) }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
 
-        val newImageUri = _uiState.value.newProfileImageUri
-        val newName = _uiState.value.name
-        val currentFamilyId = state.currentFamilyId
-        val newRelationship = state.relationship
+            val newImageUri = state.newProfileImageUri
+            val newName = state.name
+            val currentFamilyId = state.currentFamilyId
+            val newRelationship = state.relationship
 
-        if(newImageUri != null){
-            // 새 이미지가 선택된 경우 -> storage에 업데이트 후 firestore 업데이트
-            uploadImageAndSaveProfile(currentUid, newImageUri, newName)
-        } else{
-            // 이미지가 변경되지 않은 경우 -> 이름만 firestore 업데이트
-            saveProfileToFirestore(currentUid, currentFamilyId,newName, state.profileImageUrl, newRelationship)
+            if(newImageUri != null){
+                // 새 이미지가 선택된 경우 -> Storage 업로드 후 Firestore 병렬 저장
+                uploadImageAndSaveProfile(currentUid, newImageUri, newName)
+            } else{
+                // 이미지가 변경되지 않은 경우 -> 이름만 Firestore 병렬 저장
+                saveProfileToFirestore(currentUid, currentFamilyId, newName, state.profileImageUrl, newRelationship)
+            }
         }
     }
 }

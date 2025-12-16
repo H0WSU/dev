@@ -1,5 +1,8 @@
 package com.example.howsu.screen.mypage
 
+// **[추가된 import]**
+// **[추가된 import]**
+import android.util.Log
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -35,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -42,8 +46,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.example.howsu.common.MyBottomNavigationBar
@@ -51,7 +58,7 @@ import com.example.howsu.common.MyFloatingActionButton
 
 
 // ----------------------------------------------------
-// 프로필 영역
+// (Profile Composable은 변경 없음)
 // ----------------------------------------------------
 @Composable
 fun Profile(
@@ -65,9 +72,9 @@ fun Profile(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 10.dp)
             .border(
-                width = 1.dp, // 테두리 두께, 원하는 대로 조절
-                color = Color.LightGray, // 테두리 색상, 원하는 색상으로 변경 가능
-                shape = RoundedCornerShape(15.dp) // 둥근 모서리 모양 지정
+                width = 1.dp,
+                color = Color.LightGray,
+                shape = RoundedCornerShape(15.dp)
             ),
         shape = MaterialTheme.shapes.medium,
         color = Color.White
@@ -83,20 +90,18 @@ fun Profile(
                     .size(60.dp)
                     .clip(CircleShape)
                     .border(
-                        width = 2.dp, // 테두리 두께
+                        width = 2.dp,
                         color = Color.LightGray,
-                        shape = CircleShape // 원형 테두리
+                        shape = CircleShape
                     )
             ){
-                // 프로필 이미지 로드 로직
                 AsyncImage(
-                    model = profileImageUrl, // 로드할 이미지 URL
+                    model = profileImageUrl,
                     contentDescription = "프로필 이미지",
                     modifier = Modifier.fillMaxSize(),
-                    // 이미지가 원형 Box에 꽉 차도록 설정
                     contentScale = ContentScale.Crop,
 
-                )
+                    )
                 if (profileImageUrl.isNullOrBlank()) {
                     Icon(
                         imageVector = Icons.Filled.Person,
@@ -111,16 +116,15 @@ fun Profile(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = username,  // 닉네임
+                    text = username,
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = email,  // 이메일
+                    text = email,
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
 
-            // 수정 버튼
             IconButton(onClick = onEditClick) {
                 Icon(Icons.Filled.Create, contentDescription = "내 정보 수정")
             }
@@ -137,10 +141,32 @@ fun MypageScreen(
     navController: NavHostController,
     viewModel: MypageViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 ){
+    // 1. **[수정]** 생명주기 관찰자를 통해 화면 복귀 시 데이터 로드
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        // LifecycleEventObserver 인스턴스 생성
+        val observer = LifecycleEventObserver { _, event ->
+            // ON_RESUME 이벤트 -> Fragment/Activity가 다시 포그라운드로 올 때 발생
+            if (event == Lifecycle.Event.ON_RESUME) {
+                // 이 시점에 뷰모델의 데이터 로드 함수를 호출하여 최신 데이터를 가져옴
+                viewModel.loadMyInfo()
+                Log.d("MypageScreen", "ON_RESUME: Calling viewModel.loadUserProfile()")
+            }
+        }
+
+        // 관찰자 등록
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        // Composable이 화면에서 제거될 때 관찰자 해제
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    // 2. 뷰모델 상태 관찰
     val myFamilyName by viewModel.familyName.collectAsState()
     val myFamilyId by viewModel.familyId.collectAsState()
-
-    // 뷰모델에서 프로필 URL 관찰
     val userName by viewModel.userName.collectAsState()
     val userEmail by viewModel.userEmail.collectAsState()
     val myProfileUrl by viewModel.myProfileUrl.collectAsState()
@@ -218,14 +244,13 @@ fun MypageScreen(
                     },
                     text = "가족 초대하기",
                     onClick = {
-                        // URL 인코딩 처리 (URL에 특수문자가 있어서) 
+                        // URL 인코딩 처리
                         val encodedUrl = if (myProfileUrl != null) {
                             java.net.URLEncoder.encode(myProfileUrl, java.nio.charset.StandardCharsets.UTF_8.toString())
                         } else {
                             "null"
                         }
 
-                        // 경로에 profileUrl 추가해서 이동
                         navController.navigate("invite_family/$myFamilyName/$myFamilyId?profileUrl=$encodedUrl&isFromMypage=true")
                     }
                 )
@@ -244,23 +269,14 @@ fun MypageScreen(
                     onClick = { navController.navigate("faq") }
                 )
                 Divider(modifier = Modifier.padding(horizontal = 25.dp))
-
-                /*ContentItem(
-                    icon = { Icon(Icons.Default.Task, contentDescription = "문의하기") }, // Task 아이콘 가정
-                    text = "문의하기",
-                    onClick = { navController.navigate("contact") }
-                )
-                Divider(modifier = Modifier.padding(horizontal = 25.dp))*/
             }
-
         }
-
     }
 }
 
 
 // ----------------------------------------------------
-// 본문 영역
+// (ContentItem Composable은 변경 없음)
 // ----------------------------------------------------
 @Composable
 fun ContentItem(
