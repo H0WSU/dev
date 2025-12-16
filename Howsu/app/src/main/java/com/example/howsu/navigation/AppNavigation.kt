@@ -29,7 +29,6 @@ import com.example.howsu.screen.login.AuthViewModel
 import com.example.howsu.screen.login.JoinScreen
 import com.example.howsu.screen.login.LoadingScreen
 import com.example.howsu.screen.login.LoginScreen
-import com.example.howsu.screen.mypage.ContactScreen
 import com.example.howsu.screen.mypage.EditProfileScreen
 import com.example.howsu.screen.mypage.FAQScreen
 import com.example.howsu.screen.mypage.FamilyDetailScreen
@@ -245,14 +244,12 @@ fun AppNavigation() {
         composable("family_info") {    // 가족 정보
             FamilyDetailScreen(navController = navController)
         }
+
         composable("notice") {   // 공지사항
             NotificationScreen(navController = navController)
         }
         composable("faq") {    // 자주 묻는 질문
             FAQScreen(navController = navController)
-        }
-        composable("contact") {    // 문의하기
-            ContactScreen(navController = navController)
         }
 
 

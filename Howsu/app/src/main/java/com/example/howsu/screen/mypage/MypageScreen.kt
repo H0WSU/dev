@@ -24,7 +24,6 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QuestionAnswer
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Task
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -246,12 +245,12 @@ fun MypageScreen(
                 )
                 Divider(modifier = Modifier.padding(horizontal = 25.dp))
 
-                ContentItem(
+                /*ContentItem(
                     icon = { Icon(Icons.Default.Task, contentDescription = "문의하기") }, // Task 아이콘 가정
                     text = "문의하기",
                     onClick = { navController.navigate("contact") }
                 )
-                Divider(modifier = Modifier.padding(horizontal = 25.dp))
+                Divider(modifier = Modifier.padding(horizontal = 25.dp))*/
             }
 
         }

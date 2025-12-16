@@ -71,8 +71,10 @@ class FamilyDetailScreenViewModel : ViewModel(){
     }
 
 
-    // 지정된 ID의 가족에 현재 사용자를 가입
-    fun joinFamily(targetFamilyId: String){
+    // 지정된 ID의 가족에 현재 사용자를 가입 (수정된 로직)
+    // targetFamilyId: 사용자가 입력하거나 QR로 스캔한 가족 ID
+    // onSuccess: 가입 성공 시, 실제 가족 이름과 프로필 URL을 전달하는 콜백
+    fun joinFamily(targetFamilyId: String, onSuccess: (String, String?) -> Unit) {
         val user = auth.currentUser
         if(user == null || targetFamilyId.isBlank()){
             _joinStatus.value = JoinStatus.Error("로그인 필요 or 가족 id가 유효하지 않음")
@@ -83,13 +85,12 @@ class FamilyDetailScreenViewModel : ViewModel(){
             return
         }
 
+        // loadMyFamilyInfo에서 로드된 현재 사용자 정보를 사용함.
         val currentNickName = _nickName.value
         val currentRelationship = _familyRelationship.value
+        val myProfileUrl = _familyProfileUrl.value
 
-        if(currentNickName.isBlank() || currentRelationship.isBlank() || currentNickName == "사용자" || currentRelationship == "나"){
-            _joinStatus.value = JoinStatus.Error("닉네임 또는 관계 정보가 설정되어있지 않습니다. 마이페이지에서 설정을 확인해주세요.")
-            return
-        }
+        // 기존의 유효성 검사 로직 (닉네임/관계 설정 필수) 제거 -> 마이페이지에서는 일단 가입부터 진행
 
         _joinStatus.value = JoinStatus.Loading
 
@@ -98,37 +99,47 @@ class FamilyDetailScreenViewModel : ViewModel(){
             try{
                 val uid = user.uid
 
-                val userDoc = db.collection("users").document(uid).get().await()
-                val batch = db.batch()
+                val docRef = db.collection("families").document(targetFamilyId)
+                val snapshot = docRef.get().await()
 
-                // 1. FamilyMembers 컬렉션에 새 문서 추가 (families/{familyId}/members/{uid} 구조)
-                val newMemberDocRef = db.collection("families").document(targetFamilyId)
-                    .collection("members").document(uid)
+                if (snapshot.exists()) {
+                    // DB에서 진짜 가족 이름 가져오기
+                    val realFamilyName = snapshot.getString("familyName") ?: "우리 가족"
 
-                val newFamilyMember = mapOf(
-                    "userId" to uid,
-                    "familyId" to targetFamilyId,
-                    "nickName" to currentNickName,
-                    "relationship" to currentRelationship,
-                    "profileImageUrl" to _familyProfileUrl.value,
-                    // isManager 필드 없음
-                )
-                batch.set(newMemberDocRef, newFamilyMember)
+                    val batch = db.batch()
 
-                // 2. User 컬렉션의 currentFamilyId 업데이트 (컬렉션 이름은 users)
-                val userDocRef = db.collection("users").document(uid)
-                batch.update(userDocRef, "currentFamilyId", targetFamilyId)
+                    // 1. 멤버 리스트 추가 (families/{familyId} 문서)
+                    batch.update(docRef, "memberIds", FieldValue.arrayUnion(uid))
 
-                // 3. Family 컬렉션의 memberIds 리스트에 uid 추가 (컬렉션 이름은 families)
-                val familyDocRef = db.collection("families").document(targetFamilyId)
-                batch.update(familyDocRef, "memberIds", FieldValue.arrayUnion(uid))
+                    // 2. 멤버 정보 생성 (families/{familyId}/members/{uid} 문서)
+                    val newMemberDocRef = docRef.collection("members").document(uid)
 
-                // 4. Batch 실행
-                batch.commit().await()
+                    val newFamilyMember = mapOf(
+                        "userId" to uid,
+                        "familyId" to targetFamilyId,
+                        "nickName" to currentNickName, // 유저의 최신 닉네임 사용
+                        "relationship" to currentRelationship, // 유저의 최신 관계 사용
+                        "profileImageUrl" to myProfileUrl, // 유저의 최신 프로필 URL 사용
+                    )
+                    batch.set(newMemberDocRef, newFamilyMember)
 
-                _joinStatus.value = JoinStatus.Success
-                loadMyFamilyInfo() // 새로 가입한 가족 정보를 화면에 반영
+                    // 3. 유저 정보 업데이트 (users/{uid} 문서)
+                    val userDocRef = db.collection("users").document(uid)
+                    batch.update(userDocRef, "currentFamilyId", targetFamilyId)
 
+                    // 4. Batch 실행
+                    batch.commit().await()
+
+                    _joinStatus.value = JoinStatus.Success
+                    loadMyFamilyInfo() // 새로 가입한 가족 정보를 화면에 반영
+
+                    // 성공 시 콜백 호출: 가족 이름과 프로필 URL 전달
+                    onSuccess(realFamilyName, myProfileUrl)
+
+                } else {
+                    Log.e("FamilyDetailScreenViewModel", "참여 실패: ID 없음")
+                    _joinStatus.value = JoinStatus.Error("유효하지 않은 가족 아이디입니다.")
+                }
             } catch (e: Exception) {
                 Log.e("FamilyDetailScreenViewModel", "가족 가입 실패", e)
                 _joinStatus.value = JoinStatus.Error("가족 가입에 실패했습니다: ${e.message}")

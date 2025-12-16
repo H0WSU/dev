@@ -1,6 +1,7 @@
 package com.example.howsu.screen.mypage
 
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -56,6 +57,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
+import com.example.howsu.screen.family.PortraitCaptureActivity // ⭐️ QR 스캔을 위해 필요
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -77,12 +81,59 @@ fun FamilyDetailScreen(
     // UI 피드백 위함
     val context = LocalContext.current
 
+    // --- 가족 참여 성공 시 네비게이션 로직 ---
+    val navigateToComplete = { joinedName: String, profileUrl: String? ->
+        val encodedUrl = if (profileUrl != null) {
+            URLEncoder.encode(profileUrl, StandardCharsets.UTF_8.toString())
+        } else {
+            "null"
+        }
+        // 경로: family_join_complete/{familyName}?profileUrl={profileUrl}
+        navController.navigate("family_join_complete/$joinedName?profileUrl=$encodedUrl") {
+            // 마이페이지에서 참여했으므로 이전 화면(가족 정보)으로 돌아가지 않도록 설정
+            popUpTo("family_info") { inclusive = true }
+        }
+    }
+
+    // --- [수동 참여] 버튼 클릭 액션 ---
+    val handleManualJoin = { code: String ->
+        viewModel.joinFamily(
+            targetFamilyId = code,
+            onSuccess = { realName, profileUrl ->
+                Toast.makeText(context, "가족 가입 성공!", Toast.LENGTH_SHORT).show()
+                inputFamilyCode = "" // 입력 필드 초기화
+                // 네비게이션 수행
+                navigateToComplete(realName, profileUrl)
+            }
+            // onFailure는 뷰모델의 _joinStatus로 처리되므로, 별도 처리 불필요
+        )
+    }
+
+    // --- [QR 스캔 참여] 런처 설정 ---
+    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        if (result.contents != null) {
+            val scannedId = result.contents
+            Toast.makeText(context, "QR 인식됨", Toast.LENGTH_SHORT).show()
+
+            // 뷰모델 함수 호출 (QR 스캔 결과로 바로 가입 시도)
+            viewModel.joinFamily(
+                targetFamilyId = scannedId,
+                onSuccess = { realName, profileUrl ->
+                    Toast.makeText(context, "QR 가입 성공!", Toast.LENGTH_SHORT).show()
+                    navigateToComplete(realName, profileUrl)
+                }
+                // onFailure는 뷰모델의 _joinStatus로 처리
+            )
+        }
+    }
+
+
     // 가입 상태 변화 시 토스트 메시지 및 네비게이션 처리
     LaunchedEffect(joinStatus) {
         when(val status = joinStatus){
             is JoinStatus.Success -> {
-                Toast.makeText(context, "가족 가입 성공", Toast.LENGTH_SHORT).show()
-                inputFamilyCode = ""
+                // Success 시 네비게이션은 콜백(onSuccess)에서 처리
+                viewModel.resetJoinStatus() // 상태 초기화
             }
             is JoinStatus.Error -> {
                 Toast.makeText(context, "가입 실패 : ${status.message}", Toast.LENGTH_SHORT).show()
@@ -109,25 +160,19 @@ fun FamilyDetailScreen(
                     }
                 },
                 actions = {
-                    // 가족 초대 QR 생성 화면으로 이동하는 버튼 추가
+
+                    // ⭐QR 스캔 버튼 추가
                     IconButton(onClick = {
-                        val id = familyId // familyId 상태 값 사용
-
-                        if (id.isNotBlank()) {
-                            // 1. familyName을 URL 인코딩
-                            val encodedFamilyName = URLEncoder.encode(familyName, StandardCharsets.UTF_8.toString())
-
-                            // 2. 올바른 경로로 navigate (familyId는 이미 인코딩 불필요)
-                            // profileUrl은 임시로 null 대신 "null" 문자열로 전달 (NavHost의 정의에 따름)
-                            val route = "invite_family/$encodedFamilyName/$id?profileUrl=null&isFromMypage=true"
-
-                            navController.navigate(route)
-                        }
+                        val options = ScanOptions()
+                        options.setPrompt("가족 초대 QR 코드를 스캔하세요")
+                        options.setBeepEnabled(false)
+                        options.setOrientationLocked(true)
+                        options.setCaptureActivity(PortraitCaptureActivity::class.java)
+                        scanLauncher.launch(options)
                     }) {
-                        // QR 코드 스캐너 아이콘을 사용하여 '초대'의 의미를 전달
                         Icon(
-                            Icons.Filled.QrCodeScanner, // QR 아이콘 사용
-                            contentDescription = "가족 초대",
+                            Icons.Filled.QrCodeScanner,
+                            contentDescription = "QR로 가족 참여",
                             tint = Color.Black
                         )
                     }
@@ -150,8 +195,8 @@ fun FamilyDetailScreen(
                     inputFamilyCode = inputFamilyCode,
                     onFamilyCodeChange = { inputFamilyCode = it },
                     onJoinClick = {
-                        // 뷰모델의 가족 가입 함수 호출 (familyCode만 전달)
-                        viewModel.joinFamily(inputFamilyCode)
+                        // 뷰모델의 가족 가입 함수 호출
+                        handleManualJoin(inputFamilyCode)
                     },
                     isLoading = joinStatus is JoinStatus.Loading
                 )
@@ -168,7 +213,6 @@ fun FamilyDetailScreen(
                 }
             }
 
-            // ⭐️ 수정 후 올바르게 참조됨
             items(items = familyMembers, key = { it.userId }) { member ->
                 FamilyMemberCard(
                     member = member,
@@ -267,13 +311,13 @@ fun FamilyIdSearchBar(
 ) {
     Surface(
         modifier = Modifier
-        .fillMaxWidth()
-        .padding(horizontal = 40.dp, vertical = 20.dp)
-        .border(
-            width = 2.dp, // 테두리 두께, 원하는 대로 조절
-            color = Color.LightGray, // 테두리 색상, 원하는 색상으로 변경 가능
-            shape = RoundedCornerShape(15.dp) // 둥근 모서리 모양 지정
-        ),
+            .fillMaxWidth()
+            .padding(horizontal = 40.dp, vertical = 20.dp)
+            .border(
+                width = 2.dp, // 테두리 두께, 원하는 대로 조절
+                color = Color.LightGray, // 테두리 색상, 원하는 색상으로 변경 가능
+                shape = RoundedCornerShape(15.dp) // 둥근 모서리 모양 지정
+            ),
         shape = MaterialTheme.shapes.medium,
         color = Color.White
     ){

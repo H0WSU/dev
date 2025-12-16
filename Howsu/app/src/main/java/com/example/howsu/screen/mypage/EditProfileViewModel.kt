@@ -192,9 +192,15 @@ class EditProfileViewModel: ViewModel() {
             .addOnSuccessListener {
                 if (!familyId.isNullOrBlank()) {
                     // 2. familymembers 컬렉션 업데이트 (관계)
+
+                    // 추가
+                    val memberUpdates = mapOf(
+                        "relationship" to newRelationship,
+                        "profileImageUrl" to newImageUrl // ★ 이 부분을 추가하여 members 컬렉션에 프로필 URL을 업데이트합니다.
+                    )
                     db.collection("families").document(familyId)
                         .collection("members").document(uid)
-                        .update("relationship", newRelationship)
+                        .update(memberUpdates)
                         .addOnSuccessListener {
                             // 모두 저장 성공 시 상태 업데이트
                             updateSuccessState(newName, newImageUrl, newRelationship)
