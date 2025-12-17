@@ -104,7 +104,7 @@ fun FeedDetailScreen(
         return
     }
 
-    val isLiked = likedPostIds.contains(post.id)
+    val isLiked = viewModel.isPostLiked(post.id)
 
     // ---- 댓글 수정창 ----
     if (editingComment != null) {

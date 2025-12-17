@@ -46,19 +46,17 @@ fun FeedHomeScreen(
     val selectedFilter = viewModel.selectedFilter
 
     var deleteTarget by remember { mutableStateOf<FeedPost?>(null) }
+    val myInfo by viewModel.currentMember.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.fetchMyProfile()
     }
-
-    val myInfo by viewModel.currentMember.collectAsState()
 
     LaunchedEffect(myInfo) {
         myInfo?.let {
             viewModel.loadPostsForMyFamilyRealtime()
         }
     }
-
 
     val displayMember = myInfo ?: FamilyMember(
         userId = "",

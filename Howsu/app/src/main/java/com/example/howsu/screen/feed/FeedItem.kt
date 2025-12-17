@@ -1,6 +1,5 @@
 package com.example.howsu.screen.feed
 
-import android.R.attr.onClick
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,9 +26,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,7 +40,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -80,8 +76,6 @@ fun FeedItem(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-
-            // 1. 상단: 해시태그 (메뉴 제거)
             if (post.hashtags.isNotEmpty()) {
                 Text(
                     text = post.hashtags.joinToString(" ") { "#$it" },
@@ -92,7 +86,6 @@ fun FeedItem(
                 )
             }
 
-            // 2. 제목 + 메뉴 (Row로 배치)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -103,12 +96,11 @@ fun FeedItem(
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                     color = Color.Black,
-                    modifier = Modifier.weight(1f) // 제목이 길면 줄바꿈, 메뉴 밀어내지 않음
+                    modifier = Modifier.weight(1f)
                 )
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // ▼▼▼ 메뉴 위치 이동 (제목 옆) ▼▼▼
                 Box {
                     IconButton(
                         onClick = { isMenuExpanded = true },
@@ -146,7 +138,6 @@ fun FeedItem(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 3. 작성자 프로필
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (!post.authorProfileImage.isNullOrBlank()) {
                     AsyncImage(
@@ -165,7 +156,9 @@ fun FeedItem(
                             .background(Color.LightGray)
                     )
                 }
+
                 Spacer(modifier = Modifier.width(6.dp))
+
                 Text(
                     text = post.authorName.ifBlank { "익명" },
                     fontWeight = FontWeight.Bold,
@@ -176,7 +169,6 @@ fun FeedItem(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 4. 내용
             Text(
                 text = post.content,
                 fontSize = 15.sp,
@@ -186,7 +178,6 @@ fun FeedItem(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 5) 미디어(썸네일)
             if (post.imageUris.isNotEmpty() || post.videoUris.isNotEmpty()) {
                 Row(
                     modifier = Modifier
@@ -218,7 +209,6 @@ fun FeedItem(
                 Spacer(modifier = Modifier.height(10.dp))
             }
 
-            // 좋아요 / 댓글 (아래는 그대로)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -292,7 +282,6 @@ fun VideoThumbnailWithPlayIcon(
             )
         }
 
-        // 재생 아이콘 오버레이
         Box(
             modifier = Modifier
                 .size(30.dp)
@@ -308,4 +297,3 @@ fun VideoThumbnailWithPlayIcon(
         }
     }
 }
-

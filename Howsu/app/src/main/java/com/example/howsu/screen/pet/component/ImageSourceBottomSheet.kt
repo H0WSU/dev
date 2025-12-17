@@ -60,7 +60,7 @@ fun ImageSourceBottomSheet(
 
             // 카메라 촬영
             SheetOption(
-                text = "카메라로 촬영",
+                text = "사진 촬영",
                 onClick = onTakePhoto
             )
 

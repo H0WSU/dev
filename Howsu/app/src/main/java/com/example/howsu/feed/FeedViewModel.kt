@@ -13,7 +13,7 @@ import com.example.howsu.data.model.FeedFilter
 import com.example.howsu.data.model.FeedPost
 import com.example.howsu.data.model.User
 import com.google.firebase.auth.ktx.auth
-import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.firestore
@@ -68,6 +68,11 @@ class FeedViewModel : ViewModel() {
     val likedCommentIds: StateFlow<Set<String>> = _likedCommentIds.asStateFlow()
 
     private var feedListener: ListenerRegistration? = null
+
+    fun isPostLiked(postId: Long): Boolean {
+        return _likedPostIds.value.contains(postId)
+    }
+
 
     /* -------------------------------------------------------------
        1) 내 프로필(FamilyMember) 불러오기
@@ -133,29 +138,101 @@ class FeedViewModel : ViewModel() {
     /* -------------------------------------------------------------
        2) '내 가족' 피드 목록 불러오기 (Firestore → _posts)
        ------------------------------------------------------------- */
+
+    private suspend fun fetchLikedIdsForPosts(postIds: List<Long>): Set<Long> {
+        val uid = auth.currentUser?.uid ?: return emptySet()
+
+        val result = mutableSetOf<Long>()
+        for (postId in postIds) {
+            val snap = db.collection("feeds")
+                .document(postId.toString())
+                .collection("likes")
+                .document(uid)
+                .get()
+                .await()
+
+            if (snap.exists()) result += postId
+        }
+        return result
+    }
+
+
     fun loadPostsForMyFamilyRealtime() {
         val familyId = _currentMember.value?.familyId ?: return
 
-        // 이미 리스너 있으면 제거 (중복 방지)
         feedListener?.remove()
 
         feedListener = db.collection("feeds")
             .whereEqualTo("familyId", familyId)
             .orderBy("createdAt", Query.Direction.DESCENDING)
-            .addSnapshotListener { snapshot, error ->
+            .addSnapshotListener { snapshot, e ->
+                if (e != null) {
+                    Log.e("FeedViewModel", "loadPostsForMyFamilyRealtime 실패", e)
+                    return@addSnapshotListener
+                }
                 if (snapshot == null) return@addSnapshotListener
 
-                val newList = snapshot.documents.mapNotNull { doc ->
-                    val post = doc.toObject(FeedPost::class.java) ?: return@mapNotNull null
-                    val isLiked = _likedPostIds.value.contains(post.id)
-                    post.copy(isLiked = isLiked)
+                val uid = auth.currentUser?.uid ?: return@addSnapshotListener
+
+                viewModelScope.launch {
+                    val docs = snapshot.documents
+
+                    // 문서 id를 postId로 확정
+                    val postIds = docs.mapNotNull { it.id.toLongOrNull() }
+
+                    // 각 글에 대해 likes/{uid} 존재 여부 체크
+                    val likedIds = mutableSetOf<Long>()
+                    for (postId in postIds) {
+                        val likeDoc = db.collection("feeds")
+                            .document(postId.toString())
+                            .collection("likes")
+                            .document(uid)
+                            .get()
+                            .await()
+
+                        if (likeDoc.exists()) likedIds += postId
+                    }
+                    _likedPostIds.value = likedIds
+
+                    val newPosts = docs.mapNotNull { doc ->
+                        val postId = doc.id.toLongOrNull() ?: return@mapNotNull null
+                        val base = doc.toObject(FeedPost::class.java) ?: FeedPost(id = postId)
+
+                        val likeAny = doc.get("likeCount")
+                        val commentAny = doc.get("commentCount")
+
+                        val like = when (likeAny) {
+                            is Long -> likeAny
+                            is Int -> likeAny.toLong()
+                            is Double -> likeAny.toLong()
+                            else -> 0L
+                        }
+
+                        val comment = when (commentAny) {
+                            is Long -> commentAny
+                            is Int -> commentAny.toLong()
+                            is Double -> commentAny.toLong()
+                            else -> 0L
+                        }
+                        Log.d("FeedVM", "doc=${doc.id}, rawLike=${doc.get("likeCount")}, getLong=${doc.getLong("likeCount")}")
+
+
+                        base.copy(
+                            id = postId, // 여기서 id를 문서 id로 강제 고정
+                            likeCount = like,
+                            commentCount = comment,
+                            isLiked = likedIds.contains(postId)
+                        )
+
+                    }
+
+                    _posts.clear()
+                    _posts.addAll(newPosts)
+
                 }
-
-                _posts.clear()
-                _posts.addAll(newList)
             }
-
     }
+
 
     override fun onCleared() {
         super.onCleared()
@@ -252,8 +329,8 @@ class FeedViewModel : ViewModel() {
                     imageUris = imageUris,
                     videoUris = videoUris,
                     hashtags = hashtags,
-                    likeCount = 0,
-                    commentCount = 0,
+                    likeCount = 0L,
+                    commentCount = 0L,
                     createdAt = System.currentTimeMillis(),
                     familyId = me.familyId
                 )
@@ -376,56 +453,93 @@ class FeedViewModel : ViewModel() {
         }
     }
 
-
     fun toggleLike(postId: Long) {
         val uid = auth.currentUser?.uid ?: return
-
-        val feedRef = db.collection("feeds").document(postId.toString())
-        val likeRef = feedRef.collection("likes").document(uid)
-
-        val index = _posts.indexOfFirst { it.id == postId }
-        if (index == -1) return
-
-        val old = _posts[index]
-        val nowLiked = !old.isLiked
-        val newCount = (old.likeCount + if (nowLiked) 1 else -1).coerceAtLeast(0)
-
-        // 즉시 UI 반영 -----------------------------------
-        _posts[index] = old.copy(
-            isLiked = nowLiked,
-            likeCount = newCount
-        )
-
-        // likedPostIds 즉시 반영
-        _likedPostIds.value = if (nowLiked)
-            _likedPostIds.value + postId
-        else
-            _likedPostIds.value - postId
-        // ------------------------------------------------
+        val postRef = db.collection("feeds").document(postId.toString())
+        val likeRef = postRef.collection("likes").document(uid)
 
         viewModelScope.launch {
             try {
-                db.runTransaction { tx ->
-                    val snap = tx.get(likeRef)
-                    if (snap.exists()) {
-                        tx.delete(likeRef)
-                        tx.update(feedRef, "likeCount", FieldValue.increment(-1))
+                val (newLiked, newCount) = db.runTransaction { tx ->
+                    val likeSnap = tx.get(likeRef)
+                    val postSnap = tx.get(postRef)
+
+                    val currentCount = postSnap.getLong("likeCount") ?: 0L
+                    val alreadyLiked = likeSnap.exists()
+
+                    val updatedLiked = !alreadyLiked
+                    val updatedCount = if (alreadyLiked) {
+                        (currentCount - 1L).coerceAtLeast(0L)
                     } else {
-                        tx.set(likeRef, mapOf("isLike" to true))
-                        tx.update(feedRef, "likeCount", FieldValue.increment(1))
+                        currentCount + 1L
                     }
+
+                    if (alreadyLiked) {
+                        tx.delete(likeRef)
+                    } else {
+                        tx.set(
+                            likeRef,
+                            mapOf(
+                                "userId" to uid,
+                                "createdAt" to System.currentTimeMillis()
+                            )
+                        )
+
+                    }
+
+                    tx.update(postRef, "likeCount", updatedCount)
+
+                    Pair(updatedLiked, updatedCount)
                 }.await()
-            } catch (e: Exception) {
-                // Firestore 실패 → 롤백
-                _posts[index] = old
-                _likedPostIds.value = if (old.isLiked)
+
+                _likedPostIds.value = if (newLiked) {
                     _likedPostIds.value + postId
-                else
+                } else {
                     _likedPostIds.value - postId
+                }
+
+                val index = _posts.indexOfFirst { it.id == postId }
+                if (index != -1) {
+                    val old = _posts[index]
+                    _posts[index] = old.copy(
+                        isLiked = newLiked,
+                        likeCount = newCount
+                    )
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("FeedViewModel", "toggleLike 실패", e)
             }
         }
     }
 
+    fun loadLikeStateForAllPosts() {
+        val uid = auth.currentUser?.uid ?: return
+
+        viewModelScope.launch {
+            try {
+                val liked = mutableSetOf<Long>()
+
+                val snapshot = db.collectionGroup("likes")
+                    .whereEqualTo("userId", uid)
+                    .get()
+                    .await()
+
+                snapshot.documents.forEach { doc ->
+                    // feeds/{postId}/likes/{uid}
+                    val postId = doc.reference.parent.parent?.id?.toLongOrNull()
+                    if (postId != null) liked += postId
+                }
+
+                _likedPostIds.value = liked
+
+                _posts.forEachIndexed { index, post ->
+                    _posts[index] = post.copy(isLiked = liked.contains(post.id))
+                }
+            } catch (e: Exception) {
+                Log.e("FeedViewModel", "loadLikeStateForAllPosts 실패", e)
+            }
+        }
+    }
 
 
     /**
@@ -536,7 +650,8 @@ class FeedViewModel : ViewModel() {
                 _comments.value = list
 
                 // 댓글 수(모든 깊이 합산)를 FeedPost에도 반영
-                val count = list.size
+                val count = list.size.toLong()   // ← 여기만 변경
+
                 val feedRef = db.collection("feeds").document(postId.toString())
                 feedRef.update("commentCount", count).await()
 
@@ -545,6 +660,7 @@ class FeedViewModel : ViewModel() {
                     val old = _posts[index]
                     _posts[index] = old.copy(commentCount = count)
                 }
+
 
             } catch (e: Exception) {
                 Log.e("FeedViewModel", "fetchComments 실패", e)

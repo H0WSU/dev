@@ -15,15 +15,16 @@ data class FeedPost(
 
     val hashtags: List<String> = emptyList(),
 
-    val likeCount: Int = 0,
-    val commentCount: Int = 0,
+    // Firestore number 기본이 Long이라 Long으로 받는 게 안전합니다.
+    val likeCount: Long = 0L,
+    val commentCount: Long = 0L,
 
+    // UI용 상태(문서에 없어도 기본값으로 안전)
     val isLiked: Boolean = false,
 
     val createdAt: Long = System.currentTimeMillis(),
     val familyId: String = ""
 )
-
 
 enum class FeedFilter {
     ALL, TEXT, IMAGE, VIDEO
