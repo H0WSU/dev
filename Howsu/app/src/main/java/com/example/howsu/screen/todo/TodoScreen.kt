@@ -88,7 +88,6 @@ fun TodoScreen(
 
     LaunchedEffect(Unit) {
         viewModel.resetToToday()
-        // ★ 추가: 화면 들어올 때마다 데이터 다시 불러오기
         viewModel.fetchTodoGroups()
     }
 

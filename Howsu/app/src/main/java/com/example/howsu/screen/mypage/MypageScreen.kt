@@ -55,6 +55,7 @@ import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.example.howsu.common.MyBottomNavigationBar
 import com.example.howsu.common.MyFloatingActionButton
+import com.example.howsu.screen.schedule.YellowCustom
 
 
 // ----------------------------------------------------
@@ -73,7 +74,7 @@ fun Profile(
             .padding(horizontal = 16.dp, vertical = 10.dp)
             .border(
                 width = 1.dp,
-                color = Color.LightGray,
+                color = YellowCustom,
                 shape = RoundedCornerShape(15.dp)
             ),
         shape = MaterialTheme.shapes.medium,
@@ -89,11 +90,6 @@ fun Profile(
                 modifier = Modifier
                     .size(60.dp)
                     .clip(CircleShape)
-                    .border(
-                        width = 2.dp,
-                        color = Color.LightGray,
-                        shape = CircleShape
-                    )
             ){
                 AsyncImage(
                     model = profileImageUrl,

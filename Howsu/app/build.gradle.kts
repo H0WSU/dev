@@ -58,6 +58,8 @@ dependencies {
     implementation(libs.material3)
     implementation(libs.androidx.foundation)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.foundation.layout)
+    implementation(libs.androidx.ui.text)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -102,7 +104,15 @@ dependencies {
     implementation("androidx.compose.foundation:foundation:1.7.0") // 반려동물 메인화면 카드 화면 구성
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
     implementation("io.coil-kt:coil-compose:2.4.0")
-    implementation("io.coil-kt:coil-video:2.5.0")
+    implementation("io.coil-kt:coil-video:2.4.0")
+    implementation("androidx.media3:media3-exoplayer:1.2.1")
+    implementation("androidx.media3:media3-ui:1.2.1")
+
+    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.6.2")
+    // Compose에서 LiveData를 사용하기 위해 필요
+    implementation("androidx.compose.runtime:runtime-livedata:1.5.4")
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
+
 
 
     /*// Lifecycle /Viewmodel

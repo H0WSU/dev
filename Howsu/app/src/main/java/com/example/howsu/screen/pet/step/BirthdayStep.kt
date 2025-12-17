@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -48,12 +49,14 @@ fun BirthdayStep(
             .padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(48.dp))
 
         PetProfileImageOnly(
             imageUrl = state.profilePetImageUrl,
-            size = 160.dp
+            size = 140.dp
         )
+
+        Spacer(modifier = Modifier.height(22.dp))
 
         Text(
             text = state.petName.ifBlank { "우리 아이" },
@@ -63,12 +66,14 @@ fun BirthdayStep(
             color = Color.Black
         )
 
+        Spacer(modifier = Modifier.height(21.dp))
+
         Text(
             text = "생년월일을 알고 있나요?",
             style = MaterialTheme.typography.bodyMedium,
+            color = Color.DarkGray,
             fontSize = 16.sp,
-            fontWeight = FontWeight.Normal,
-            color = Color(0xFF616161)
+            fontWeight = FontWeight.Normal
         )
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -82,20 +87,28 @@ fun BirthdayStep(
                     onDatePickerClicked()
                 },
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
             ) {
+
+            Spacer(modifier = Modifier.weight(1f))
+
             RadioButton(
                 selected = state.birthdayInputType == BirthdayInputType.EXACT,
                 onClick = {
                     onType(BirthdayInputType.EXACT)
                     onDatePickerClicked()
-                }
+                },
+                colors = RadioButtonDefaults.colors(
+                    selectedColor = Color(0xFFFFDF37),
+                    unselectedColor = Color(0xFFBDBDBD)
+                )
             )
             Text(
                 text = "정확히 알고 있어요",
                 fontSize = 15.sp,
                 color = Color.Black
             )
+
+            Spacer(modifier = Modifier.weight(1f))
         }
 
         // 선택됐을 때만, 이 사이에 카드가 "끼어 들어감"
@@ -122,21 +135,29 @@ fun BirthdayStep(
                     onType(BirthdayInputType.APPROX)
                     onDatePickerClicked()
                 },
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
+
+            Spacer(modifier = Modifier.weight(1f))
+
             RadioButton(
                 selected = state.birthdayInputType == BirthdayInputType.APPROX,
                 onClick = {
                     onType(BirthdayInputType.APPROX)
                     onDatePickerClicked()
-                }
+                },
+                colors = RadioButtonDefaults.colors(
+                    selectedColor = Color(0xFFFFDF37),
+                    unselectedColor = Color(0xFFBDBDBD)
+                )
             )
             Text(
                 text = "대략만 알고 있어요",
                 fontSize = 15.sp,
                 color = Color.Black
             )
+
+            Spacer(modifier = Modifier.weight(1f))
         }
 
         AnimatedVisibility(

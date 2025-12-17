@@ -89,20 +89,35 @@ fun HomeScreen(
     val currentWeekStart by todoViewModel.currentWeekStart.collectAsState()
 
     // 내 프로필 정보 로딩
-    LaunchedEffect(uiState.family.familyId) { // ★ 가족 ID가 변경될 때마다 내 프로필도 새로고침
-        viewModel.fetchMyProfile()
+    LaunchedEffect(uiState.family.familyId) {
+        val familyId = uiState.family.familyId
+
+        if (familyId.isNotBlank()) {
+            // 1. 내 프로필 정보 새로고침
+            viewModel.fetchMyProfile()
+
+            // 2. 홈 화면 데이터 (펫 목록, 가족 구성원 목록) 새로고침
+            viewModel.loadHomeData()
+
+            // 3. [핵심] 투두 리스트를 새 가족 ID로 변경
+            todoViewModel.updateCurrentFamily(familyId)
+
+            Log.d("HomeScreen", "Family Changed: $familyId -> Data Refreshed")
+        }
     }
 
-    // 1. [핵심 수정] LifecycleEventObserver를 사용하여 화면의 생명주기를 관찰합니다.
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            // 화면이 다시 활성화될 때 (예: 펫 편집 화면에서 뒤로 가기)
             if (event == Lifecycle.Event.ON_RESUME) {
-                // 홈 화면 전체 데이터 로드(펫 목록 포함)를 강제 실행합니다.
+                // 홈 데이터 로드
                 viewModel.loadHomeData()
-                Log.d("HomeScreen", "ON_RESUME: Calling viewModel.loadHomeData()")
+                // ★ 여기도 추가해주면 좋음: 화면 돌아왔을 때 현재 가족의 투두 다시 불러오기
+                if (uiState.family.familyId.isNotBlank()) {
+                    todoViewModel.updateCurrentFamily(uiState.family.familyId)
+                }
+                Log.d("HomeScreen", "ON_RESUME: Reloading Data")
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -128,9 +143,9 @@ fun HomeScreen(
             HomeTopAppBar(
                 member = displayMember,
                 family = uiState.family,
-                userFamilies = uiState.userFamilies, // ★ 추가
-                onFamilySelected = viewModel::updateCurrentFamily, // ★ 추가
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 40.dp)
+                userFamilies = uiState.userFamilies,
+                onFamilySelected = viewModel::updateCurrentFamily,
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 40.dp, bottom = 20.dp)
             )
         },
         bottomBar = { MyBottomNavigationBar(navController = navController) },
@@ -156,8 +171,6 @@ fun HomeScreen(
                     .padding(paddingValues),
                 contentPadding = PaddingValues(bottom = 100.dp)
             ) {
-                item { Spacer(Modifier.height(12.dp)) }
-
                 // 1. 반려동물 섹션
                 item {
                     Column(modifier = Modifier.padding(horizontal = NarrowPadding)) {
@@ -252,8 +265,6 @@ fun HomeScreen(
         }
     }
 }
-
-// 가족 드롭다운 컴포넌트
 @Composable
 fun FamilyDropdownSelector(
     currentFamily: Family,
@@ -262,10 +273,24 @@ fun FamilyDropdownSelector(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
+    // 이름 뒤에 '네 가족' / '이네 가족' 붙여주는 함수
+    fun getDisplayName(name: String): String {
+        if (name.isBlank()) return "가족 없음"
+        val lastChar = name.last()
+        val hasBatchim = if (lastChar.code in 0xAC00..0xD7A3) {
+            (lastChar.code - 0xAC00) % 28 > 0
+        } else {
+            false
+        }
+        return if (hasBatchim) "${name}이네 가족" else "${name}네 가족"
+    }
+
+    val displayTitle = getDisplayName(currentFamily.familyName)
+
     // 가족이 1개 이하일 때는 드롭다운 불필요
     if (allFamilies.size <= 1 || currentFamily.familyId.isBlank()) {
         Text(
-            text = currentFamily.familyName.ifBlank { "가족 없음" },
+            text = displayTitle,
             fontWeight = FontWeight.ExtraBold,
             fontSize = 20.sp,
             color = ContentBlack
@@ -278,36 +303,43 @@ fun FamilyDropdownSelector(
             onClick = { expanded = true },
             colors = ButtonDefaults.textButtonColors(
                 contentColor = ContentBlack,
-                containerColor = Color(0xFFFAFAFA)
+                containerColor = Color.Transparent
             ),
             shape = RoundedCornerShape(8.dp),
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+            contentPadding = PaddingValues(0.dp), // 공백 제거
+            modifier = Modifier.height(28.dp)     // 높이 압축
         ) {
             Text(
-                text = currentFamily.familyName,
+                text = displayTitle,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 18.sp
             )
-            Icon(Icons.Default.ArrowDropDown, contentDescription = "가족 선택", modifier = Modifier.size(24.dp))
+            Icon(Icons.Default.ArrowDropDown, contentDescription = "가족 선택", modifier = Modifier.size(20.dp))
         }
 
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
+            containerColor = Color.White // 배경 흰색
         ) {
             allFamilies.forEach { family ->
+                val isSelected = family.familyId == currentFamily.familyId
+
                 DropdownMenuItem(
                     text = {
                         Text(
-                            text = family.familyName,
-                            fontWeight = if (family.familyId == currentFamily.familyId) FontWeight.Bold else FontWeight.Normal,
-                            color = if (family.familyId == currentFamily.familyId) YellowBox else Color.Black
+                            text = getDisplayName(family.familyName),
+                            // ★ 수정: 선택된 건 Bold, 아니면 Normal
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            // ★ 수정: 선택된 건 #121212, 선택 안 된 건 회색으로 구분
+                            color = if (isSelected) Color(0xFF121212) else Color.Gray
                         )
                     },
                     onClick = {
                         onFamilySelected(family.familyId)
                         expanded = false
-                    }
+                    },
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
         }
@@ -468,7 +500,7 @@ fun PetCard(
                                     imageVector = Icons.Default.Pets,
                                     contentDescription = "Default Pet",
                                     modifier = Modifier.fillMaxSize(0.7f),
-                                    tint = Color.White.copy(alpha = 0.7f)
+                                    tint = Color.LightGray.copy(alpha = 0.7f)
                                 )
                             }
                         }
@@ -634,8 +666,12 @@ fun FamilyMemberItem(
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            text = member.relationship.ifEmpty { "역할없음" },   // relationship으로
-            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Normal)
+            text = member.relationship.ifEmpty { "역할없음" },
+            style = MaterialTheme.typography.titleMedium.copy(
+                // 본인이면 Bold, 아니면 Medium
+                fontWeight = if (isCurrentUser) FontWeight.Bold else FontWeight.Medium,
+                fontSize = 15.sp
+            )
         )
     }
 }
