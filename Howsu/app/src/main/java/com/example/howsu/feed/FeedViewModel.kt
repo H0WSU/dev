@@ -179,25 +179,27 @@ class FeedViewModel : ViewModel() {
         }
     }
 
+    /**
+     * [기능 추가] 현재 로그인한 사용자가 작성자인지 확인하는 함수
+     */
+    fun isAuthor(authorId: String): Boolean {
+        return auth.currentUser?.uid == authorId
+    }
+
 
     /* -------------------------------------------------------------
          1) 실시간 프로필 + 피드 통합 동기화 (닉네임/가족변경 완벽 대응)
          ------------------------------------------------------------- */
     fun startProfileAndFeedSync() {
         val uid = auth.currentUser?.uid ?: return
-
-        // ★ 핵심: 사용자가 바뀌었다면(로그아웃 후 다른 ID 접속) 모든 상태 초기화
-        if (lastSyncedUid != null && lastSyncedUid != uid) {
-            clearAllState()
-        }
-
+        if (lastSyncedUid != null && lastSyncedUid != uid) { clearAllState() }
         if (isSyncStarted && lastSyncedUid == uid) return
 
         isSyncStarted = true
-        lastSyncedUid = uid // 현재 UID 저장
+        lastSyncedUid = uid
 
-        // 좋아요 ID 변경 관찰 시작
-        observeLikedIds()
+        // ★ 좋아요 상태 관찰 시작
+        observeLikedIdsSync()
 
         profileListener?.remove()
         profileListener = db.collection("users").document(uid)
