@@ -142,26 +142,18 @@ class FeedViewModel : ViewModel() {
         }
     }
 
-
-    /* -------------------------------------------------------------
-       2) '내 가족' 피드 목록 불러오기 (Firestore → _posts)
-       ------------------------------------------------------------- */
-
-    private suspend fun fetchLikedIdsForPosts(postIds: List<Long>): Set<Long> {
-        val uid = auth.currentUser?.uid ?: return emptySet()
-
-        val result = mutableSetOf<Long>()
-        for (postId in postIds) {
-            val snap = db.collection("feeds")
-                .document(postId.toString())
-                .collection("likes")
-                .document(uid)
-                .get()
-                .await()
-
-            if (snap.exists()) result += postId
+    // 1. _likedPostIds를 관찰하여 변경될 때마다 게시글의 isLiked 상태를 갱신
+    private fun observeLikedIds() {
+        viewModelScope.launch {
+            _likedPostIds.collect { likedIds ->
+                _posts.forEachIndexed { index, post ->
+                    val newIsLiked = likedIds.contains(post.id)
+                    if (post.isLiked != newIsLiked) {
+                        _posts[index] = post.copy(isLiked = newIsLiked)
+                    }
+                }
+            }
         }
-        return result
     }
 
     /* -------------------------------------------------------------
@@ -179,6 +171,9 @@ class FeedViewModel : ViewModel() {
 
         isSyncStarted = true
         lastSyncedUid = uid // 현재 UID 저장
+
+        // 좋아요 ID 변경 관찰 시작
+        observeLikedIds()
 
         profileListener?.remove()
         profileListener = db.collection("users").document(uid)
@@ -227,12 +222,46 @@ class FeedViewModel : ViewModel() {
 
     private var currentLoadingFamilyId: String? = null // 현재 로딩 중인 가족 ID 추적
 
+    private var detailPostListener: ListenerRegistration? = null
+
+    /**
+     * 상세 화면 진입 시 해당 게시글 하나만 실시간으로 감시
+     * 전체 리스트 로딩과 별개로 서버에서 원본 데이터를 즉시 가져와 '0' 표시 현상 방지
+     */
+    fun observePostDetail(postId: Long) {
+        detailPostListener?.remove() // 이전 리스너 제거
+
+        detailPostListener = db.collection("feeds")
+            .document(postId.toString())
+            .addSnapshotListener { doc, e ->
+                if (e != null || doc == null || !doc.exists()) return@addSnapshotListener
+
+                // Firestore 문서에서 원본 숫자 데이터를 직접 추출 (Long 매핑 오류 방지)
+                val serverLikeCount = (doc.get("likeCount") as? Number)?.toLong() ?: 0L
+                val serverCommentCount = (doc.get("commentCount") as? Number)?.toLong() ?: 0L
+
+                // 로컬 리스트(_posts) 내의 해당 게시글 정보를 즉시 갱신
+                val index = _posts.indexOfFirst { it.id == postId }
+                if (index != -1) {
+                    _posts[index] = _posts[index].copy(
+                        likeCount = serverLikeCount,
+                        commentCount = serverCommentCount
+                    )
+                }
+            }
+    }
+
+    /** 상세 화면을 나갈 때 리스너 해제 */
+    fun stopObservingPostDetail() {
+        detailPostListener?.remove()
+        detailPostListener = null
+    }
+
+
+
     private fun loadPostsForMyFamilyRealtime(familyId: String) {
         val uid = auth.currentUser?.uid ?: return
-        currentLoadingFamilyId = familyId
-
         feedListener?.remove()
-        // _posts.clear() // 깜빡임 방지를 위해 여기선 주석 처리하거나 필요시 유지
 
         feedListener = db.collection("feeds")
             .whereEqualTo("familyId", familyId)
@@ -241,43 +270,26 @@ class FeedViewModel : ViewModel() {
                 if (e != null || snapshot == null) return@addSnapshotListener
 
                 viewModelScope.launch {
-                    try {
-                        // 1. 현재 로그인한 유저의 좋아요 목록 '먼저' 동기화
-                        val likedIds = fetchLikedIdsForUser(uid)
-                        _likedPostIds.value = likedIds
+                    // 좋아요 목록을 '먼저' 가져온 후 게시글을 처리하도록 순서 보장
+                    val likedIds = fetchLikedIdsForUser(uid)
+                    _likedPostIds.value = likedIds
 
-                        val newPosts = snapshot.documents.mapNotNull { doc ->
-                            val postId = doc.id.toLongOrNull() ?: return@mapNotNull null
+                    val newPosts = snapshot.documents.mapNotNull { doc ->
+                        val postId = doc.id.toLongOrNull() ?: return@mapNotNull null
+                        val base = doc.toObject(FeedPost::class.java) ?: FeedPost(id = postId)
 
-                            // 2. 일단 객체로 변환 (매핑 실패 시 likeCount가 0으로 올 수 있음)
-                            val base = doc.toObject(FeedPost::class.java) ?: FeedPost(id = postId)
+                        val serverLikeCount = (doc.get("likeCount") as? Number)?.toLong() ?: 0L
+                        val serverCommentCount = (doc.get("commentCount") as? Number)?.toLong() ?: 0L
 
-                            // 3. ★ [강제 집행] Firestore 문서(doc)에서 진짜 숫자를 직접 뽑기
-                            // doc.get("필드명")은 매핑 오류를 타지 않고 원본 데이터를 그대로 가져온다.
-                            val serverLikeCount = (doc.get("likeCount") as? Number)?.toLong() ?: 0L
-                            val serverCommentCount = (doc.get("commentCount") as? Number)?.toLong() ?: 0L
-
-                            // 4. 내 정보 실시간 반영 (닉네임/프사)
-                            val isMe = base.authorId == uid
-                            val displayAuthorName = if (isMe) _currentMember.value?.nickName ?: base.authorName else base.authorName
-                            val displayAuthorImage = if (isMe) _currentMember.value?.profileImageUrl ?: base.authorProfileImage else base.authorProfileImage
-
-                            // 5. 최종 객체 조립 (서버 숫자로 덮어쓰기)
-                            base.copy(
-                                id = postId,
-                                authorName = displayAuthorName,
-                                authorProfileImage = displayAuthorImage,
-                                likeCount = serverLikeCount,      // ★ 매핑 오류 무시하고 진짜 숫자 주입
-                                commentCount = serverCommentCount, // ★ 매핑 오류 무시하고 진짜 숫자 주입
-                                isLiked = likedIds.contains(postId)
-                            )
-                        }
-
-                        _posts.clear()
-                        _posts.addAll(newPosts)
-                    } catch (ex: Exception) {
-                        Log.e("FeedViewModel", "피드 데이터 동기화 에러", ex)
+                        base.copy(
+                            id = postId,
+                            likeCount = serverLikeCount,
+                            commentCount = serverCommentCount,
+                            isLiked = likedIds.contains(postId) // 최신화된 likedIds 사용
+                        )
                     }
+                    _posts.clear()
+                    _posts.addAll(newPosts)
                 }
             }
     }
