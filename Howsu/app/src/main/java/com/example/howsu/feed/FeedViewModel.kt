@@ -69,6 +69,8 @@ class FeedViewModel : ViewModel() {
     private var feedListener: ListenerRegistration? = null
 
     private var userListener: ListenerRegistration? = null
+    private var isSyncStarted = false
+    private var lastSyncedUid: String? = null
 
     fun isPostLiked(postId: Long): Boolean {
         return _likedPostIds.value.contains(postId)
@@ -164,48 +166,62 @@ class FeedViewModel : ViewModel() {
     fun startProfileAndFeedSync() {
         val uid = auth.currentUser?.uid ?: return
 
+        // ★ 핵심: 사용자가 바뀌었다면(로그아웃 후 다른 ID 접속) 모든 상태 초기화
+        if (lastSyncedUid != null && lastSyncedUid != uid) {
+            clearAllState()
+        }
+
+        if (isSyncStarted && lastSyncedUid == uid) return
+
+        isSyncStarted = true
+        lastSyncedUid = uid // 현재 UID 저장
+
         profileListener?.remove()
-        // 1. 유저 정보(currentFamilyId 포함) 감시
         profileListener = db.collection("users").document(uid)
             .addSnapshotListener { userSnap, e ->
                 if (e != null || userSnap == null) return@addSnapshotListener
 
                 val familyId = userSnap.getString("currentFamilyId") ?: ""
 
-                // ★ 핵심: 가족 내 멤버 문서가 아니라, 'users' 문서 자체를 데이터 소스로 사용
                 val me = FamilyMember(
                     userId = uid,
                     familyId = familyId,
-                    nickName = userSnap.getString("name") ?: "알 수 없음", // 진짜 닉네임!
-                    profileImageUrl = userSnap.getString("profileImageUrl"), // 진짜 프로필!
-                    relationship = "" // 관계는 여기서 필요 없으니까 빈값
+                    nickName = userSnap.getString("name") ?: "알 수 없음",
+                    profileImageUrl = userSnap.getString("profileImageUrl"),
+                    relationship = ""
                 )
                 _currentMember.value = me
 
                 if (familyId.isNotEmpty()) {
-                    // 피드 데이터 청소 및 로드
                     loadPostsForMyFamilyRealtime(familyId)
                 }
             }
     }
 
-    // 닉네임 결정 헬퍼 함수 (중요!)
-    // '가족 닉네임'이 있으면 무조건 그걸 쓰고, 없으면 계정 이름을 씀
-    private fun resolveAuthorName(): String {
-        val me = _currentMember.value
-        val user = _currentUser.value
-
-        return when {
-            !me?.nickName.isNullOrBlank() -> me!!.nickName // 1순위: 가족 닉네임
-            !user?.name.isNullOrBlank() -> user!!.name!!   // 2순위: 가입 시 이름
-            else -> "익명"
-        }
+    //  상태 초기화 함수 추가
+    private fun clearAllState() {
+        isSyncStarted = false
+        lastSyncedUid = null
+        currentLoadingFamilyId = null
+        _posts.clear()
+        _currentMember.value = null
+        _currentUser.value = null
+        _comments.value = emptyList()
+        _likedPostIds.value = emptySet()
+        profileListener?.remove()
+        feedListener?.remove()
+        memberListener?.remove()
     }
 
-    // 3. 피드 실시간 동기화 및 즉시 청소
-    private fun loadPostsForMyFamilyRealtime(familyId: String) {
-        val uid = auth.currentUser?.uid ?: return
+    private var currentLoadingFamilyId: String? = null // 현재 로딩 중인 가족 ID 추적
 
+    private fun loadPostsForMyFamilyRealtime(familyId: String) {
+        if (currentLoadingFamilyId == familyId) return // ★ 같은 가족이면 리스너 새로 안 담
+
+        val uid = auth.currentUser?.uid ?: return
+        currentLoadingFamilyId = familyId
+
+        // 가족이 바뀔 때만 리스트를 비움
         _posts.clear()
         feedListener?.remove()
 
@@ -224,17 +240,20 @@ class FeedViewModel : ViewModel() {
                             val postId = doc.id.toLongOrNull() ?: return@mapNotNull null
                             val base = doc.toObject(FeedPost::class.java) ?: FeedPost(id = postId)
 
-                            // ★ 여기만 수정: 내 글이면 현재 내 닉네임과 프사를 실시간 데이터로 덮어씌움
                             val isMe = base.authorId == uid
+                            // 현재 State에 있는 최신 내 정보를 실시간으로 결합
                             val displayAuthorName = if (isMe) _currentMember.value?.nickName ?: base.authorName else base.authorName
                             val displayAuthorImage = if (isMe) _currentMember.value?.profileImageUrl ?: base.authorProfileImage else base.authorProfileImage
 
+                            val serverLikeCount = (doc.get("likeCount") as? Number)?.toLong() ?: 0L
+                            val serverCommentCount = (doc.get("commentCount") as? Number)?.toLong() ?: 0L
+
                             base.copy(
                                 id = postId,
-                                authorName = displayAuthorName,       // 덮어쓰기
-                                authorProfileImage = displayAuthorImage, // 프사도 덮어쓰기
-                                likeCount = (doc.get("likeCount") as? Number)?.toLong() ?: 0L,
-                                commentCount = (doc.get("commentCount") as? Number)?.toLong() ?: 0L,
+                                authorName = displayAuthorName,
+                                authorProfileImage = displayAuthorImage,
+                                likeCount = serverLikeCount,
+                                commentCount = serverCommentCount,
                                 isLiked = likedIds.contains(postId)
                             )
                         }
