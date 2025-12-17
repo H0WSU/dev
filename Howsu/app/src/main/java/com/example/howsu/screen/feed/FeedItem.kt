@@ -116,7 +116,7 @@ fun FeedItem(
                     DropdownMenu(
                         expanded = isMenuExpanded,
                         onDismissRequest = { isMenuExpanded = false },
-                        modifier = Modifier.background(Color.Black)
+                        modifier = Modifier.background(Color.White)
                     ) {
                         DropdownMenuItem(
                             text = { Text("수정") },
@@ -167,7 +167,7 @@ fun FeedItem(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             Text(
                 text = post.content,
@@ -208,6 +208,8 @@ fun FeedItem(
 
                 Spacer(modifier = Modifier.height(10.dp))
             }
+
+            Spacer(modifier = Modifier.height(10.dp))
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,

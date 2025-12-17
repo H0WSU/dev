@@ -1,5 +1,6 @@
 package com.example.howsu.screen.feed
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -49,14 +51,9 @@ fun FeedHomeScreen(
     val myInfo by viewModel.currentMember.collectAsState()
 
     LaunchedEffect(Unit) {
-        viewModel.fetchMyProfile()
+        viewModel.startProfileAndFeedSync()
     }
 
-    LaunchedEffect(myInfo) {
-        myInfo?.let {
-            viewModel.loadPostsForMyFamilyRealtime()
-        }
-    }
 
     val displayMember = myInfo ?: FamilyMember(
         userId = "",
@@ -123,6 +120,16 @@ fun FeedHomeScreen(
                             onDeleteClick = { deleteTarget = post },
                             onToggleLike = { viewModel.toggleLike(post.id) }   // ★ 추가
                         )
+
+                        // 아이템 구분선
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp)
+                                .height(1.dp)
+                                .background(Color(0xFFEEEEEE))
+                        )
+
                     }
                 }
             }
@@ -130,26 +137,24 @@ fun FeedHomeScreen(
     }
 
     if (deleteTarget != null) {
-        androidx.compose.material3.AlertDialog(
+        AlertDialog(
             onDismissRequest = { deleteTarget = null },
-            title = { Text("삭제하시겠어요?") },
+            containerColor = Color.White, // 배경 흰색으로 명시
+            title = { Text("삭제하시겠어요?", fontWeight = FontWeight.Bold) },
             text = { Text("삭제하면 되돌릴 수 없습니다.") },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deletePost(deleteTarget!!.id)
-                        deleteTarget = null
-                    }
-                ) { Text("삭제", color = Color.Red) }
+                TextButton(onClick = {
+                    viewModel.deletePost(deleteTarget!!.id)
+                    deleteTarget = null
+                }) { Text("삭제", color = Color.Red) }
             },
             dismissButton = {
-                TextButton(onClick = { deleteTarget = null }) {
-                    Text("취소")
-                }
+                TextButton(onClick = { deleteTarget = null }) { Text("취소", color = Color.Black) }
             }
         )
     }
 }
+
 
 @Composable
 fun FilterTabRow(

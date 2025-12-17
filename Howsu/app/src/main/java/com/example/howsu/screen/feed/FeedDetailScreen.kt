@@ -255,7 +255,7 @@ private fun FeedDetailPostContent(
                 DropdownMenu(
                     expanded = isMenuExpanded,
                     onDismissRequest = { isMenuExpanded = false },
-                    modifier = Modifier.background(Color.Black)
+                    modifier = Modifier.background(Color.White)
                 ) {
                     DropdownMenuItem(
                         text = { Text("수정") },
@@ -370,7 +370,7 @@ private fun FeedDetailPostContent(
                     Icon(
                         painter = painterResource(id = heartIcon),
                         contentDescription = "좋아요",
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(14.dp),
                         tint = Color.Unspecified
                     )
                     Spacer(modifier = Modifier.width(4.dp))
@@ -389,7 +389,7 @@ private fun FeedDetailPostContent(
                 Icon(
                     painter = painterResource(id = R.drawable.comment),
                     contentDescription = "댓글",
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(14.dp),
                     tint = Color.Unspecified
                 )
                 Spacer(modifier = Modifier.width(4.dp))
@@ -624,7 +624,7 @@ private fun CommentItem(
                     Icon(
                         painterResource(icon),
                         contentDescription = "좋아요",
-                        modifier = Modifier.size(18.dp), // 아이콘 사이즈 업 (14 -> 18)
+                        modifier = Modifier.size(15.dp), // 아이콘 사이즈 업 (14 -> 18)
                         tint = Color.Unspecified
                     )
                 }
@@ -638,7 +638,7 @@ private fun CommentItem(
                         Icon(
                             painterResource(R.drawable.comment),
                             contentDescription = "답글",
-                            modifier = Modifier.size(18.dp), // 아이콘 사이즈 업 (14 -> 18)
+                            modifier = Modifier.size(15.dp), // 아이콘 사이즈 업 (14 -> 18)
                             tint = ContentBlack
                         )
                     }
@@ -660,7 +660,7 @@ private fun CommentItem(
                     DropdownMenu(
                         expanded = menuExpanded,
                         onDismissRequest = { menuExpanded = false },
-                        modifier = Modifier.background(Color.Black)
+                        modifier = Modifier.background(Color.White)
                     ) {
                         DropdownMenuItem(
                             text = { Text("수정", fontSize = 13.sp) },

@@ -13,7 +13,6 @@ import com.example.howsu.data.model.FeedFilter
 import com.example.howsu.data.model.FeedPost
 import com.example.howsu.data.model.User
 import com.google.firebase.auth.ktx.auth
-import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.firestore
@@ -23,8 +22,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import kotlin.collections.filter
-import kotlin.collections.sortedByDescending
 
 class FeedViewModel : ViewModel() {
 
@@ -67,11 +64,16 @@ class FeedViewModel : ViewModel() {
     private val _likedCommentIds = MutableStateFlow<Set<String>>(emptySet())
     val likedCommentIds: StateFlow<Set<String>> = _likedCommentIds.asStateFlow()
 
+    private var profileListener: ListenerRegistration? = null
+    private var memberListener: ListenerRegistration? = null // 멤버 정보 실시간 리스너 추가
     private var feedListener: ListenerRegistration? = null
+
+    private var userListener: ListenerRegistration? = null
 
     fun isPostLiked(postId: Long): Boolean {
         return _likedPostIds.value.contains(postId)
     }
+
 
 
     /* -------------------------------------------------------------
@@ -156,88 +158,117 @@ class FeedViewModel : ViewModel() {
         return result
     }
 
+    /* -------------------------------------------------------------
+         1) 실시간 프로필 + 피드 통합 동기화 (닉네임/가족변경 완벽 대응)
+         ------------------------------------------------------------- */
+    fun startProfileAndFeedSync() {
+        val uid = auth.currentUser?.uid ?: return
 
-    fun loadPostsForMyFamilyRealtime() {
-        val familyId = _currentMember.value?.familyId ?: return
+        profileListener?.remove()
+        // 1. 유저 정보(currentFamilyId 포함) 감시
+        profileListener = db.collection("users").document(uid)
+            .addSnapshotListener { userSnap, e ->
+                if (e != null || userSnap == null) return@addSnapshotListener
 
+                val familyId = userSnap.getString("currentFamilyId") ?: ""
+
+                // ★ 핵심: 가족 내 멤버 문서가 아니라, 'users' 문서 자체를 데이터 소스로 사용
+                val me = FamilyMember(
+                    userId = uid,
+                    familyId = familyId,
+                    nickName = userSnap.getString("name") ?: "알 수 없음", // 진짜 닉네임!
+                    profileImageUrl = userSnap.getString("profileImageUrl"), // 진짜 프로필!
+                    relationship = "" // 관계는 여기서 필요 없으니까 빈값
+                )
+                _currentMember.value = me
+
+                if (familyId.isNotEmpty()) {
+                    // 피드 데이터 청소 및 로드
+                    loadPostsForMyFamilyRealtime(familyId)
+                }
+            }
+    }
+
+    // 닉네임 결정 헬퍼 함수 (중요!)
+    // '가족 닉네임'이 있으면 무조건 그걸 쓰고, 없으면 계정 이름을 씀
+    private fun resolveAuthorName(): String {
+        val me = _currentMember.value
+        val user = _currentUser.value
+
+        return when {
+            !me?.nickName.isNullOrBlank() -> me!!.nickName // 1순위: 가족 닉네임
+            !user?.name.isNullOrBlank() -> user!!.name!!   // 2순위: 가입 시 이름
+            else -> "익명"
+        }
+    }
+
+    // 3. 피드 실시간 동기화 및 즉시 청소
+    private fun loadPostsForMyFamilyRealtime(familyId: String) {
+        val uid = auth.currentUser?.uid ?: return
+
+        _posts.clear()
         feedListener?.remove()
 
         feedListener = db.collection("feeds")
             .whereEqualTo("familyId", familyId)
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, e ->
-                if (e != null) {
-                    Log.e("FeedViewModel", "loadPostsForMyFamilyRealtime 실패", e)
-                    return@addSnapshotListener
-                }
-                if (snapshot == null) return@addSnapshotListener
-
-                val uid = auth.currentUser?.uid ?: return@addSnapshotListener
+                if (e != null || snapshot == null) return@addSnapshotListener
 
                 viewModelScope.launch {
-                    val docs = snapshot.documents
+                    try {
+                        val likedIds = fetchLikedIdsForUser(uid)
+                        _likedPostIds.value = likedIds
 
-                    // 문서 id를 postId로 확정
-                    val postIds = docs.mapNotNull { it.id.toLongOrNull() }
+                        val newPosts = snapshot.documents.mapNotNull { doc ->
+                            val postId = doc.id.toLongOrNull() ?: return@mapNotNull null
+                            val base = doc.toObject(FeedPost::class.java) ?: FeedPost(id = postId)
 
-                    // 각 글에 대해 likes/{uid} 존재 여부 체크
-                    val likedIds = mutableSetOf<Long>()
-                    for (postId in postIds) {
-                        val likeDoc = db.collection("feeds")
-                            .document(postId.toString())
-                            .collection("likes")
-                            .document(uid)
-                            .get()
-                            .await()
+                            // ★ 여기만 수정: 내 글이면 현재 내 닉네임과 프사를 실시간 데이터로 덮어씌움
+                            val isMe = base.authorId == uid
+                            val displayAuthorName = if (isMe) _currentMember.value?.nickName ?: base.authorName else base.authorName
+                            val displayAuthorImage = if (isMe) _currentMember.value?.profileImageUrl ?: base.authorProfileImage else base.authorProfileImage
 
-                        if (likeDoc.exists()) likedIds += postId
-                    }
-                    _likedPostIds.value = likedIds
-
-                    val newPosts = docs.mapNotNull { doc ->
-                        val postId = doc.id.toLongOrNull() ?: return@mapNotNull null
-                        val base = doc.toObject(FeedPost::class.java) ?: FeedPost(id = postId)
-
-                        val likeAny = doc.get("likeCount")
-                        val commentAny = doc.get("commentCount")
-
-                        val like = when (likeAny) {
-                            is Long -> likeAny
-                            is Int -> likeAny.toLong()
-                            is Double -> likeAny.toLong()
-                            else -> 0L
+                            base.copy(
+                                id = postId,
+                                authorName = displayAuthorName,       // 덮어쓰기
+                                authorProfileImage = displayAuthorImage, // 프사도 덮어쓰기
+                                likeCount = (doc.get("likeCount") as? Number)?.toLong() ?: 0L,
+                                commentCount = (doc.get("commentCount") as? Number)?.toLong() ?: 0L,
+                                isLiked = likedIds.contains(postId)
+                            )
                         }
 
-                        val comment = when (commentAny) {
-                            is Long -> commentAny
-                            is Int -> commentAny.toLong()
-                            is Double -> commentAny.toLong()
-                            else -> 0L
-                        }
-                        Log.d("FeedVM", "doc=${doc.id}, rawLike=${doc.get("likeCount")}, getLong=${doc.getLong("likeCount")}")
-
-
-                        base.copy(
-                            id = postId, // 여기서 id를 문서 id로 강제 고정
-                            likeCount = like,
-                            commentCount = comment,
-                            isLiked = likedIds.contains(postId)
-                        )
-
+                        _posts.clear()
+                        _posts.addAll(newPosts)
+                    } catch (ex: Exception) {
+                        Log.e("FeedViewModel", "피드 동기화 에러", ex)
                     }
-
-                    _posts.clear()
-                    _posts.addAll(newPosts)
-
                 }
             }
+    }
+
+    // 좋아요 목록을 한 번에 가져오는 헬퍼 함수
+    private suspend fun fetchLikedIdsForUser(uid: String): Set<Long> {
+        return try {
+            // collectionGroup을 사용하면 모든 피드의 'likes' 서브컬렉션 중 내 UID인 것만 한 번에 긁어올 수 있습니다.
+            val query = db.collectionGroup("likes")
+                .whereEqualTo("userId", uid)
+                .get()
+                .await()
+
+            query.documents.mapNotNull { it.reference.parent.parent?.id?.toLongOrNull() }.toSet()
+        } catch (e: Exception) {
+            emptySet()
+        }
     }
 
 
     override fun onCleared() {
         super.onCleared()
+        profileListener?.remove()
+        memberListener?.remove() // 리스너 해제 잊지 말기
         feedListener?.remove()
-        feedListener = null
     }
 
 
@@ -313,12 +344,13 @@ class FeedViewModel : ViewModel() {
                     currentUser.value ?: return@launch
                 }
 
-                val authorName = when {
-                    !user.name.isNullOrBlank() -> user.name!!
-                    !me.nickName.isNullOrBlank() -> me.nickName
-                    else -> "익명"
+                val authorName = if (!me.nickName.isNullOrBlank()) {
+                    me.nickName  // 가족에서 설정한 닉네임을 1순위로
+                } else if (!user.name.isNullOrBlank()) {
+                    user.name!!
+                } else {
+                    "익명"
                 }
-
                 val newPost = FeedPost(
                     id = System.currentTimeMillis(),
                     authorId = uid,
@@ -500,8 +532,8 @@ class FeedViewModel : ViewModel() {
 
                 val index = _posts.indexOfFirst { it.id == postId }
                 if (index != -1) {
-                    val old = _posts[index]
-                    _posts[index] = old.copy(
+                    // 리스트 내 특정 아이템만 변경 (Compose 감지 가능)
+                    _posts[index] = _posts[index].copy(
                         isLiked = newLiked,
                         likeCount = newCount
                     )
@@ -509,6 +541,17 @@ class FeedViewModel : ViewModel() {
             } catch (e: Exception) {
                 android.util.Log.e("FeedViewModel", "toggleLike 실패", e)
             }
+        }
+    }
+
+    // 닉네임 결정 로직 (addPost 등에서 사용 시)
+    private fun getAuthorName(user: User?, me: FamilyMember?): String {
+        return when {
+            // ★ 1순위: 현재 선택된 가족 내의 닉네임 (가장 중요)
+            me != null && !me.nickName.isNullOrBlank() -> me.nickName
+            // 2순위: 유저 기본 이름
+            user != null && !user.name.isNullOrBlank() -> user.name!!
+            else -> "익명"
         }
     }
 
@@ -631,6 +674,8 @@ class FeedViewModel : ViewModel() {
      * feeds/{postId}/comments 전체를 flat하게 가져와서 _comments에 넣음
      */
     fun fetchComments(postId: Long) {
+        val uid = auth.currentUser?.uid ?: return // 내 UID 확인
+
         viewModelScope.launch {
             try {
                 val snap = db.collection("feeds")
@@ -641,9 +686,18 @@ class FeedViewModel : ViewModel() {
                     .await()
 
                 val list = snap.documents.mapNotNull { doc ->
-                    doc.toObject(Comment::class.java)?.copy(
+                    val base = doc.toObject(Comment::class.java) ?: return@mapNotNull null
+
+                    // ★ 여기 추가: 내 댓글이면 실시간 닉네임과 프사로 덮어씌움
+                    val isMe = base.userId == uid
+                    val displayUserName = if (isMe) _currentMember.value?.nickName ?: base.userName else base.userName
+                    val displayProfileImage = if (isMe) _currentMember.value?.profileImageUrl ?: base.userProfileImage else base.userProfileImage
+
+                    base.copy(
                         id = doc.id,
-                        postId = postId
+                        postId = postId,
+                        userName = displayUserName,       // 덮어쓰기
+                        userProfileImage = displayProfileImage // 프사도 덮어쓰기
                     )
                 }
 
