@@ -73,9 +73,13 @@ class FeedViewModel : ViewModel() {
     private var lastSyncedUid: String? = null
 
     fun isPostLiked(postId: Long): Boolean {
+        // 1순위: 리스트(_posts)에 해당 포스트가 있다면 그 안의 isLiked 상태를 직접 확인 (리스너와 동기화됨)
+        val postInList = _posts.find { it.id == postId }
+        if (postInList != null) return postInList.isLiked
+
+        // 2순위: 리스트에 없다면(직접 진입 등) 세트값 확인
         return _likedPostIds.value.contains(postId)
     }
-
 
 
     /* -------------------------------------------------------------
@@ -203,27 +207,32 @@ class FeedViewModel : ViewModel() {
         isSyncStarted = false
         lastSyncedUid = null
         currentLoadingFamilyId = null
-        _posts.clear()
-        _currentMember.value = null
-        _currentUser.value = null
-        _comments.value = emptyList()
-        _likedPostIds.value = emptySet()
+
+        // 리스너 확실히 제거
         profileListener?.remove()
         feedListener?.remove()
         memberListener?.remove()
+        profileListener = null
+        feedListener = null
+        memberListener = null
+
+        // ★ 모든 상태값 초기화 (이게 빠지면 이전 계정 하트가 보임)
+        _posts.clear()
+        _likedPostIds.value = emptySet()
+        _likedCommentIds.value = emptySet()
+        _currentUser.value = null
+        _currentMember.value = null
+        _comments.value = emptyList()
     }
 
     private var currentLoadingFamilyId: String? = null // 현재 로딩 중인 가족 ID 추적
 
     private fun loadPostsForMyFamilyRealtime(familyId: String) {
-        if (currentLoadingFamilyId == familyId) return // ★ 같은 가족이면 리스너 새로 안 담
-
         val uid = auth.currentUser?.uid ?: return
         currentLoadingFamilyId = familyId
 
-        // 가족이 바뀔 때만 리스트를 비움
-        _posts.clear()
         feedListener?.remove()
+        // _posts.clear() // 깜빡임 방지를 위해 여기선 주석 처리하거나 필요시 유지
 
         feedListener = db.collection("feeds")
             .whereEqualTo("familyId", familyId)
@@ -233,27 +242,33 @@ class FeedViewModel : ViewModel() {
 
                 viewModelScope.launch {
                     try {
+                        // 1. 현재 로그인한 유저의 좋아요 목록 '먼저' 동기화
                         val likedIds = fetchLikedIdsForUser(uid)
                         _likedPostIds.value = likedIds
 
                         val newPosts = snapshot.documents.mapNotNull { doc ->
                             val postId = doc.id.toLongOrNull() ?: return@mapNotNull null
+
+                            // 2. 일단 객체로 변환 (매핑 실패 시 likeCount가 0으로 올 수 있음)
                             val base = doc.toObject(FeedPost::class.java) ?: FeedPost(id = postId)
 
-                            val isMe = base.authorId == uid
-                            // 현재 State에 있는 최신 내 정보를 실시간으로 결합
-                            val displayAuthorName = if (isMe) _currentMember.value?.nickName ?: base.authorName else base.authorName
-                            val displayAuthorImage = if (isMe) _currentMember.value?.profileImageUrl ?: base.authorProfileImage else base.authorProfileImage
-
+                            // 3. ★ [강제 집행] Firestore 문서(doc)에서 진짜 숫자를 직접 뽑기
+                            // doc.get("필드명")은 매핑 오류를 타지 않고 원본 데이터를 그대로 가져온다.
                             val serverLikeCount = (doc.get("likeCount") as? Number)?.toLong() ?: 0L
                             val serverCommentCount = (doc.get("commentCount") as? Number)?.toLong() ?: 0L
 
+                            // 4. 내 정보 실시간 반영 (닉네임/프사)
+                            val isMe = base.authorId == uid
+                            val displayAuthorName = if (isMe) _currentMember.value?.nickName ?: base.authorName else base.authorName
+                            val displayAuthorImage = if (isMe) _currentMember.value?.profileImageUrl ?: base.authorProfileImage else base.authorProfileImage
+
+                            // 5. 최종 객체 조립 (서버 숫자로 덮어쓰기)
                             base.copy(
                                 id = postId,
                                 authorName = displayAuthorName,
                                 authorProfileImage = displayAuthorImage,
-                                likeCount = serverLikeCount,
-                                commentCount = serverCommentCount,
+                                likeCount = serverLikeCount,      // ★ 매핑 오류 무시하고 진짜 숫자 주입
+                                commentCount = serverCommentCount, // ★ 매핑 오류 무시하고 진짜 숫자 주입
                                 isLiked = likedIds.contains(postId)
                             )
                         }
@@ -261,7 +276,7 @@ class FeedViewModel : ViewModel() {
                         _posts.clear()
                         _posts.addAll(newPosts)
                     } catch (ex: Exception) {
-                        Log.e("FeedViewModel", "피드 동기화 에러", ex)
+                        Log.e("FeedViewModel", "피드 데이터 동기화 에러", ex)
                     }
                 }
             }
@@ -391,7 +406,6 @@ class FeedViewModel : ViewModel() {
                     .document(newPost.id.toString())
                     .set(newPost)
                     .await()
-
                 // 3) 로컬 리스트 갱신
                 _posts.add(0, newPost)
 
@@ -506,62 +520,52 @@ class FeedViewModel : ViewModel() {
 
     fun toggleLike(postId: Long) {
         val uid = auth.currentUser?.uid ?: return
-        val postRef = db.collection("feeds").document(postId.toString())
-        val likeRef = postRef.collection("likes").document(uid)
 
         viewModelScope.launch {
-            try {
-                val (newLiked, newCount) = db.runTransaction { tx ->
-                    val likeSnap = tx.get(likeRef)
-                    val postSnap = tx.get(postRef)
+            val postRef = db.collection("feeds").document(postId.toString())
+            val likeRef = postRef.collection("likes").document(uid)
 
-                    val currentCount = postSnap.getLong("likeCount") ?: 0L
-                    val alreadyLiked = likeSnap.exists()
+            val (finalLiked, finalCount) = db.runTransaction { tx ->
+                val likeSnap = tx.get(likeRef)
+                val postSnap = tx.get(postRef)
 
-                    val updatedLiked = !alreadyLiked
-                    val updatedCount = if (alreadyLiked) {
-                        (currentCount - 1L).coerceAtLeast(0L)
-                    } else {
-                        currentCount + 1L
-                    }
+                val currentCount =
+                    (postSnap.get("likeCount") as? Number)?.toLong() ?: 0L
+                val alreadyLiked = likeSnap.exists()
 
-                    if (alreadyLiked) {
-                        tx.delete(likeRef)
-                    } else {
-                        tx.set(
-                            likeRef,
-                            mapOf(
-                                "userId" to uid,
-                                "createdAt" to System.currentTimeMillis()
-                            )
-                        )
-
-                    }
-
-                    tx.update(postRef, "likeCount", updatedCount)
-
-                    Pair(updatedLiked, updatedCount)
-                }.await()
-
-                _likedPostIds.value = if (newLiked) {
-                    _likedPostIds.value + postId
+                val newLiked = !alreadyLiked
+                val newCount = if (alreadyLiked) {
+                    (currentCount - 1).coerceAtLeast(0)
                 } else {
-                    _likedPostIds.value - postId
+                    currentCount + 1
                 }
 
-                val index = _posts.indexOfFirst { it.id == postId }
-                if (index != -1) {
-                    // 리스트 내 특정 아이템만 변경 (Compose 감지 가능)
-                    _posts[index] = _posts[index].copy(
-                        isLiked = newLiked,
-                        likeCount = newCount
-                    )
+                if (alreadyLiked) {
+                    tx.delete(likeRef)
+                } else {
+                    tx.set(likeRef, mapOf("userId" to uid))
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("FeedViewModel", "toggleLike 실패", e)
+
+                tx.update(postRef, "likeCount", newCount)
+
+                Pair(newLiked, newCount)
+            }.await()
+
+            // 서버에서 확정된 값으로 UI 덮어쓰기
+            val index = _posts.indexOfFirst { it.id == postId }
+            if (index != -1) {
+                _posts[index] = _posts[index].copy(
+                    isLiked = finalLiked,
+                    likeCount = finalCount
+                )
             }
+
+            _likedPostIds.value =
+                if (finalLiked) _likedPostIds.value + postId
+                else _likedPostIds.value - postId
         }
     }
+
 
     // 닉네임 결정 로직 (addPost 등에서 사용 시)
     private fun getAuthorName(user: User?, me: FamilyMember?): String {
