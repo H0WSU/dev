@@ -81,6 +81,26 @@ class FeedViewModel : ViewModel() {
         return _likedPostIds.value.contains(postId)
     }
 
+    /**
+     * [핵심 수정] 좋아요 ID 목록이 변경될 때마다 게시글 리스트의 하트 상태를 동기화
+     */
+    private fun observeLikedIdsSync() {
+        viewModelScope.launch {
+            // _likedPostIds (StateFlow)를 수집하여 값이 바뀔 때마다 실행
+            _likedPostIds.collect { likedIds ->
+                _posts.forEachIndexed { index, post ->
+                    val shouldBeLiked = likedIds.contains(post.id)
+                    // 현재 상태와 다를 때만 객체를 교체하여 UI 갱신 유도
+                    if (post.isLiked != shouldBeLiked) {
+                        _posts[index] = post.copy(isLiked = shouldBeLiked)
+                    }
+                }
+            }
+        }
+    }
+
+
+
 
     /* -------------------------------------------------------------
        1) 내 프로필(FamilyMember) 불러오기
@@ -145,9 +165,12 @@ class FeedViewModel : ViewModel() {
     // 1. _likedPostIds를 관찰하여 변경될 때마다 게시글의 isLiked 상태를 갱신
     private fun observeLikedIds() {
         viewModelScope.launch {
+            // _likedPostIds가 빈 세트였다가 서버에서 데이터를 받아오는 순간!
             _likedPostIds.collect { likedIds ->
+                // 현재 화면에 보여주고 있는 posts 리스트를 루프 돌면서
                 _posts.forEachIndexed { index, post ->
                     val newIsLiked = likedIds.contains(post.id)
+                    // 하트 상태가 서버 데이터와 다르면 강제로 업데이트 (여기서 하트가 노란색으로 바뀜)
                     if (post.isLiked != newIsLiked) {
                         _posts[index] = post.copy(isLiked = newIsLiked)
                     }
@@ -155,6 +178,7 @@ class FeedViewModel : ViewModel() {
             }
         }
     }
+
 
     /* -------------------------------------------------------------
          1) 실시간 프로필 + 피드 통합 동기화 (닉네임/가족변경 완벽 대응)
