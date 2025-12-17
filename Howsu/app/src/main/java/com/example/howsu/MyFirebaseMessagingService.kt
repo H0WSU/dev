@@ -8,14 +8,25 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.example.howsu.screen.setting.DataStoreManager
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     // 메시지를 받았을 때 실행됨
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
-        // ★ 이 로그가 뜨는지 확인하세요!
+        // [추가] 알림 설정 체크
+        val dataStoreManager = DataStoreManager(applicationContext)
+        val isEnabled = runBlocking { dataStoreManager.isNotificationEnabled.first() }
+
+        if (!isEnabled) {
+            Log.d("FCM_TEST", "알림 설정이 꺼져 있어 표시하지 않음")
+            return
+        }
+
         Log.d("FCM_TEST", "메시지 수신됨! ID: ${remoteMessage.messageId}")
 
         // 1. 알림(Notification) 부분 확인
